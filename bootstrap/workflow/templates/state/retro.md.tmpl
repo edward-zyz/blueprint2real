@@ -1,0 +1,22 @@
+# Retro · 工单级人决策追溯日志
+
+> 由 blueprint2real skill 在每次 Manager Override 落定后自动追加。
+> 主线 thread 在每里程碑结束或累计 ≥`pipeline.retroSurfaceThreshold`（默认 3）条新条目时，
+> 主动 surface 给用户做体系反思。
+
+每条目格式：
+
+```
+## YYYY-MM-DD · {{workIdPrefix}}-{{workIdNumberMask}} · <stage> override
+
+- 失败链: <gate fail 历次 + sub-agent 自报阻塞文本>
+- Manager 决策: <action>
+- 1 行经验: <将来如何避免>
+- template_patch: <若经验指向某 agent 模板该改，列 agents/xxx.md[, ...]；否则 none>
+```
+
+> `template_patch` 是回灌债的显式登记：经验指向某 `agents/*.md`（如"某 prompt 返回段该补硬约束"）就列出该文件，纯流程经验填 `none`。
+> Surface 时主线把所有 `template_patch != none` 的条目汇总成「待回灌清单」（仅人值守复盘用；实际改模板走 `/skill-review`）。
+
+---
+<!-- override 条目从这里开始追加 -->

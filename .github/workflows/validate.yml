@@ -1,0 +1,38 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: bootstrap/workflow/package-lock.json
+
+      - name: Validate repository
+        run: python3 .github/scripts/quick_validate.py .
+
+      - name: Install workflow dependencies
+        run: npm ci
+        working-directory: bootstrap/workflow
+
+      - name: Test workflow scripts
+        run: npm test
+        working-directory: bootstrap/workflow
+
+      - name: Run skill assertions
+        run: bash evals/run-all-assertions.sh

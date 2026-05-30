@@ -1,0 +1,15 @@
+# Roadmap
+
+- 里程碑状态枚举：`Planned | Contract Done | Demo Ready | Production Ready`。
+- 翻档要求：里程碑下 work item 全部 Done + architecture review 通过；模块边界闭合本身不构成翻档证据。
+- 工单粒度的 backlog 在 `queue.md`，本文件只描述里程碑级别的方向与状态。
+
+{{milestoneSections}}
+
+---
+
+### 状态机说明
+
+- `Planned` → `Contract Done`：里程碑下的契约（spec / 接口 / schema）全部冻结，可用于下游开发参考，但客户尚不可感知。
+- `Contract Done` → `Demo Ready`：里程碑下的核心 work item 全部 Done，关键链路可在内部演示。
+- `Demo Ready` → `Production Ready`：客户实际接入并稳定运行 N 天（N 由 owner 定义），含监控 / 告警 / 回滚预案。

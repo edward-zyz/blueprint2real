@@ -1,0 +1,144 @@
+# {{projectName}} Agent Runbook · 工作流骨架
+
+定位：{{projectName}} 项目 work item 编排与 agent 执行的最小准则。
+上游：
+{{docsRefsBullets}}
+- `state/roadmap.md`（{{milestonesSlash}} 路线图）
+- `state/active.md`（当前 work item，唯一一张）
+- `state/queue.md`（work queue，编号 {{workIdPrefix}}-{{workIdNumberMask}} 起算）
+- `state/customer-visible.md`（客户 / 产品可感知变化流水）
+
+## 0. 事实源关系
+
+- `state/active.md` / `queue.md` / `roadmap.md` / `customer-visible.md` 为单一事实源。Agent 完成工作后翻这四份。
+- `BOARD.html` 是从 `state/*.md` 渲染出的人类阅读视图，由 `workflow/scripts/render-board.mjs` 生成，**不被人类或 Agent 手写编辑**。
+- 当 `state/*` 与其他文档冲突时，以 `state/*` 为执行事实源；先停止实现并修正状态，再继续。
+
+## 1. 工单编号
+
+- 本项目工单一律使用 **{{workIdPrefix}}-{{workIdNumberMask}}** 前缀（{{workIdPrefix}}-{{firstWorkIdSuffix}} 起算，{{workIdDigits}} 位补零）。
+
+## 2. 核心规则
+
+每个工单按小循环推进，必须能独立回答：
+
+1. 本轮为什么做（追溯到上游文档中的项目价值或工程边界）。
+2. 本轮只解决哪个边界问题。
+3. 本轮不做什么。
+4. 修改哪些文件和模块。
+5. 如何验证（targeted + regression）。
+6. 失败后如何停止、拆分或回退。
+7. 通过后为什么可以进入下一轮。
+
+没有明确目标、验证方法和通过标准的改动，不能进入实现。
+
+## 3. 固定执行链路
+
+```text
+promote one work item to Ready          (promote.mjs 自动 render BOARD)
+  -> fresh context / delegated sub-agent
+  -> 翻 state/active.md 为 In Progress + queue.md 该行 Ready → In Progress
+     + npm run render:board    ← 持有该工单的契约；missed 会让 BOARD 永远 Idle
+  -> spec
+  -> spec review
+  -> implementation plan
+  -> failing test (TDD)
+  -> minimal implementation
+  -> targeted verification
+  -> regression verification
+  -> architecture & security review
+  -> implementation commit(s) (每个仅含本轮代码相关文件；按 §11 sub-slice 划分，1 或多个均可)
+  -> 更新 state/active.md + state/queue.md + state/customer-visible.md
+  -> npm run render:board
+  -> handoff commit (唯一，仅 state/* + BOARD.html)
+  -> stop this thread
+```
+
+任何一步失败，停留在当前循环，不跳步。
+
+## 4. Agent 启动检查表
+
+启动新工单前必须满足：
+
+1. 已读上游文档相关章节、`state/active.md`、`state/queue.md`、`state/roadmap.md`、本文。
+2. **`state/active.md` 当前为 Idle（无 active item）**——本工作流一次只持有 **exactly one** work item。
+3. 新工单已在 `state/queue.md` 中以 Ready 状态登记，有 {{workIdPrefix}}-{{workIdNumberMask}} 编号、名称、对应里程碑、spec 路径、plan 路径。
+4. spec 与 plan 已经 review；spec 无 TBD、无矛盾、无隐含大迁移；plan 每一步都有测试或可复现检查。
+5. 从 fresh thread 或 delegated sub-agent 启动。
+6. **启动后第一动作**：翻 `state/active.md` 为 In Progress（写入 ID / Name / Started / Spec / Plan / Last commit 字段）+ 同步把 `state/queue.md` 该行 Status 从 `Ready` 改为 `In Progress` + 跑 `npm run render:board`。
+
+未达成以上任一条，**不得执行实现**。
+
+## 5. 必须产物
+
+| 产物 | 作用 | 强约束 |
+| --- | --- | --- |
+| Spec | 定义目标、边界、输入输出、安全约束、验收口径 | 没有 spec 不写实现 |
+| Plan | 拆分 TDD 步骤、文件范围、验证命令、提交范围 | 没有 plan 不改代码 |
+| Tests | 证明行为契约可验证 | 能自动验证的内容必须自动化 |
+| Review | 检查架构漂移、安全泄漏、回归风险、范围膨胀 | review 未通过不提交 |
+| Commit | 固化单轮可回滚切片 | impl commit 只含本轮代码文件；handoff commit 唯一且仅含 state/* + BOARD.html |
+| state/* 更新 | 翻 active / queue / customer-visible / roadmap | 不更新不提交 |
+
+## 6. 架构红线
+
+> 状态：红线条目待 owner 沉淀。可执行的红线在 `workflow/scripts/lint-redlines.mjs::RULES` 数组里加规则函数；语义的红线在 spec review / architecture review 把关。
+
+### 6.1 可执行红线（lint 兜底）
+
+```bash
+cd dev && npm run lint:redlines
+```
+
+当 RULES 为空时退出码 0；新增红线时往该数组里推一个 `(rootDir) => Issue[]` 函数 + 同步加测试。
+
+## 7. 状态更新规则
+
+每轮工作完成后必须按序更新：
+
+1. `state/active.md`：整文件重写。`Last commit` 字段填**当前轮 handoff commit hash**，格式建议 `<7-hex>（{{workIdPrefix}}-{{workIdNumberMask}} handoff · YYYY-MM-DD）`。`## 当前状态` 段必须用 bullet 列表，每条 ≤2 行，总计 ≥3 条。
+2. `state/queue.md`：本轮 work item 行 status → Done，Commit 列写 **implementation commit hash**，完成日期同步。
+3. `state/customer-visible.md`：追加 1 段 `## YYYY-MM-DD · {{workIdPrefix}}-{{workIdNumberMask}} Done`，含「客户 / 产品可感知变化」与「Internal-only 变化」两条 bullet。
+4. `state/roadmap.md`：如涉及里程碑翻档，更新对应里程碑的状态。
+5. 跑 `npm run render:board` 重生成 `BOARD.html`。
+6. handoff commit 只包含 state/* 与 BOARD.html，与 implementation commit 物理分离。
+
+## 8. 例外处理
+
+允许带着残余风险进入下一轮的唯一条件：
+
+1. 风险不涉及安全 / 权限 / 审计 / 密钥 / 客户业务数据污染。
+2. 风险已经写入 spec 或 plan 的"剩余风险"章节。
+3. 下一轮或后续路线图中有明确处理位置。
+
+涉及安全、权限、审计、密钥、客户业务数据污染的风险**不得带入下一轮**。
+
+## 9. 长程任务 / Planned 工单 SOP
+
+本工作流一次只持有 **exactly one** active work item（§4），但允许 backlog 中长期挂着一批 Planned 工单。Planned 工单的生命周期：
+
+1. **登记入池**：在 `state/queue.md` 表里以 `Planned` status 登记；同时在文件末尾的 `## Planned 工单范围摘要` 段写一段 50-100 字的范围摘要（目标 / 边界 / 不做 / 验收要点 / 依赖）。
+2. **不允许进入实现**：Planned 工单 spec/plan 字段为 `—`；agent 启动检查表（§4）拒绝其作为 active item。
+3. **Promote 到 Ready**：当前置依赖满足后，由人或 delegated sub-agent 把摘要内容搬到 `b2r-process/work/{{workIdPrefix}}-{{workIdNumberMask}}/spec.md` 第 1-3 节，补齐完整 spec + plan，把 status 翻 `Ready`，把摘要段从 queue.md 移除。
+4. **Promote 时机**：必须在前置工单 Done 后再 promote。
+
+## 10. 本骨架的演进方式
+
+工作流自身的演进（本 RUNBOOK 措辞修正 / scripts/ 新增工具 / state/* schema 调整）**归档至 `b2r-process/loop_work_flow/`，不进 `state/queue.md` 的 {{workIdPrefix}}-{{workIdNumberMask}} backlog**。
+
+`loop_work_flow/` 目录约定：
+
+- `00_design.md`：工作流静态契约（变化频率：低）。
+- `0X_iteration-YYYY-MM-DD[a..z].md`：每次元改动一份文件。
+- `02_todo.md`：滚动 TODO（每轮更新；完成项挪到「已完成」段）。
+- `0X_retro-YYYY-MM-DD.md`：定期复盘。
+
+## 11. Sub-slice 拆分（implementation commit 多切片）
+
+当工单 spec §4 实际跨多个**可独立验证的**子能力时，允许把 implementation 拆成多个 commit，每个 commit 对应一个 sub-slice：
+
+1. **声明**：spec §4 紧邻处加一段 `### Sub-slice 列表`，按交付顺序列出 `slice 1/M`、`slice 2/M` ...。
+2. **Commit 边界**：每个 sub-slice 一个 implementation commit；commit message 头 `feat(<scope>): <slice 简述>（{{workIdPrefix}}-{{workIdNumberMask}} slice N/M）`。
+3. **Handoff commit**：仍**唯一**，位于所有 implementation slice 之后。
+4. **失败回退**：任一 slice 失败时只 revert 该 slice。
+5. **不进 queue.md**：sub-slice **不**单独占 {{workIdPrefix}}-{{workIdNumberMask}} 编号；queue.md 的 commit 字段填**最后一个 implementation commit 的 hash**。

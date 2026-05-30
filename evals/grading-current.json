@@ -1,0 +1,132 @@
+{
+  "skill_name": "blueprint2real",
+  "graded_at": "2026-05-16T04:13:19.433627Z",
+  "evals": [
+    {
+      "eval_id": "roadmap-planner-end-to-end",
+      "weight": "heavy",
+      "pass_rate": "7/7",
+      "expectations": [
+        {
+          "text": "queue.md 含 ≥4 条 Planned 行（来自 4 个 roadmap 项）",
+          "passed": true,
+          "evidence": "→ 6"
+        },
+        {
+          "text": "queue.md 中工单编号使用 config.workIdPrefix (DEMO)，未硬编码 IS-",
+          "passed": true,
+          "evidence": "→ 6"
+        },
+        {
+          "text": "queue.md 未出现错误前缀 IS-（说明 skill 没硬编码）",
+          "passed": true,
+          "evidence": "→ 0"
+        },
+        {
+          "text": "§Planned 摘要段下含 ≥4 个 ### DEMO-XXX · 小节",
+          "passed": true,
+          "evidence": "→ 6"
+        },
+        {
+          "text": "validate:state 退出码 0",
+          "passed": true,
+          "evidence": "→ PASS"
+        },
+        {
+          "text": "每条工单的依赖只引用 backlog 内已声明的编号（无悬空依赖）",
+          "passed": true,
+          "evidence": "→ PASS"
+        },
+        {
+          "text": "里程碑归属来自 config.milestones (M0/M1)，未硬编码 M2 或其他",
+          "passed": true,
+          "evidence": "→ 0"
+        }
+      ]
+    },
+    {
+      "eval_id": "skill-content-static-check",
+      "weight": "light",
+      "pass_rate": "7/7",
+      "expectations": [
+        {
+          "text": "SKILL.md 不硬编码 IS- 编号示例（IS-XXX 占位允许，IS-001 等具体不允许）",
+          "passed": true,
+          "evidence": "→ 0"
+        },
+        {
+          "text": "SKILL.md 不出现 private project tokens",
+          "passed": true,
+          "evidence": "→ 0"
+        },
+        {
+          "text": "对接具体工单的 6 个 agent 都引用 {{workId}} 占位（roadmap-planner 例外，它生成新编号而不是接收编号）",
+          "passed": true,
+          "evidence": "→ 6"
+        },
+        {
+          "text": "需要生成新 work-id 的角色（roadmap-planner / handoff-committer）引用 {{workIdPrefix}}",
+          "passed": true,
+          "evidence": "→ 4"
+        },
+        {
+          "text": "implementor / handoff-committer 都引用 {{regressionCommandsJson}} 或 regressionCommands",
+          "passed": true,
+          "evidence": "→ 3"
+        },
+        {
+          "text": "SKILL.md 含 5 个 Stage 章节",
+          "passed": true,
+          "evidence": "→ 5"
+        },
+        {
+          "text": "quality-gates.md 列出至少 14 个具体节点",
+          "passed": true,
+          "evidence": "→ 16"
+        }
+      ]
+    },
+    {
+      "eval_id": "config-portability-roundtrip",
+      "weight": "light",
+      "pass_rate": "7/7",
+      "expectations": [
+        {
+          "text": "fixture A (FOO/Q1,Q2)：workflow.config.mjs 含 workIdPrefix: 'FOO'",
+          "passed": true,
+          "evidence": "→ 1"
+        },
+        {
+          "text": "fixture A：queue.md 编号规则段含 FOO-NNN",
+          "passed": true,
+          "evidence": "→ 3"
+        },
+        {
+          "text": "fixture A：AGENT_RUNBOOK §3 含 FOO-NNN handoff 模板",
+          "passed": true,
+          "evidence": "→ 9"
+        },
+        {
+          "text": "fixture B (BAR/无里程碑/--milestones '')：里程碑段说明本项目未配置",
+          "passed": true,
+          "evidence": "→ 1"
+        },
+        {
+          "text": "fixture B：workflow.config milestones 为空数组",
+          "passed": true,
+          "evidence": "→ 1"
+        },
+        {
+          "text": "fixture C (BAZ/4 位编号)：config 含 workIdDigits: 4",
+          "passed": true,
+          "evidence": "→ 1"
+        },
+        {
+          "text": "fixture C：queue.md 编号规则段含 BAZ-NNNN（4 位）",
+          "passed": true,
+          "evidence": "→ 3"
+        }
+      ]
+    }
+  ]
+}

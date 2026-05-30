@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blueprint2real · Pipeline Design Review</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --brand: #E31837;
+    --brand-glow: #FF4D5E;
+    --bg: #0B0F1A;
+    --surface: #141B2D;
+    --surface-2: #1B2438;
+    --border: #252D40;
+    --text: #E8ECF4;
+    --text-2: #9CA3B4;
+    --text-3: #6B7385;
+    --success: #36D399;
+    --warning: #FFC857;
+    --error: #FF5566;
+    --info: #57A6F5;
+    --purple: #B084FF;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Inter, "Noto Sans SC", "PingFang SC", -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0 0 80px;
+    line-height: 1.55;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .cmd-bar {
+    position: sticky; top: 0; z-index: 50;
+    background: linear-gradient(180deg, rgba(11,15,26,0.97), rgba(11,15,26,0.9));
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .cmd-bar::before {
+    content: ""; display: block; height: 3px; background: var(--brand);
+  }
+  .cmd-bar-inner {
+    max-width: 1280px; margin: 0 auto; padding: 16px 32px;
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  }
+  .cmd-bar h1 {
+    font-size: 16px; font-weight: 700; letter-spacing: 0.08em;
+    margin: 0; color: var(--text);
+  }
+  .cmd-bar .sub {
+    font-size: 12px; color: var(--text-3); letter-spacing: 0.04em;
+  }
+  .cmd-bar .v {
+    margin-left: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--brand-glow); letter-spacing: 0.06em;
+  }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px 32px; }
+
+  section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  section > header {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  section > header h2 {
+    margin: 0; font-size: 14px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text);
+  }
+  section > header .tag {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px; color: var(--brand-glow); letter-spacing: 0.08em;
+  }
+  section > header .hint {
+    margin-left: auto; font-size: 12px; color: var(--text-3);
+  }
+  section > .body { padding: 20px 24px; }
+
+  /* === Level cards === */
+  .levels {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .lvl {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .lvl::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  }
+  .lvl.l0::before { background: var(--success); }
+  .lvl.l1::before { background: var(--warning); }
+  .lvl.l2::before { background: var(--info); }
+  .lvl.l3::before { background: var(--error); }
+  .lvl .id {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 22px; font-weight: 700; line-height: 1;
+    margin-bottom: 4px;
+  }
+  .lvl.l0 .id { color: var(--success); }
+  .lvl.l1 .id { color: var(--warning); }
+  .lvl.l2 .id { color: var(--info); }
+  .lvl.l3 .id { color: var(--error); }
+  .lvl .name {
+    font-size: 13px; color: var(--text); margin-bottom: 10px;
+    letter-spacing: 0.04em;
+  }
+  .lvl .judge { font-size: 12px; color: var(--text-2); line-height: 1.5; margin-bottom: 10px; }
+  .lvl .stages {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--text-2);
+    background: rgba(0,0,0,0.25);
+    padding: 6px 8px; border-radius: 4px;
+    margin-bottom: 8px; line-height: 1.5;
+  }
+  .lvl .stages b { color: var(--text); }
+  .lvl .save { font-size: 11px; color: var(--text-3); font-style: italic; }
+
+  /* === Pipeline track === */
+  .track {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 12px 16px;
+    align-items: center;
+    font-size: 13px;
+    margin: 8px 0;
+  }
+  .track-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 600;
+    text-align: right; letter-spacing: 0.06em;
+  }
+  .track-label.l0 { color: var(--success); }
+  .track-label.l1 { color: var(--warning); }
+  .track-label.l2 { color: var(--info); }
+  .track-label.l3 { color: var(--error); }
+  .track-stages {
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+  }
+  .step {
+    padding: 4px 9px; border-radius: 4px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .step.skip { color: var(--text-3); border-style: dashed; background: transparent; text-decoration: line-through; }
+  .step.merged { background: rgba(176,132,255,0.12); border-color: var(--purple); color: var(--purple); }
+  .step.light { background: rgba(255,200,87,0.12); border-color: var(--warning); color: var(--warning); }
+  .step.gate { background: rgba(108,108,108,0.12); border-color: var(--text-3); color: var(--text-3); font-size: 10px; }
+  .arrow { color: var(--text-3); }
+
+  /* === Receipt table === */
+  table {
+    width: 100%; border-collapse: collapse; font-size: 12.5px;
+    margin: 4px 0;
+  }
+  th, td {
+    text-align: left; padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: rgba(0,0,0,0.3); color: var(--text-3);
+    font-weight: 600; font-size: 11px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  td.stage {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-weight: 600; color: var(--brand-glow);
+    white-space: nowrap;
+  }
+  td.fields, td.gate { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11.5px; }
+  td code, .body code {
+    background: rgba(120,140,180,0.1); padding: 1px 6px;
+    border-radius: 3px; color: var(--brand-glow); font-size: 11.5px;
+    border: 1px solid var(--border);
+  }
+  tr:hover td { background: rgba(120,140,180,0.03); }
+
+  /* === Mermaid wrap === */
+  .mermaid-wrap {
+    background: rgba(0,0,0,0.35);
+    border-radius: var(--radius);
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .mermaid {
+    text-align: center;
+    background: transparent;
+  }
+
+  /* === Legend === */
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-size: 11px; color: var(--text-2);
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid;
+  }
+  .legend .swatch.start { background: #1a1a1a; border-color: #888; }
+  .legend .swatch.stage { background: #2a3a4a; border-color: var(--info); }
+  .legend .swatch.gate { background: #2a2a2a; border-color: var(--text-3); border-style: dashed; }
+  .legend .swatch.receipt { background: #2a3a4a; border-color: var(--purple); }
+  .legend .swatch.simple { background: rgba(255,200,87,0.15); border-color: var(--warning); }
+  .legend .swatch.halt { background: rgba(255,85,102,0.15); border-color: var(--error); }
+  .legend .swatch.done { background: rgba(54,211,153,0.15); border-color: var(--success); }
+
+  /* === Question box === */
+  .questions {
+    background: linear-gradient(135deg, rgba(255,77,94,0.06), rgba(176,132,255,0.06));
+    border: 1px solid var(--brand);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+  }
+  .questions h3 {
+    margin: 0 0 10px;
+    font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--brand-glow);
+  }
+  .questions ol {
+    padding-left: 20px; margin: 0;
+    color: var(--text);
+  }
+  .questions ol li {
+    margin: 6px 0; font-size: 13.5px;
+  }
+  .questions code {
+    background: rgba(255,77,94,0.12); color: var(--brand-glow);
+    border-color: rgba(255,77,94,0.3);
+  }
+
+  .key {
+    color: var(--warning); font-weight: 600;
+  }
+  .muted { color: var(--text-3); }
+  hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* === File tree === */
+  pre.tree {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; color: var(--text-2);
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  pre.tree .file { color: var(--text); }
+  pre.tree .dir { color: var(--brand-glow); }
+  pre.tree .comment { color: var(--text-3); font-style: italic; }
+
+  /* === Responsive === */
+  @media (max-width: 900px) {
+    .levels { grid-template-columns: 1fr 1fr; }
+    .track { grid-template-columns: 50px 1fr; }
+  }
+  @media (max-width: 600px) {
+    .levels { grid-template-columns: 1fr; }
+    .cmd-bar-inner, .wrap { padding-left: 16px; padding-right: 16px; }
+    section > .body { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="cmd-bar">
+  <div class="cmd-bar-inner">
+    <h1>BLUEPRINT2REAL · PIPELINE DESIGN</h1>
+    <div class="sub">复杂度路由 + 阶段间质量门控</div>
+    <div class="v">v5.1 FROZEN · ready to implement</div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="questions" style="background: rgba(54,211,153,0.06); border-color: rgba(54,211,153,0.4);">
+    <h3 style="color: var(--success);">v5.1 FROZEN · 3 份 reviewer 决策落地</h3>
+    <p style="font-size: 13px; color: var(--text-2); margin: 0 0 10px;">
+      3 个独立 reviewer（复杂度 / 落地 / 工程契约）跑完后，逐条决策接受/拒绝。设计冻结；正文 [01]-[08] 仍是 v5 原稿，以下决策点为 <b>v5.1 修订契约</b>——实施时以这里为准（HTML 主体不重排）。
+    </p>
+
+    <h4 style="margin: 14px 0 6px; color: var(--success);">✓ 接受并实施（15 项）</h4>
+    <ul style="line-height: 1.65; font-size: 13px;">
+      <li><b>契约硬伤</b> · <code>attempt</code> 公式统一：<code>attempt > max_retry + 1</code> 触发 Manager；attempt 从 1 起算（1=首次，2=已重试 1 次）；<code>pipeline-status.current_retry</code> 删除，统一用 <code>current_attempt</code></li>
+      <li><b>状态机修复</b> · <code>downgrade → Gate 4</code>（重判 level branch，不直跳 S3）</li>
+      <li><b>状态机修复</b> · <code>split-slice → S2b</code>（必经 plan-drafter 重画 §3 slice，与 [08] 文字一致）</li>
+      <li><b>状态机修复</b> · Gate 4 fail 出口提到 level branch 之前（fail 与 level 是正交维度，先判合法性再分流）</li>
+      <li><b>状态机约束</b> · Gate 8 (handoff) fail 后 Manager 仅 <code>accept-override</code> 或 <code>drop</code></li>
+      <li><b>并发安全</b> · <code>pipeline-status.json</code> 规定主线单写者；sub-agent return payload，主线落盘</li>
+      <li><b>Schema envelope</b> · 所有 receipt 必含 <code>stage_id / level / attempt / completed_at / manager_override?</code>；各 stage 字段是 envelope 的 payload</li>
+      <li><b>Schema 路径</b> · <code>previous_receipt</code> 等路径声明相对 <code>dev/work/&lt;workId&gt;/</code></li>
+      <li><b>Schema 生命周期</b> · <code>escalation_pack</code> 在 manager-decision 落盘后清零（迁到 resolved，避免 BOARD 一直显红）</li>
+      <li><b>失败模式补</b> · 自报阻塞强制要求 <code>blocked_evidence</code> 字段非空（防偷懒早退）；用户拒答 AskUserQuestion 落 <code>action=defer</code> 不死循环</li>
+      <li><b>主图简化</b> · 删 7 个 Retry decision 菱形；Gate 双出口 <code>pass</code> / <code>fail（retry once or Manager）</code>，retry 注解在边上</li>
+      <li><b>主图简化</b> · Manager Override 主图只画 1 节点 + 1 条回边到"上游 Stage"，5 选 1 细节移 [08]</li>
+      <li><b>主图简化</b> · L0 Direct-Fix 从主图剥离到 [01]</li>
+      <li><b>Schema 合并</b> · feedback-receipt 不再独立文件，作为 <code>pipeline-status.last_feedback</code> 字段；retry sub-agent 读 pipeline-status 一份即可</li>
+      <li><b>Schema 合并</b> · escalation-pack 不持久化为 .md，改主线进入 Manager 时即时渲染为对话视图（用户拍板后只保留 manager-decision.json 记录）</li>
+    </ul>
+
+    <h4 style="margin: 14px 0 6px; color: var(--success);">✓ 落地必补（6 项）</h4>
+    <ul style="line-height: 1.65; font-size: 13px;">
+      <li><b>L0 verify-handoff 兼容</b> · level=L0 跳过 Check 4 (spec/plan 存在)；L0 仅出 0-triage.json + 5-handoff.json</li>
+      <li><b>state/retro.md</b> · validate-state.mjs / render-board.mjs 显式白名单（避免被误判）</li>
+      <li><b>workflow.config.mjs</b> · 新增 <code>pipeline: { maxRetry: 1, retroSurfaceThreshold: 3, receiptsDir: 'receipts' }</code> 命名空间</li>
+      <li><b>新增 validate-pipeline-status.mjs</b> · 轻量 JSON schema check，不塞进 validate-state（职责清晰）</li>
+      <li><b>queue.md 不加 Level 列</b> · 保持 8 列硬解析；level 只存 0-triage.json</li>
+      <li><b>eval 策略</b> · 4 light (L0-L3 各 grep 一条) + 1 heavy (mixed-level roadmap) + 1 fixture (手造 receipts 断言 BOARD BLOCKED)；总 6-7 case，heavy 仅 1-2</li>
+    </ul>
+
+    <h4 style="margin: 14px 0 6px; color: var(--warning);">✗ 拒绝并保留原状（3 项）</h4>
+    <ul style="line-height: 1.65; font-size: 13px;">
+      <li><b>Gate → Check 改名</b>（A 建议） · 中文里 Gate 已通用，改名收益小，所有 agent prompt 全量改风险大</li>
+      <li><b>Escalation-pack 概念删除</b>（A 建议） · 保留概念作为"主线即时渲染的卷宗视图"，只是不持久化为 .md 文件——概念有价值</li>
+      <li><b>HTML 8 section → 6 大重排</b>（A 建议） · HTML 是过渡设计稿，不为重构 HTML 浪费工时；实施完归档</li>
+    </ul>
+
+    <h4 style="margin: 14px 0 6px; color: var(--purple);">实施分 2 轮（每轮过 eval 验证后才进下一轮）</h4>
+    <ol style="line-height: 1.65; font-size: 13px;">
+      <li><b>Round 1 · 核心 prompt 改造</b>：SKILL.md → 7 个 agents/*.md → 新增 direct-fix.md (L0) → references/ 升级 → 静态 eval 验证</li>
+      <li><b>Round 2 · dev/ 脚手架扩展</b>：workflow.config → render-board → verify-handoff → validate-state → 新增 validate-pipeline-status → retro.md stub → 第 2 轮 eval</li>
+    </ol>
+
+    <hr style="margin: 18px 0 14px; border: none; border-top: 1px solid var(--border);">
+    <h3 style="color: var(--text-3); font-size: 13px;">— 以下为 v5 原稿评审记录，已被上面 v5.1 决策覆盖 —</h3>
+    <h3>★ v5 已拍板（v4 review 收敛）</h3>
+    <ol style="line-height: 1.7;">
+      <li><b>max_retry 默认 1 次</b>（统一，不分 stage） · 影响：流程图删除 retry_count 多次判断节点；feedback-receipt 显示 attempt ≤ 2</li>
+      <li><b>sub-agent 自报阻塞 → 直接进 Manager Override</b>（不走 retry） · 影响：取消"L2 Escalate 阶段"独立分层，escalation-pack 仅作为 manager override 入口的卷宗</li>
+      <li><b>BOARD 颗粒度只到工单清单级</b>（不深入 stage 内部） · 影响：[07] 简化 ASCII mockup、pipeline-status.json 简化字段；工单产物详情视图留作独立工具后期做</li>
+      <li><b>manager-decision.json 由主线自动起草 + 用户 AskUserQuestion 确认</b> · 影响：[08] 录入流程改为对话式，不用手编 JSON</li>
+      <li><b>每次 Override 自动写 retro 日志</b>（<code>state/retro.md</code> 追加段） · 影响：[08] 新增 retro 段；定期 surface 给用户做体系改进</li>
+    </ol>
+
+    <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
+    <h3 style="margin-top: 12px;">★ v5 仍需 review 的设计</h3>
+    <ol>
+      <li><b>新流程图 [02]</b>：sub-agent 自报阻塞 → 直接进 Manager Override 这条路径，从节点哪里发出？建议从每个 Stage 节点都画一条虚线到 Manager，但会让图很乱——是否值得画出来？</li>
+      <li><b>[06] Auto-Retry 子流程图</b>：max_retry=1 之后子流程图大幅简化，是否还需要单独画一张？还是合并进主图就够？</li>
+      <li><b>retro 自动 surface 时机</b>：每里程碑结束 + 累计 ≥3 条时 main thread 主动 surface，触发条件你 OK 吗？</li>
+    </ol>
+
+    <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
+    <h3 style="margin-top: 12px;">v3 原始问题（v4 / v5 暂未答）</h3>
+    <ol>
+      <li>4 档分级判据合理吗？</li>
+      <li>L1 简化合并 spec+plan+self-review 会稀释质量吗？</li>
+      <li>Receipt 用 JSON 还是 markdown？</li>
+      <li>queue.md 表头加 <code>Level</code> 列 OK 吗？</li>
+    </ol>
+  </div>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[01]</span>
+      <h2>4 档复杂度路由</h2>
+      <span class="hint">在 Stage 1 末段 roadmap-planner 内嵌打标 · 升档不降档</span>
+    </header>
+    <div class="body">
+      <div class="levels">
+        <div class="lvl l0">
+          <div class="id">L0</div>
+          <div class="name">TRIVIAL</div>
+          <div class="judge">typo / 注释 / 文档措辞 / 单行格式化</div>
+          <div class="stages">direct-fix → state-flip → commit</div>
+          <div class="save">单 stage · 跳过 spec/plan/review/arch</div>
+        </div>
+        <div class="lvl l1">
+          <div class="id">L1</div>
+          <div class="name">SIMPLE</div>
+          <div class="judge">单文件 + 无新接口 + 无 schema + ≤30 行改动</div>
+          <div class="stages"><b>1</b> → <b>2-merged</b> → <b>3+</b> → <b>5</b></div>
+          <div class="save">省 reviewer / arch-reviewer 独立阶段</div>
+        </div>
+        <div class="lvl l2">
+          <div class="id">L2</div>
+          <div class="name">STANDARD</div>
+          <div class="judge">跨 2-3 文件 + 有新函数 + 无跨模块边界变化</div>
+          <div class="stages"><b>1 → 2a → 2b → 2c → 3 → 4′ → 5</b></div>
+          <div class="save">reviewer 走轻量清单（不调 skill）</div>
+        </div>
+        <div class="lvl l3">
+          <div class="id">L3</div>
+          <div class="name">COMPLEX</div>
+          <div class="judge">跨模块 / 新 schema / 新依赖 / 含安全敏感 / 含 migration</div>
+          <div class="stages"><b>1 → 2a → 2b → 2c → 3 → 4 → 5</b></div>
+          <div class="save">完整流程 · 全部调 skill</div>
+        </div>
+      </div>
+
+      <h3 style="margin: 24px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">简化路径直观对比（5 行 = 5 条 track）</h3>
+
+      <div class="track">
+        <div class="track-label l0">L0</div>
+        <div class="track-stages">
+          <span class="step" style="background: rgba(54,211,153,0.12); border-color: var(--success); color: var(--success);">direct-fix + commit + state-flip</span>
+          <span class="muted">（1 个动作完成）</span>
+        </div>
+      </div>
+
+      <div class="track">
+        <div class="track-label l1">L1</div>
+        <div class="track-stages">
+          <span class="step">0 triage</span><span class="arrow">→</span>
+          <span class="step">1 planner</span><span class="arrow">→</span>
+          <span class="step merged">2 merged (spec+plan+self-review)</span><span class="arrow">→</span>
+          <span class="step">3 impl</span>
+          <span class="step gate" title="内嵌轻量 arch check">+ lint+scope</span>
+          <span class="arrow">→</span>
+          <span class="step skip">2c reviewer</span>
+          <span class="step skip">4 arch</span>
+          <span class="arrow">→</span>
+          <span class="step">5 handoff</span>
+        </div>
+      </div>
+
+      <div class="track">
+        <div class="track-label l2">L2</div>
+        <div class="track-stages">
+          <span class="step">0</span><span class="arrow">→</span>
+          <span class="step">1</span><span class="arrow">→</span>
+          <span class="step">2a spec</span><span class="arrow">→</span>
+          <span class="step">2b plan</span><span class="arrow">→</span>
+          <span class="step light">2c′ reviewer (轻)</span><span class="arrow">→</span>
+          <span class="step">3 impl</span><span class="arrow">→</span>
+          <span class="step light">4′ arch (轻)</span><span class="arrow">→</span>
+          <span class="step">5 handoff</span>
+        </div>
+      </div>
+
+      <div class="track">
+        <div class="track-label l3">L3</div>
+        <div class="track-stages">
+          <span class="step">0</span><span class="arrow">→</span>
+          <span class="step">1</span><span class="arrow">→</span>
+          <span class="step">2a spec</span><span class="arrow">→</span>
+          <span class="step">2b plan</span><span class="arrow">→</span>
+          <span class="step">2c reviewer (调 skill)</span><span class="arrow">→</span>
+          <span class="step">3 impl (调 skill)</span><span class="arrow">→</span>
+          <span class="step">4 arch (调 skill)</span><span class="arrow">→</span>
+          <span class="step">5 handoff</span>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="item"><span class="swatch stage"></span>正常 stage</div>
+        <div class="item"><span class="swatch simple"></span>轻量版（不调 skill）</div>
+        <div class="item"><span class="swatch" style="background: rgba(176,132,255,0.12); border-color: var(--purple);"></span>合并阶段（merged）</div>
+        <div class="item"><span class="swatch" style="background: transparent; border-color: var(--text-3); border-style: dashed;"></span>跳过</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[02]</span>
+      <h2>完整流程图 · 含 Gate / Receipt / Retry / Manager Override</h2>
+      <span class="hint">紫 = receipt · 灰菱形 = gate · 黄 = retry 决策 / 回路 · 紫框 = manager override</span>
+    </header>
+    <div class="body">
+      <div class="mermaid-wrap">
+        <pre class="mermaid">
+flowchart TD
+    Start([USER input - roadmap or single workitem]) --> S0{Stage 0 Triage<br/>roadmap-planner 内嵌打标}
+    S0 -->|L0 trivial| L0[L0 Direct-Fix<br/>edit and state-flip and commit]
+    S0 -->|L1 L2 L3| S1
+    L0 --> Done([Done])
+
+    S1[Stage 1 Planner<br/>调 brainstorming + writing-plans]
+    S1 --> R1[(receipt-1.json)]
+    R1 --> G2{Gate 2}
+    G2 -->|pass| S2a
+    G2 -->|fail| RT1{Retry decision<br/>attempt left or self-blocked}
+    RT1 -->|retry once| Back1[/Retry to S1<br/>带 feedback/]
+    Back1 --> S1
+    RT1 -->|exhausted or self-blocked| Manager
+
+    S2a[Stage 2a Spec Drafter<br/>调 brainstorming]
+    S2a --> R2a[(receipt-2a.json)]
+    R2a --> G3{Gate 3}
+    G3 -->|pass| S2b
+    G3 -->|fail| RT2a{Retry?}
+    RT2a -->|retry once| Back2a[/Retry to S2a/]
+    Back2a --> S2a
+    RT2a -->|exhausted or self-blocked| Manager
+
+    S2b[Stage 2b Plan Drafter<br/>调 writing-plans]
+    S2b --> R2b[(receipt-2b.json)]
+    R2b --> G4{Gate 4<br/>level branch}
+    G4 -->|L1| MergeReview[2c inline self-check]
+    G4 -->|L2 or L3| S2c
+    G4 -->|fail| RT2b{Retry?}
+    RT2b -->|retry once| Back2b[/Retry to S2b/]
+    Back2b --> S2b
+    RT2b -->|exhausted or self-blocked| Manager
+
+    S2c[Stage 2c Reviewer<br/>调 requesting-code-review]
+    MergeReview --> R2c
+    S2c --> R2c[(receipt-2c.json)]
+    R2c --> G5{Gate 5<br/>verdict ready}
+    G5 -->|READY| S3
+    G5 -->|REVISION| RT2c{Retry?}
+    RT2c -->|retry once| Back2c[/Retry to S2a or S2b<br/>带 review fail items/]
+    Back2c --> S2a
+    RT2c -->|exhausted or self-blocked| Manager
+
+    S3[Stage 3 Implementor<br/>调 test-driven-development<br/>+ verification-before-completion]
+    S3 --> R3[(receipt-3.json)]
+    R3 --> G6{Gate 6<br/>level branch}
+    G6 -->|L1| S5pre[内嵌 lint+scope]
+    G6 -->|L2| S4Light[Stage 4-Light]
+    G6 -->|L3| S4
+    G6 -->|fail| RT3{Retry?}
+    RT3 -->|retry once| Back3[/Retry to S3/]
+    Back3 --> S3
+    RT3 -->|exhausted or self-blocked| Manager
+
+    S4[Stage 4 Arch+Security<br/>调 security-review + architecture]
+    S4 --> R4
+    S4Light --> R4
+    S5pre --> R4[(receipt-4.json)]
+    R4 --> G7{Gate 7<br/>verdict ready}
+    G7 -->|READY| S5
+    G7 -->|NEEDS_FIX| RT4{Retry?}
+    RT4 -->|retry once| Back4[/Retry to S3<br/>带 review fail items/]
+    Back4 --> S3
+    RT4 -->|exhausted or self-blocked| Manager
+
+    S5[Stage 5 Handoff Committer<br/>调 verification-before-completion]
+    S5 --> R5[(receipt-5.json)]
+    R5 --> G8{Gate 8<br/>verify 6 of 6}
+    G8 -->|pass| Done
+    G8 -->|fail| Manager
+
+    Manager{Manager Override<br/>主线起草决策 + 用户 AskUserQuestion 确认<br/>写 manager-decision.json<br/>+ state retro.md 追加}
+    Manager -->|accept-override| ForcePass[/Force pass<br/>注入 manager_override 标记/]
+    Manager -->|downgrade| Downgrade[/Downgrade Level<br/>L3 to L2 etc/]
+    Manager -->|shrink-scope| ShrinkSpec[/编辑 spec section3<br/>加 不做 项/]
+    Manager -->|split-slice| Split[/Split into sub-slices/]
+    Manager -->|drop| Drop[/Mark Superseded/]
+    ForcePass --> S5
+    Downgrade --> S3
+    ShrinkSpec --> S2a
+    Split --> S3
+    Drop --> Done
+
+    classDef l0 fill:#1a3a2a,stroke:#36D399,color:#E8ECF4
+    classDef level1 fill:#3a3020,stroke:#FFC857,color:#FFC857
+    classDef receipt fill:#1a2a3a,stroke:#B084FF,color:#B084FF
+    classDef gate fill:#2a2a2a,stroke:#9CA3B4,color:#E8ECF4,stroke-dasharray:5
+    classDef retrydec fill:#3a3020,stroke:#FFC857,color:#FFC857,stroke-dasharray:5
+    classDef retryact fill:#3a3020,stroke:#FFC857,color:#FFC857,stroke-dasharray:3
+    classDef manager fill:#2a1a3a,stroke:#B084FF,color:#B084FF
+    classDef done fill:#1a3a2a,stroke:#36D399,color:#36D399
+
+    class L0,Done done
+    class MergeReview,S5pre,S4Light level1
+    class R1,R2a,R2b,R2c,R3,R4,R5 receipt
+    class G2,G3,G4,G5,G6,G7,G8 gate
+    class RT1,RT2a,RT2b,RT2c,RT3,RT4 retrydec
+    class Back1,Back2a,Back2b,Back2c,Back3,Back4 retryact
+    class Manager,ForcePass,Downgrade,ShrinkSpec,Split,Drop manager
+        </pre>
+      </div>
+
+      <div class="legend">
+        <div class="item"><span class="swatch stage" style="background:#2a3a4a; border-color: var(--info);"></span>Stage（调 skill）</div>
+        <div class="item"><span class="swatch simple"></span>L1/L2 简化版</div>
+        <div class="item"><span class="swatch receipt"></span>Receipt（结构化产物）</div>
+        <div class="item"><span class="swatch gate"></span>Gate（校验菱形）</div>
+        <div class="item"><span class="swatch" style="background:rgba(255,200,87,0.15); border-color: var(--warning); border-style: dashed;"></span>Retry decision / 回路（max=1 + 自报阻塞短路）</div>
+        <div class="item"><span class="swatch" style="background:rgba(176,132,255,0.15); border-color: var(--purple);"></span>Manager Override</div>
+        <div class="item"><span class="swatch done"></span>L0 / Done</div>
+      </div>
+
+      <p style="font-size: 12px; color: var(--text-3); margin-top: 16px; line-height: 1.7;">
+        <b>读图要点</b>：
+        每个 Gate fail 后进入 <code>Retry decision</code> 菱形——判断 (a) 是否还有 attempt 余额（max_retry=1，意即最多 1 次重试）以及 (b) sub-agent 是否已自报"我搞不动了 / 阻塞点不在我能力内"。
+        任一条件触发即直接走 <code>Manager Override</code>（不再有"L2 自动 escalate 阶段"）。
+        Gate 8 (handoff verify) fail 是物理验证失败，无 retry，直接进 Manager。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[03]</span>
+      <h2>Receipt Schema · 每 stage 留下的硬证据</h2>
+      <span class="hint">主线在派下一个 sub-agent 时，把 receipt 路径作为 prompt 字段传入</span>
+    </header>
+    <div class="body">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 110px;">Stage</th>
+            <th style="width: 36%;">Receipt 字段</th>
+            <th>下一 Stage Gate 校验逻辑</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="stage">0 Triage</td>
+            <td class="fields">
+              <code>level</code>: L0|L1|L2|L3<br>
+              <code>reasons[]</code>: 触发判据原文<br>
+              <code>files_estimated[]</code>: 预估文件白名单<br>
+              <code>completed_at</code>
+            </td>
+            <td>Stage 1+ 据 <code>level</code> 决定走简化哪些步</td>
+          </tr>
+          <tr>
+            <td class="stage">1 Planner</td>
+            <td class="fields">
+              <code>workIds[]</code>: 本批新增工单<br>
+              <code>levels{}</code>: workId → level 映射<br>
+              <code>validate_state</code>: "pass"<br>
+              <code>deps_graph</code>: { cycles: 0, leaves[], orphans: 0 }<br>
+              <code>skills_used</code>: ["brainstorming","writing-plans"]
+            </td>
+            <td>Stage 2a 校验目标 <code>workId</code> 在 queue.md 且 Status=Ready；level 标签存在</td>
+          </tr>
+          <tr>
+            <td class="stage">2a Spec</td>
+            <td class="fields">
+              <code>spec_path</code>: dev/work/&lt;id&gt;/spec.md<br>
+              <code>sections_filled</code>: "11/11"<br>
+              <code>tbd_grep</code>: 0<br>
+              <code>file_whitelist_ls</code>: "pass"<br>
+              <code>level_check</code>: "matches_triage" or "upgrade_to_L?"
+            </td>
+            <td>Stage 2b 校验 spec §4 文件白名单存在；spec.md 无 TBD</td>
+          </tr>
+          <tr>
+            <td class="stage">2b Plan</td>
+            <td class="fields">
+              <code>plan_path</code><br>
+              <code>file_range_eq_spec</code>: true<br>
+              <code>tdd_step1_described</code>: true<br>
+              <code>regression_cmds_unchanged</code>: true<br>
+              <code>sub_slice_count</code>: 1 or N
+            </td>
+            <td>Stage 2c（L2/L3）/ L1 跳过本 gate；校验 spec/plan 配对</td>
+          </tr>
+          <tr>
+            <td class="stage">2c Review</td>
+            <td class="fields">
+              <code>verdict</code>: READY_TO_IMPLEMENT | NEEDS_REVISION<br>
+              <code>fail_items[]</code>: 必须修复项<br>
+              <code>lint_redlines</code>: 0 命中（前移检查）<br>
+              <code>redline_human_audit</code>: pass | hit
+            </td>
+            <td>Stage 3 仅在 <code>verdict=READY</code> 开工；否则打回 drafter</td>
+          </tr>
+          <tr>
+            <td class="stage">3 Impl</td>
+            <td class="fields">
+              <code>impl_commits[]</code>: hash list<br>
+              <code>step1_red_evidence</code>: 测试输出（红的）<br>
+              <code>step2_green_evidence</code>: 测试输出（绿）<br>
+              <code>regression_all_pass</code>: true<br>
+              <code>scope_check</code>: "in_whitelist"
+            </td>
+            <td>Stage 4（按 level 分轻/重）校验 commit + 测试证据 + scope</td>
+          </tr>
+          <tr>
+            <td class="stage">4 Arch</td>
+            <td class="fields">
+              <code>verdict</code>: READY_TO_HANDOFF | NEEDS_FIX<br>
+              <code>lint_redlines</code>: 0<br>
+              <code>security_review</code>: { findings[], severities[] }<br>
+              <code>architecture</code>: { skipped | trade_offs[] }<br>
+              <code>scope_consistency</code>: pass
+            </td>
+            <td>Stage 5 仅在 <code>verdict=READY</code> 开工；否则打回 implementor</td>
+          </tr>
+          <tr>
+            <td class="stage">5 Handoff</td>
+            <td class="fields">
+              <code>handoff_commit</code>: 7-hex<br>
+              <code>verify_handoff</code>: "6/6"<br>
+              <code>state_diff</code>: { active→Idle, queue→Done, cv_appended }<br>
+              <code>amend_or_fixup</code>: "amend" | "fixup"<br>
+              <code>milestone_advanced</code>: null | "M0→Contract Done"
+            </td>
+            <td>工单 Done · 写 customer-visible.md</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[04]</span>
+      <h2>Receipt 文件落点</h2>
+      <span class="hint">在 dev/work/&lt;workId&gt;/receipts/ 下</span>
+    </header>
+    <div class="body">
+      <pre class="tree"><span class="dir">dev/work/&lt;workId&gt;/</span>
+├── <span class="file">spec.md</span>          <span class="comment"># Stage 2a 产物</span>
+├── <span class="file">plan.md</span>          <span class="comment"># Stage 2b 产物</span>
+├── <span class="file">context-pack.md</span>  <span class="comment"># promote 自动生成</span>
+└── <span class="dir">receipts/</span>
+    ├── <span class="file">0-triage.json</span>
+    ├── <span class="file">1-planner.json</span>
+    ├── <span class="file">2a-spec.json</span>
+    ├── <span class="file">2b-plan.json</span>
+    ├── <span class="file">2c-review.json</span>    <span class="comment"># L2/L3 only</span>
+    ├── <span class="file">3-impl.json</span>
+    ├── <span class="file">4-arch.json</span>       <span class="comment"># L2 走轻量, L3 完整</span>
+    └── <span class="file">5-handoff.json</span></pre>
+
+      <p style="font-size: 13px; color: var(--text-2); margin-top: 12px;">
+        每份 receipt JSON 含通用元数据（<code>stage</code> / <code>level</code> / <code>completed_at</code> / <code>sub_agent_skills_used[]</code>）+ 该 stage 的硬证据字段 + <code>gate_for_next_stage</code> 段（把下一阶段需要的预条件预先打包）。
+      </p>
+
+      <p style="font-size: 13px; color: var(--text-2);">
+        Sub-agent 启动时 <span class="key">必读 receipt 并先校验 gate</span>，校验失败立即停回主线——不允许"我看着没问题"就继续。
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[05]</span>
+      <h2>实现影响 · 需要改的地方</h2>
+      <span class="hint">如果方案通过，下面这些文件会被改</span>
+    </header>
+    <div class="body">
+      <table>
+        <thead>
+          <tr><th>文件</th><th>改动</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>SKILL.md</code></td>
+            <td>加 Stage 0 Triage 段；加复杂度分级表；加 Gate/Receipt 总览；调度表加 <code>level</code> + <code>receipt</code> 列</td>
+          </tr>
+          <tr>
+            <td><code>agents/roadmap-planner.md</code></td>
+            <td>新职责：内嵌打标 → 写 <code>receipts/0-triage.json</code> 和 <code>1-planner.json</code>；queue.md 表加 level 列（或写在摘要末尾）</td>
+          </tr>
+          <tr>
+            <td><code>agents/*.md</code>（6 份）</td>
+            <td>每份 prompt 开头加「Gate Check」段：必读上一 receipt + 校验逻辑 + 校验失败立即 halt</td>
+          </tr>
+          <tr>
+            <td><code>agents/direct-fix.md</code>（<span class="key">新增</span>）</td>
+            <td>L0 专用：单 stage prompt，无 sub-agent 调度</td>
+          </tr>
+          <tr>
+            <td><code>references/pipeline-flow.md</code>（<span class="key">新增</span>）</td>
+            <td>把流程图 + 分级判据沉淀到 reference</td>
+          </tr>
+          <tr>
+            <td><code>references/receipts-schema.md</code>（<span class="key">新增</span>）</td>
+            <td>Receipt JSON schema + Gate 校验逻辑详细描述</td>
+          </tr>
+          <tr>
+            <td><code>references/quality-gates.md</code></td>
+            <td>升级：每个节点加 receipt 落点 + 下一 stage 校验项</td>
+          </tr>
+          <tr>
+            <td><code>dev/workflow/templates/state/queue.md.tmpl</code></td>
+            <td>(可选) 表头加 <code>Level</code> 列 · 这是项目侧而非 skill 侧改动</td>
+          </tr>
+          <tr>
+            <td><code>evals/</code></td>
+            <td>每档 (L0/L1/L2/L3) 加 1 个 eval case 验证简化路径生效；为 receipt schema 加静态 check</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[06]</span>
+      <h2>Gate 失败 · 两层处理机制</h2>
+      <span class="hint">Auto-Retry × 1 → Manager Override（取消独立的 escalate 阶段）</span>
+    </header>
+    <div class="body">
+
+      <p style="font-size: 13px; color: var(--text-2); margin-top: 0;">
+        Gate fail <span class="key">不直接 Halt 主线</span>。v5 简化为两层：
+        最多 <b>1 次 Auto-Retry</b>，仍失败 <b>或</b> sub-agent 自报"我搞不动了"，<b>立即进入 Manager Override</b>（无中间的"escalate 阶段"独立存在；escalation-pack.md 仅作为 Manager Override 入口的卷宗自动生成）。
+      </p>
+
+      <div class="levels" style="grid-template-columns: repeat(2, 1fr); margin-top: 12px;">
+        <div class="lvl l1">
+          <div class="id">L1</div>
+          <div class="name">AUTO RETRY · max=1</div>
+          <div class="judge"><b>Gate fail 第 1 次</b>：把 fail_items 打包成 <code>feedback-receipt.json</code>，回路给上一个 stage 派 <b>fresh sub-agent</b>，明示"上一轮哪些条不通过 + reviewer 期望什么"。Sub-agent 看 feedback + 自己上轮 receipt，针对性修正而非重写。<br><span class="muted">注：sub-agent 在被派工时如自报"无法解题"（基于 prompt 中的"自报阻塞"约定），跳过 retry 直接进 L2。</span></div>
+          <div class="stages">默认 max_retry = <b>1</b><br><span class="muted">workflow.config 可调（暂保留 hook）</span></div>
+          <div class="save">不打扰主线 thread</div>
+        </div>
+        <div class="lvl l3">
+          <div class="id">L2</div>
+          <div class="name">MANAGER OVERRIDE</div>
+          <div class="judge">触发条件：retry 1 次仍 fail <b>或</b> sub-agent 自报阻塞 <b>或</b> Gate 8 (handoff verify) 失败。<br>动作：主线<b>自动生成</b> <code>escalation-pack.md</code> 卷宗 → <b>主线起草决策建议</b> → 用 <code>AskUserQuestion</code> 让用户拍板 → 写 <code>manager-decision.json</code> → 按决策<b>强制推进</b>，后续 receipt 带 <code>manager_override</code> 标记；同时<b>追加 <code>state/retro.md</code></b>。</div>
+          <div class="stages">人决策 → 主线落地<br>5 种推进方式见 <b>[08]</b></div>
+          <div class="save">最终"卡不住"保障 + 体系改进证据</div>
+        </div>
+      </div>
+
+      <p style="font-size: 12px; color: var(--text-3); margin-top: 16px; line-height: 1.7;">
+        ★ <b>设计意图</b>：v4 原本设计的"L2 Escalate 阶段"在 max_retry=1 + 允许 sub-agent 自报阻塞 之后已经退化为单纯的"卷宗自动整理"——不再是独立处理阶段，所以合并到 L2 的准备步里。这避免了"系统自己反复尝试且不告诉人"的反模式。
+      </p>
+
+      <h3 style="margin: 28px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">L1 Auto Retry · 子流程图</h3>
+
+      <div class="mermaid-wrap">
+        <pre class="mermaid">
+flowchart LR
+    Fail{Gate Fail} --> Pack[/打包 feedback-receipt.json<br/>fail_items + reviewer expectation<br/>attempt++/]
+    Pack --> Check{attempt 大于 max=1<br/>OR self-blocked}
+    Check -->|no first retry| Respawn[派 fresh sub-agent<br/>带 feedback + 上轮 receipt]
+    Respawn --> Upstream[上游 Stage<br/>spec / plan / impl drafter]
+    Upstream --> NewReceipt[(新一轮 receipt)]
+    NewReceipt --> Regate{重新 Gate}
+    Regate -->|pass| Forward[正常前进]
+    Regate -->|fail| Fail
+    Check -->|yes 直接升级| Manager[Manager Override<br/>主线自动生成 escalation-pack<br/>+ 起草决策 + AskUserQuestion]
+
+    classDef warn fill:#3a3020,stroke:#FFC857,color:#FFC857
+    classDef pack fill:#1a2a3a,stroke:#B084FF,color:#B084FF
+    classDef gate fill:#2a2a2a,stroke:#9CA3B4,color:#E8ECF4,stroke-dasharray:5
+    classDef mgr fill:#2a1a3a,stroke:#B084FF,color:#B084FF
+    class Pack pack
+    class Check,Regate,Fail gate
+    class Respawn,Upstream warn
+    class NewReceipt pack
+    class Manager mgr
+        </pre>
+      </div>
+
+      <p style="font-size: 12px; color: var(--text-3); margin-top: 12px;">
+        ★ <b>子图必要性 review 点</b>：max_retry=1 之后这张子图已经很薄（只比主图多一个 feedback-receipt 打包步骤）——v5 review 后如认为冗余可合并到主图。
+      </p>
+
+      <h3 style="margin: 28px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">Feedback-Receipt JSON Schema</h3>
+
+      <pre class="tree"><span class="comment"># dev/work/&lt;workId&gt;/receipts/feedback-&lt;stage&gt;-attempt-N.json</span>
+{
+  <span class="dir">"from_gate"</span>: <span class="file">"Gate5"</span>,                      <span class="comment"># 哪个 gate 报 fail</span>
+  <span class="dir">"to_stage"</span>: <span class="file">"2a-spec-drafter"</span>,             <span class="comment"># 回路给谁</span>
+  <span class="dir">"attempt"</span>: <span class="file">2</span>,                                <span class="comment"># 当前是第 N 次（首次=1，重试后=2）</span>
+  <span class="dir">"max_retry"</span>: <span class="file">1</span>,                              <span class="comment"># v5 默认 1；attempt &gt; max_retry+1 即升级</span>
+  <span class="dir">"fail_items"</span>: [
+    <span class="file">"section3 仅列了 2 条不做的事，要求 ≥3 条"</span>,
+    <span class="file">"section6 红线 #4 评估写了 待评估，必须明确"</span>
+  ],
+  <span class="dir">"reviewer_expectation"</span>: <span class="file">"列出 ≥3 条与 spec 目标无关的常被混淆事项；红线 4 直接判断"</span>,
+  <span class="dir">"previous_receipt"</span>: <span class="file">"receipts/2a-spec.json"</span>,
+  <span class="dir">"context_notes"</span>: <span class="file">"reviewer 注意到 section3 与 section11 残余风险有部分重叠，可参考剥离"</span>
+}</pre>
+
+      <h3 style="margin: 28px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">Escalation-Pack 结构（仅作为 Manager Override 入口卷宗）</h3>
+
+      <pre class="tree"><span class="comment"># dev/work/&lt;workId&gt;/receipts/escalation-&lt;timestamp&gt;.md</span>
+<span class="comment"># 由主线在进入 Manager Override 前自动整理；不是一个独立"阶段"</span>
+
+# Escalation - workId IS-009 stuck at Gate5
+
+## 当前 stage
+2c reviewer (verdict = NEEDS_REVISION)
+
+## 触发原因
+attempt 2/2 仍 fail   OR   sub-agent self-reported blocked
+
+## 历次尝试（max=1 → 最多 2 行）
+| Attempt | Stage retry | Receipt | Verdict | Key fail items |
+|---|---|---|---|---|
+| 1 | 2a-spec | <span class="file">2a-spec-attempt-1.json</span> | REVISION | section3 不够；section6 待评估 |
+| 2 | 2a-spec | <span class="file">2a-spec-attempt-2.json</span> | REVISION | section6 仍未给明确判断 |
+
+## Sub-agent 自报阻塞点（如有）
+"section6 红线 #4 涉及客户隔离机制，本工单 spec 描述的实现确实在边界上，
+无法在不引入 architecture review 的情况下定性是否触及红线"
+
+## 主线起草的决策建议
+推荐：<b>shrink-scope</b> — 把"客户隔离边界判断"剥离成新工单 IS-010，本工单 spec section3 加"不做"项
+理由：sub-agent 自报的阻塞点本质是 scope 越界，把它剥离后本工单可继续推进
+
+## Manager 可选决策（5 选 1，见 [08]）
+- [ ] accept-override / downgrade / shrink-scope / split-slice / drop
+
+## 历次 feedback 全文
+（自动汇总 feedback-receipt.json）</pre>
+
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[07]</span>
+      <h2>Manager 状态看板（工单清单级）</h2>
+      <span class="hint">扩展 BOARD.html · 只到"哪个工单卡在哪个 stage"级别</span>
+    </header>
+    <div class="body">
+
+      <p style="font-size: 13px; color: var(--text-2); margin-top: 0;">
+        v5 收敛：BOARD <b>不</b>展示 stage 内部细节（gate 重试次数、receipt diff 等）。
+        Manager 只需要看到 <b>工单清单 + 当前 stage + 是否 blocked</b> 三个信号。
+        Stage 级 / 产物级深入视图<b>留作独立后期工具</b>，从 <code>dev/work/&lt;id&gt;/receipts/*</code> 聚合渲染（不在本次 v5 实施范围内）。
+      </p>
+
+      <h3 style="margin: 24px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">新增 Panel · Pipeline Status（工单清单视图）</h3>
+
+      <pre class="tree"><span class="comment"># BOARD.html 新 panel 渲染示意（ASCII）</span>
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ [05] PIPELINE STATUS                                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  WorkID    Level  Status         Stage         Note                 │
+│  ──────    ─────  ──────────     ──────────    ──────────────────   │
+│  IS-009    L3     <span style="color: var(--error)">BLOCKED</span>        2c-review     <span style="color: var(--error)">awaiting Manager</span>     │
+│  IS-010    L2     In Progress    3-impl        retry 1/1            │
+│  IS-011    L1     Ready          —             —                    │
+│  IS-012    L0     Planned        —             —                    │
+│                                                                     │
+│  <span style="color: var(--error)">🚨 1 workitem awaiting Manager decision</span>                          │
+│     → IS-009  see dev/work/IS-009/receipts/escalation-*.md          │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘</pre>
+
+      <p style="font-size: 12px; color: var(--text-3); margin-top: 12px;">
+        说明：<code>Stage</code> 只显示当前阶段名（不画进度条）；<code>Note</code> 列存"retry N/max"或"awaiting Manager"等关键提示。点击 workid 跳转到 <code>dev/work/&lt;id&gt;/</code> 看产物（未来由独立工具渲染深入视图）。
+      </p>
+
+      <h3 style="margin: 24px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">pipeline-status.json Schema（精简后）</h3>
+
+      <pre class="tree"><span class="comment"># dev/work/&lt;workId&gt;/receipts/pipeline-status.json</span>
+<span class="comment"># 每次 sub-agent 完成 / Gate 校验后由它自己或主线更新</span>
+<span class="comment"># v5 收敛：只存工单清单级渲染所需字段；详细 stage_progress / gate_history 留在 receipts 文件里</span>
+
+{
+  <span class="dir">"workId"</span>: <span class="file">"IS-009"</span>,
+  <span class="dir">"level"</span>: <span class="file">"L3"</span>,
+  <span class="dir">"started_at"</span>: <span class="file">"2026-05-16T14:23:00+08:00"</span>,
+  <span class="dir">"current_stage"</span>: <span class="file">"2c-review"</span>,        <span class="comment"># 0-triage / 1-plan / 2a-spec / 2b-plan / 2c-review / 3-impl / 4-arch / 5-handoff</span>
+  <span class="dir">"current_retry"</span>: <span class="file">1</span>,                       <span class="comment"># 当前 stage 内的 retry 计数（0 = 首次尝试）</span>
+  <span class="dir">"max_retry"</span>: <span class="file">1</span>,
+  <span class="dir">"status"</span>: <span class="file">"blocked"</span>,                       <span class="comment"># in_progress / blocked / done</span>
+  <span class="dir">"blocked_reason"</span>: <span class="file">"Gate5 fail attempt 2 - awaiting Manager"</span>,
+  <span class="dir">"escalation_pack"</span>: <span class="file">"receipts/escalation-20260516-1620.md"</span>,  <span class="comment"># null 表示无 pending</span>
+  <span class="dir">"manager_override_count"</span>: <span class="file">0</span>                <span class="comment"># 本工单历次 override 计数</span>
+}</pre>
+
+      <h3 style="margin: 24px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">state/retro.md 落地段（每次 Override 自动追加）</h3>
+
+      <pre class="tree"><span class="comment"># dev/state/retro.md — 工单级人决策追溯日志</span>
+
+## 2026-05-16 · IS-009 · 2c-review override
+
+- <b>失败链</b>: Gate5 fail attempt 1 → sub-agent 自报"section6 红线 #4 边界判断超出 spec 能力"
+- <b>Manager 决策</b>: shrink-scope（剥离客户隔离边界判断到 IS-010）
+- <b>1 行经验</b>: spec section4 需更早收紧文件白名单；本类型工单 stage 2a 前应再过一道 scope 收敛 review</pre>
+
+      <p style="font-size: 12px; color: var(--text-3); margin-top: 12px;">
+        ★ 累计 retro 条目数会作为主线 surface 触发条件：每里程碑收尾 <b>或</b> 累计 ≥3 条新 override，下一次 stage-1 planner 派工前主线主动展示 retro.md 给用户做体系反思。
+      </p>
+
+      <h3 style="margin: 24px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">render-board.mjs 改动点</h3>
+
+      <table>
+        <thead>
+          <tr><th>位置</th><th>改动</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>parseActive(active.md)</code></td>
+            <td>不变 · 仍读工单级状态</td>
+          </tr>
+          <tr>
+            <td><span class="key">+ 新</span> <code>scanPipelineStatus()</code></td>
+            <td>扫描 <code>dev/work/*/receipts/pipeline-status.json</code> 聚合一张工单清单（含状态/stage/blocked）</td>
+          </tr>
+          <tr>
+            <td><span class="key">+ 新</span> Panel <code>[05] PIPELINE STATUS</code></td>
+            <td>渲染工单清单表（不画进度条/gate history，那些留独立工具）</td>
+          </tr>
+          <tr>
+            <td><span class="key">+ 新</span> KPI 卡 <code>BLOCKED</code></td>
+            <td>统计所有工单 <code>status=blocked</code> 数；&gt;0 时红色高亮 + 显示 escalation 链接</td>
+          </tr>
+          <tr>
+            <td><code>verify-handoff.mjs</code></td>
+            <td>新 check：handoff 时检查本工单 <code>pipeline-status.json</code> 中 <code>status=done</code>，无 pending escalation</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <section>
+    <header>
+      <span class="tag">[08]</span>
+      <h2>Manager 决策选项 · 5 种强制推进方式</h2>
+      <span class="hint">人介入后，所有后续 receipt 必须带 manager_override 标记</span>
+    </header>
+    <div class="body">
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 130px;">决策</th>
+            <th style="width: 38%;">语义</th>
+            <th>受影响</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="stage" style="color: var(--info);">accept-override</td>
+            <td>接受现状强制 pass。当前 receipt 的 verdict 强行翻 READY，进入下一 stage。<br><span class="muted">适合：reviewer 给的是过度严格的"理论问题"但实际可接受</span></td>
+            <td>下一 stage 接力执行；handoff 时 customer-visible.md 写明 "manager-override accepted on Gate5"</td>
+          </tr>
+          <tr>
+            <td class="stage" style="color: var(--warning);">downgrade</td>
+            <td>L3 降 L2 / L2 降 L1。跳过当前卡住的严格 stage（如 arch reviewer），用轻量版替代。<br><span class="muted">适合：发现工单实际复杂度低于初判，严格 stage 是过度设计</span></td>
+            <td>跳过当前/后续严格 stage；customer-visible 记录降档</td>
+          </tr>
+          <tr>
+            <td class="stage" style="color: var(--purple);">shrink-scope</td>
+            <td>人编辑 spec §3 "本轮不做" 把卡住的边界条款加进去，重新从 spec-drafter 走一次。<br><span class="muted">适合：发现工单边界没收住，把卡住的部分剥离</span></td>
+            <td>把卡住的部分剥离成新工单（自动入 Planned queue）；本工单 spec §3 + §11 同步更新</td>
+          </tr>
+          <tr>
+            <td class="stage" style="color: var(--brand-glow);">split-slice</td>
+            <td>把工单拆成 sub-slice，先做能过 gate 的部分。<br><span class="muted">适合：工单 spec §4 范围过大，部分能做、部分卡住</span></td>
+            <td>plan §3 加 Sub-slice 列表；implementor 按 slice 重新启动</td>
+          </tr>
+          <tr>
+            <td class="stage" style="color: var(--error);">drop</td>
+            <td>标记工单 Superseded（编号不还回池）。<br><span class="muted">适合：发现工单本身错了，前置假设不成立</span></td>
+            <td>queue 行 Superseded；active.md 翻 Idle；customer-visible 写"暂停 + 原因"</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin: 28px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">manager-decision.json Schema</h3>
+
+      <pre class="tree"><span class="comment"># dev/work/&lt;workId&gt;/receipts/manager-decision-&lt;timestamp&gt;.json</span>
+{
+  <span class="dir">"escalation_pack"</span>: <span class="file">"receipts/escalation-20260516-1620.md"</span>,
+  <span class="dir">"decided_at"</span>: <span class="file">"2026-05-16T18:00:00+08:00"</span>,
+  <span class="dir">"decided_by"</span>: <span class="file">"yingze"</span>,
+  <span class="dir">"action"</span>: <span class="file">"accept-override"</span>,
+  <span class="dir">"reasoning"</span>: <span class="file">"§6 红线 #4 客户隔离边界判断，本工单确实在临界，但客户实际不会触及（已在 §11 残余风险标明）。接受现状继续推进。"</span>,
+  <span class="dir">"action_params"</span>: {
+    <span class="dir">"override_gate"</span>: <span class="file">"Gate5"</span>,
+    <span class="dir">"force_verdict"</span>: <span class="file">"READY_TO_IMPLEMENT"</span>
+  },
+  <span class="dir">"followup_required"</span>: [
+    <span class="file">"customer-visible.md 必须明示本工单含 manager-override"</span>,
+    <span class="file">"retro 时回看 Gate5 是否过严"</span>
+  ]
+}</pre>
+
+      <h3 style="margin: 28px 0 8px; font-size: 12px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase;">主线 thread 落地流程（v5 · 主线起草 + 用户确认）</h3>
+
+      <ol style="font-size: 13px; color: var(--text-2); line-height: 1.7;">
+        <li>Gate fail attempt 2（或 sub-agent 自报阻塞 / Gate 8 fail）→ 主线接到 sub-agent return + 失败上下文</li>
+        <li>主线<b>自动整理</b> <code>escalation-pack.md</code> 卷宗（含历次 receipt diff / sub-agent 自报阻塞点 / 历次 feedback）</li>
+        <li>主线<b>自动起草</b>决策草案（基于卷宗 + 5 选 1 的语义匹配）：「我建议：<code>&lt;option&gt;</code> · 理由：... · 影响范围：...」</li>
+        <li>主线调 <code>AskUserQuestion</code> 呈现草案 + 4 个可选行动给用户：
+          <ul style="margin: 4px 0 4px 16px;">
+            <li>Accept 推荐</li>
+            <li>改选其他 option（4 个）</li>
+            <li>微调 action_params（用户用自然语言反馈，主线再修订草案）</li>
+            <li>Drop / Abort</li>
+          </ul>
+        </li>
+        <li>用户拍板后主线<b>写入</b> <code>dev/work/&lt;id&gt;/receipts/manager-decision-&lt;timestamp&gt;.json</code></li>
+        <li>主线<b>追加</b> <code>dev/state/retro.md</code> 一段（失败链 + 决策 + 1 行经验）</li>
+        <li>主线按 <code>action</code> 字段调度：
+          <ul style="margin: 4px 0 4px 16px;">
+            <li><code>accept-override</code> → 直接派下一 stage sub-agent，prompt 含 manager_override 标记</li>
+            <li><code>downgrade</code> → 改 <code>receipts/0-triage.json</code> 中 level，重新走 Gate（按新 level 分支）</li>
+            <li><code>shrink-scope</code> → 派 spec-drafter retry，prompt 含"必须加 section3 不做"指令</li>
+            <li><code>split-slice</code> → 派 plan-drafter retry，prompt 含"声明 sub-slice"指令</li>
+            <li><code>drop</code> → 直接走 handoff 流程，queue 翻 Superseded</li>
+          </ul>
+        </li>
+        <li>所有后续 receipt 必须带 <code>manager_override: { gate, decision_path }</code> 字段；handoff 时由 verify-handoff 检查并要求 <code>customer-visible.md</code> 明示</li>
+      </ol>
+
+      <p style="font-size: 12px; color: var(--text-3); margin-top: 12px;">
+        ★ <b>为什么不用手编 JSON / CLI</b>：进入 Manager Override 时主线上下文已经齐全（卷宗、卡点、所有 receipt 都在），起草成本几乎为零；用户负担降到"yes / 改选项 / 自然语言反馈"。手编 JSON 容易出 schema 错；CLI 多轮问答比一次成稿见全貌差。
+      </p>
+
+    </div>
+  </section>
+
+  <div class="questions" style="background: rgba(54,211,153,0.06); border-color: rgba(54,211,153,0.3);">
+    <h3 style="color: var(--success);">v5 实施清单（待你拍板后开干）</h3>
+    <ol style="line-height: 1.7;">
+      <li><b>SKILL.md</b>：补 max_retry 默认 1 / 取消"L2 escalate 独立阶段"说法 / 4 档 Triage 路由表 / Receipt-Gate 表 / 主线 Manager Override 起草流程</li>
+      <li><b>7 个 agents/*.md</b>：加"自报阻塞"约定段（fail 时给 root cause）+ 引用 feedback-receipt.json + manager_override 透传</li>
+      <li><b>新文件</b>：<code>agents/direct-fix.md</code>（L0 路径） / <code>references/pipeline-flow.md</code>（主流程图源） / <code>references/receipts-schema.md</code>（含 feedback-receipt / pipeline-status / manager-decision schema）</li>
+      <li><b>references/quality-gates.md</b>：18 gate 升级到含 Receipt 字段 / Retry 策略 / 升级条件</li>
+      <li><b>render-board.mjs</b>：扫 <code>dev/work/*/receipts/pipeline-status.json</code> + 渲染 [05] PIPELINE STATUS panel + KPI BLOCKED</li>
+      <li><b>verify-handoff.mjs</b>：新增 check pipeline-status.json status=done</li>
+      <li><b>evals/</b>：扩 L0-L3 四级 case + retry/override 行为 case + retro.md 追加 case</li>
+      <li><b>state/retro.md</b>：首次创建 + 主线 surface 触发逻辑（每里程碑 / 累计 ≥3 条）</li>
+    </ol>
+  </div>
+
+</main>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0B0F1A',
+      primaryColor: '#1B2438',
+      primaryTextColor: '#E8ECF4',
+      primaryBorderColor: '#57A6F5',
+      lineColor: '#6B7385',
+      secondaryColor: '#141B2D',
+      tertiaryColor: '#252D40',
+      fontFamily: 'Inter, "Noto Sans SC", system-ui, sans-serif',
+      fontSize: '13px',
+    },
+    flowchart: {
+      curve: 'basis',
+      nodeSpacing: 35,
+      rankSpacing: 50,
+      padding: 12,
+    },
+  });
+</script>
+
+</body>
+</html>

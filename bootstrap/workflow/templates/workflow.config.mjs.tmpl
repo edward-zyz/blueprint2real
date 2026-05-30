@@ -1,0 +1,22 @@
+// 工作流配置（项目特有）。
+// 由 b2r-process/workflow/scripts/config.mjs 在脚本启动时加载。
+// 可配置项默认值见 workflow/scripts/config.mjs::defaults。
+
+export default {
+  // 工单编号
+  workIdPrefix: '{{workIdPrefix}}',
+  workIdDigits: {{workIdDigits}},
+
+  // 里程碑（数组顺序 = BOARD 显示顺序；空数组表示不用里程碑）
+  milestones: {{milestonesJson}},
+
+  // 品牌文本
+  projectName: '{{projectName}}',
+  boardTitle: '{{boardTitle}}',
+
+  // RUNBOOK / sub-agent boot 中引用的项目文档路径
+  docsRefs: {{docsRefsJson}},
+
+  // promote 生成的 spec/plan stub 中嵌入的 regression 命令
+  regressionCommands: {{regressionCommandsJson}},
+};

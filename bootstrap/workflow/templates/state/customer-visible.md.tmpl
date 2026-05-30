@@ -1,0 +1,21 @@
+# 客户 / 产品可感知变化流水
+
+每条工单 Done 后追加一段，结构固定：
+
+```
+## YYYY-MM-DD · {{workIdPrefix}}-{{workIdNumberMask}} Done
+
+- **客户/产品可感知变化**：……
+- **Internal-only 变化**：……
+```
+
+校验规则：
+- 引用的 `{{workIdPrefix}}-{{workIdNumberMask}}` 必须在 `queue.md` 中 `Status=Done`（由 `validate-state.mjs` 兜底）。
+- 段头日期必须是合法 ISO 日期。
+- 段内至少两条 bullet（客户可感知 / Internal-only）。
+
+排序约定：渲染端按 (date desc, workId desc) 排序，本文件物理顺序不强制（追加在末尾即可）。
+
+---
+
+（暂无 Done 段；首个工单完成后从此处开始追加。）

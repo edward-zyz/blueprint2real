@@ -1,0 +1,350 @@
+{
+  "skill_name": "blueprint2real",
+  "evals": [
+    {
+      "id": "roadmap-planner-end-to-end",
+      "weight": "heavy",
+      "prompt": "我们手头有一份简短的产品路线图，希望你按 blueprint2real skill 的 Stage 1 把它拆成一组 Planned 工单进 dev/state/queue.md。下面是 roadmap 文本：\n\n## 路线图 · M0\n\n1. 在 dashboards 模块新增一个【欠费分布】看板，输入维度：客户、品牌、月份；输出：欠费金额分布图 + Top 10 列表。\n2. 把现有的 NDR 计算逻辑从 services/billing/ndr.js 抽出来，写成独立的 dao + service + sql 模板，并加 1 周 SQLite 缓存。\n3. MCP server 的 query_database 工具加 60 秒超时保护，超时返回明确错误码并写 audit log。\n\n## 路线图 · M1\n\n4. 给上面 3 项每个加 1 个 e2e smoke test，跑在 CI 里。\n\n注意：你必须先读 cwd/dev/workflow.config.mjs 拿编号前缀、里程碑、文档引用路径——不要硬编码 IS-NNN 或 M0/M1/M2。",
+      "fixture_dir": "/tmp/b2r-fixtures/case-roadmap",
+      "expected_output": "queue.md 含 ≥4 条 Planned 工单（前缀来自 config）+ 每条对应 §Planned 摘要段 + validate:state 0 error",
+      "assertions": [
+        {
+          "text": "queue.md 含 ≥4 条 Planned 行（来自 4 个 roadmap 项）",
+          "type": "shell",
+          "command": "grep -c '| Planned |' /tmp/b2r-fixtures/case-roadmap/dev/state/queue.md",
+          "expected": ">=4"
+        },
+        {
+          "text": "queue.md 中工单编号使用 config.workIdPrefix (DEMO)，未硬编码 IS-",
+          "type": "shell",
+          "command": "grep -cE '^\\| DEMO-[0-9]{3} \\|' /tmp/b2r-fixtures/case-roadmap/dev/state/queue.md",
+          "expected": ">=4"
+        },
+        {
+          "text": "queue.md 未出现错误前缀 IS-（说明 skill 没硬编码）",
+          "type": "shell",
+          "command": "grep -c 'IS-[0-9]\\{3\\}' /tmp/b2r-fixtures/case-roadmap/dev/state/queue.md",
+          "expected": "0"
+        },
+        {
+          "text": "§Planned 摘要段下含 ≥4 个 ### DEMO-XXX · 小节",
+          "type": "shell",
+          "command": "grep -cE '^### DEMO-[0-9]{3} ·' /tmp/b2r-fixtures/case-roadmap/dev/state/queue.md",
+          "expected": ">=4"
+        },
+        {
+          "text": "validate:state 退出码 0",
+          "type": "shell",
+          "command": "cd /tmp/b2r-fixtures/case-roadmap/dev && npm run validate:state >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "每条工单的依赖只引用 backlog 内已声明的编号（无悬空依赖）",
+          "type": "shell",
+          "command": "cd /tmp/b2r-fixtures/case-roadmap/dev && npm run deps:graph >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "里程碑归属来自 config.milestones (M0/M1)，未硬编码 M2 或其他",
+          "type": "shell",
+          "command": "awk -F'|' '/^\\| DEMO-/ {gsub(/ /,\"\",$5); print $5}' /tmp/b2r-fixtures/case-roadmap/dev/state/queue.md | sort -u | grep -vE '^(M0|M1)$' | wc -l",
+          "expected": "0"
+        }
+      ]
+    },
+    {
+      "id": "skill-content-static-check",
+      "weight": "light",
+      "prompt": "(static check, no subagent) 验证 SKILL.md + agents/* + references/* 之间的内部一致性，确保 skill 自身没有硬编码本项目特定值。",
+      "fixture_dir": null,
+      "expected_output": "SKILL.md 不包含 private project tokens；每个 agent 模板都引用 {{workIdPrefix}} 占位；references/ 中 schema 与 validate-state.mjs 实际枚举一致。",
+      "assertions": [
+        {
+          "text": "SKILL.md 不硬编码 IS- 编号示例（IS-XXX 占位允许，IS-001 等具体不允许）",
+          "type": "shell",
+          "command": "grep -E 'IS-[0-9]{3}' \"$SKILL_ROOT\"/SKILL.md | wc -l",
+          "expected": "0"
+        },
+        {
+          "text": "SKILL.md 不出现 private project tokens",
+          "type": "shell",
+          "command": "grep -cE 'private-project-token-never-match' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": "0"
+        },
+        {
+          "text": "对接具体工单的 7 个 agent 都引用 {{workId}} 占位（roadmap-planner 例外；含 v5.1 新增 direct-fix）",
+          "type": "shell",
+          "command": "grep -l '{{workId}}' \"$SKILL_ROOT\"/agents/*.md | wc -l",
+          "expected": "7"
+        },
+        {
+          "text": "需要生成新 work-id 的角色（roadmap-planner / handoff-committer）引用 {{workIdPrefix}}",
+          "type": "shell",
+          "command": "grep -l '{{workIdPrefix}}' \"$SKILL_ROOT\"/agents/{roadmap-planner,handoff-committer,spec-drafter,implementor}.md | wc -l",
+          "expected": "4"
+        },
+        {
+          "text": "implementor / handoff-committer 都引用 {{regressionCommandsJson}} 或 regressionCommands",
+          "type": "shell",
+          "command": "grep -l 'regressionCommands' \"$SKILL_ROOT\"/agents/{implementor,handoff-committer,spec-drafter,plan-drafter}.md | wc -l",
+          "expected": ">=3"
+        },
+        {
+          "text": "SKILL.md 含 6 阶段编排（Stage 0 Triage + 1-5）",
+          "type": "shell",
+          "command": "grep -cE '^┌─ Stage [0-5]' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": "6"
+        },
+        {
+          "text": "quality-gates.md 列出至少 14 个具体节点",
+          "type": "shell",
+          "command": "grep -cE '^\\| [0-5] \\|' \"$SKILL_ROOT\"/references/quality-gates.md",
+          "expected": ">=14"
+        },
+        {
+          "text": "v5.1: SKILL.md 含 4 档 Triage 路由表（L0/L1/L2/L3）",
+          "type": "shell",
+          "command": "grep -cE '\\*\\*L[0-3]\\*\\*' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=4"
+        },
+        {
+          "text": "v5.1: SKILL.md 含 attempt > maxRetry+1 升级公式",
+          "type": "shell",
+          "command": "grep -cE 'attempt > pipeline\\.maxRetry \\+ 1|attempt > maxRetry \\+ 1' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "v5.1: SKILL.md 含 Manager Override 5 个 action",
+          "type": "shell",
+          "command": "grep -cE 'accept-override|downgrade|shrink-scope|split-slice|drop' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=5"
+        },
+        {
+          "text": "v5.1: 8 个 agent（含 direct-fix）",
+          "type": "shell",
+          "command": "ls \"$SKILL_ROOT\"/agents/*.md | wc -l",
+          "expected": "8"
+        },
+        {
+          "text": "v5.1: 7 个 stage agent 都含'自报阻塞'段（roadmap-planner / direct-fix / 7 个 stage agent）",
+          "type": "shell",
+          "command": "grep -lE '自报阻塞|blocked_evidence' \"$SKILL_ROOT\"/agents/*.md | wc -l",
+          "expected": ">=7"
+        },
+        {
+          "text": "v5.1: 6 个 stage agent 都含 receipt envelope JSON 模板（roadmap-planner / direct-fix 除外结构特殊）",
+          "type": "shell",
+          "command": "grep -lE 'receipt envelope|stage_id' \"$SKILL_ROOT\"/agents/*.md | wc -l",
+          "expected": ">=7"
+        },
+        {
+          "text": "v5.1: references/ 新增 receipts-schema.md 含 envelope + 8 stage schema",
+          "type": "shell",
+          "command": "grep -cE '^### [0-5][a-c]?-' \"$SKILL_ROOT\"/references/receipts-schema.md",
+          "expected": ">=8"
+        },
+        {
+          "text": "v5.1: references/ 新增 pipeline-flow.md 含主流程 mermaid",
+          "type": "shell",
+          "command": "grep -cE '^```mermaid' \"$SKILL_ROOT\"/references/pipeline-flow.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "v5.1: quality-gates.md 含 Manager Override 5 个 action 表",
+          "type": "shell",
+          "command": "grep -cE '`accept-override`|`downgrade`|`shrink-scope`|`split-slice`|`drop`' \"$SKILL_ROOT\"/references/quality-gates.md",
+          "expected": ">=5"
+        }
+      ]
+    },
+    {
+      "id": "config-portability-roundtrip",
+      "weight": "light",
+      "prompt": "(static check, no subagent) 通过 init.mjs 生成 3 个不同项目的 fixture（不同 prefix / milestones），验证生成的 state stub + AGENT_RUNBOOK 都正确替换了占位。",
+      "fixture_dir": null,
+      "expected_output": "3 个 fixture 各自 validate:state 0 error；workflow.config.mjs 字段与命令参数一致；queue.md 编号前缀正确。",
+      "assertions": [
+        {
+          "text": "fixture A (FOO/Q1,Q2)：workflow.config.mjs 含 workIdPrefix: 'FOO'",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-fA && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --prefix FOO --milestones Q1,Q2 --project foo --target /tmp/b2r-fA >/dev/null && grep -c \"workIdPrefix: 'FOO'\" /tmp/b2r-fA/workflow.config.mjs",
+          "expected": "1"
+        },
+        {
+          "text": "fixture A：queue.md 编号规则段含 FOO-NNN",
+          "type": "shell",
+          "command": "grep -c 'FOO-NNN' /tmp/b2r-fA/state/queue.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "fixture A：AGENT_RUNBOOK §3 含 FOO-NNN handoff 模板",
+          "type": "shell",
+          "command": "grep -cE 'FOO-NNN' /tmp/b2r-fA/AGENT_RUNBOOK.md",
+          "expected": ">=3"
+        },
+        {
+          "text": "fixture B (BAR/无里程碑/--milestones '')：里程碑段说明本项目未配置",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-fB && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --prefix BAR --milestones '' --project bar --target /tmp/b2r-fB >/dev/null && grep -c '本项目当前未配置里程碑' /tmp/b2r-fB/state/roadmap.md",
+          "expected": "1"
+        },
+        {
+          "text": "fixture B：workflow.config milestones 为空数组",
+          "type": "shell",
+          "command": "grep -c 'milestones: \\[\\]' /tmp/b2r-fB/workflow.config.mjs",
+          "expected": "1"
+        },
+        {
+          "text": "fixture C (BAZ/4 位编号)：config 含 workIdDigits: 4",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-fC && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --prefix BAZ --digits 4 --milestones Phase1 --project baz --target /tmp/b2r-fC >/dev/null && grep -c 'workIdDigits: 4' /tmp/b2r-fC/workflow.config.mjs",
+          "expected": "1"
+        },
+        {
+          "text": "fixture C：queue.md 编号规则段含 BAZ-NNNN（4 位）",
+          "type": "shell",
+          "command": "grep -c 'BAZ-NNNN' /tmp/b2r-fC/state/queue.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "v5.1: fixture A 含 state/retro.md 落地",
+          "type": "shell",
+          "command": "test -f /tmp/b2r-fA/state/retro.md && grep -c 'Manager Override' /tmp/b2r-fA/state/retro.md",
+          "expected": ">=1"
+        }
+      ]
+    },
+    {
+      "id": "v5.1-pipeline-status-schema",
+      "weight": "light",
+      "prompt": "(static check) 手造 pipeline-status.json fixture，验证 validate-pipeline-status.mjs 能识别合规/不合规两种 case；并验证 render-board 能渲染 BLOCKED panel。",
+      "fixture_dir": null,
+      "expected_output": "validate-pipeline-status 对 valid fixture 退 0，对 invalid (status=blocked 无 reason) 退 1；render-board 在 BLOCKED 工单时输出含 'awaiting Manager' 的 HTML。",
+      "assertions": [
+        {
+          "text": "v5.1: validate-pipeline-status.mjs 已建且可执行",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/scripts/validate-pipeline-status.mjs && echo ok",
+          "expected": "ok"
+        },
+        {
+          "text": "v5.1: npm script validate:pipeline 已注册到 dev-package.json.tmpl",
+          "type": "shell",
+          "command": "grep -c '\"validate:pipeline\"' \"$SKILL_ROOT\"/bootstrap/workflow/templates/dev-package.json.tmpl",
+          "expected": "1"
+        },
+        {
+          "text": "v5.1: workflow.config.mjs defaults 含 pipeline 命名空间",
+          "type": "shell",
+          "command": "grep -cE '^\\s+pipeline:\\s*\\{' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/config.mjs",
+          "expected": ">=1"
+        },
+        {
+          "text": "v5.1: valid pipeline-status fixture 通过 validate-pipeline-status",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-ps-valid && mkdir -p /tmp/b2r-ps-valid/work/IS-001/receipts && echo \"export default { workIdPrefix: 'IS' };\" > /tmp/b2r-ps-valid/workflow.config.mjs && printf '%s' '{\"workId\":\"IS-001\",\"level\":\"L2\",\"started_at\":\"2026-05-16T14:00:00+08:00\",\"current_stage\":\"3-impl\",\"current_attempt\":1,\"max_retry\":1,\"status\":\"in_progress\",\"blocked_reason\":null,\"escalation_pack\":null,\"manager_override_count\":0,\"last_feedback\":null}' > /tmp/b2r-ps-valid/work/IS-001/receipts/pipeline-status.json && (DEV_ROOT=/tmp/b2r-ps-valid node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/validate-pipeline-status.mjs >/dev/null 2>&1 && echo ok || echo fail)",
+          "expected": "ok"
+        },
+        {
+          "text": "v5.1: invalid pipeline-status (status=blocked 无 reason) 被识别为 fail",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-ps-bad && mkdir -p /tmp/b2r-ps-bad/work/IS-002/receipts && echo \"export default { workIdPrefix: 'IS' };\" > /tmp/b2r-ps-bad/workflow.config.mjs && printf '%s' '{\"workId\":\"IS-002\",\"level\":\"L2\",\"started_at\":\"2026-05-16T14:00:00+08:00\",\"current_stage\":\"3-impl\",\"current_attempt\":2,\"max_retry\":1,\"status\":\"blocked\",\"blocked_reason\":null,\"escalation_pack\":null,\"manager_override_count\":0,\"last_feedback\":null}' > /tmp/b2r-ps-bad/work/IS-002/receipts/pipeline-status.json && (DEV_ROOT=/tmp/b2r-ps-bad node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/validate-pipeline-status.mjs >/dev/null 2>&1 && echo ok || echo fail)",
+          "expected": "fail"
+        },
+        {
+          "text": "v5.1: render-board 渲染 BLOCKED 工单时输出含 'awaiting Manager'（用 init 自生成 state fixture）",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-rb && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --prefix IS --milestones M0 --project rbtest --target /tmp/b2r-rb >/dev/null 2>&1 && mkdir -p /tmp/b2r-rb/work/IS-099/receipts && printf '%s' '{\"workId\":\"IS-099\",\"level\":\"L3\",\"started_at\":\"2026-05-16T14:00:00+08:00\",\"current_stage\":\"2c-review\",\"current_attempt\":2,\"max_retry\":1,\"status\":\"blocked\",\"blocked_reason\":\"Gate5 fail\",\"escalation_pack\":{\"rendered_at\":\"x\",\"triggers\":[\"x\"]},\"manager_override_count\":0,\"last_feedback\":null}' > /tmp/b2r-rb/work/IS-099/receipts/pipeline-status.json && STATE_DIR=/tmp/b2r-rb/state BOARD_OUT=/tmp/b2r-rb/BOARD.html node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/render-board.mjs >/dev/null 2>&1 && grep -c 'awaiting Manager' /tmp/b2r-rb/BOARD.html",
+          "expected": ">=1"
+        },
+        {
+          "text": "v5.1: verify-handoff.mjs 含 L0 跳过 Check 4 分支",
+          "type": "shell",
+          "command": "grep -cE 'L0 跳过' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/verify-handoff.mjs",
+          "expected": ">=1"
+        },
+        {
+          "text": "v5.1: verify-handoff.mjs 含 Check 7 pipeline-status.json",
+          "type": "shell",
+          "command": "grep -cE 'pipeline-status\\.json' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/verify-handoff.mjs",
+          "expected": ">=2"
+        }
+      ]
+    },
+    {
+      "id": "bootstrap-new-project",
+      "weight": "light",
+      "prompt": "(static check) v5.1+ thin 架构：用 skill bundle 的 init.mjs --bootstrap 模式在 b2r-process 真实位置初始化，断言只生成 state/config/package.json (无 workflow/ 子树)，且 npm script 指向已安装的 skill bundle。",
+      "fixture_dir": null,
+      "expected_output": "8 个文件（5 state + workflow.config.mjs + AGENT_RUNBOOK.md + package.json）；package.json 含 DEV_ROOT 注入；脚本指向 the installed skill bundle bootstrap/workflow/scripts/。",
+      "assertions": [
+        {
+          "text": "bootstrap: skill 自带 bootstrap/workflow/scripts/init.mjs 资产存在",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs && echo ok",
+          "expected": "ok"
+        },
+        {
+          "text": "bootstrap: 资产含 8 个核心脚本",
+          "type": "shell",
+          "command": "ls \"$SKILL_ROOT\"/bootstrap/workflow/scripts/*.mjs | grep -v '\\.test\\.' | wc -l",
+          "expected": ">=8"
+        },
+        {
+          "text": "bootstrap: 资产含 dev-package.json.tmpl",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/templates/dev-package.json.tmpl && echo ok",
+          "expected": "ok"
+        },
+        {
+          "text": "v5.1 thin: 端到端跑 --bootstrap 在真实项目位置（生成 8 文件，无 workflow/）",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-bs-eval && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --bootstrap --prefix ZZ --milestones M0,M1 --project zzapp --target /tmp/b2r-bs-eval >/dev/null 2>&1 && find /tmp/b2r-bs-eval -type f | wc -l | tr -d ' '",
+          "expected": "8"
+        },
+        {
+          "text": "v5.1 thin: 生成的 target 不含 workflow/ 子树（thin 架构）",
+          "type": "shell",
+          "command": "test -d /tmp/b2r-bs-eval/workflow && echo exists || echo absent",
+          "expected": "absent"
+        },
+        {
+          "text": "v5.1 thin: 生成的 package.json npm script 含 DEV_ROOT + 指向已安装 skill bundle 路径",
+          "type": "shell",
+          "command": "grep -c 'DEV_ROOT=' /tmp/b2r-bs-eval/package.json",
+          "expected": ">=5"
+        },
+        {
+          "text": "v5.1 thin: 端到端跑 npm run validate:state 通过（脚本调用已安装 skill bundle）",
+          "type": "shell",
+          "command": "cd /tmp/b2r-bs-eval && npm run validate:state >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "bootstrap: 生成的 <target>/package.json name 含 projectName",
+          "type": "shell",
+          "command": "grep -c '\"name\": \"zzapp-dev\"' /tmp/b2r-bs-eval/package.json",
+          "expected": "1"
+        },
+        {
+          "text": "bootstrap: 生成的 workflow.config.mjs 含 pipeline 命名空间",
+          "type": "shell",
+          "command": "grep -cE 'workIdPrefix:|pipeline' /tmp/b2r-bs-eval/workflow.config.mjs",
+          "expected": ">=1"
+        },
+        {
+          "text": "SKILL.md 含 bootstrap 启动协议说明",
+          "type": "shell",
+          "command": "grep -cE 'init\\.mjs --bootstrap|bootstrap.*workflow' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=2"
+        },
+        {
+          "text": "SKILL.md 含不变量 9（不直接 Write 底盘脚本）",
+          "type": "shell",
+          "command": "grep -cE 'skill 不直接 Write 底盘|底盘只能通过 .init\\.mjs --bootstrap' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        }
+      ]
+    }
+  ]
+}

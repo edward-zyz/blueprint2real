@@ -1,0 +1,82 @@
+[
+  {
+    "query": "我们 sprint 计划想出来了，3 个能力：1) 把 src/services/billing 里那段 NDR 计算从 service 抽到 dao，并加 SQLite 缓存层 2) 客户欠费 dashboard 加一个按品牌 ID 过滤的下拉框 3) MCP server 的 query_database 工具加超时保护。能不能从这份 roadmap 拆成几条 IS-NNN 工单进 dev/state/queue.md？",
+    "should_trigger": true
+  },
+  {
+    "query": "开始 IS-003，前置 IS-002 已经 Done 了",
+    "should_trigger": true
+  },
+  {
+    "query": "请帮我 promote IS-005 到 Ready，前置都满足了",
+    "should_trigger": true
+  },
+  {
+    "query": "handoff IS-007 · 实现已经 commit 了，hash 是 a3f9b2c，帮我做状态翻档 + verify",
+    "should_trigger": true
+  },
+  {
+    "query": "dev/state/queue.md 里有 4 条 Ready 工单，帮我按顺序跑完，每条都要走完 spec drafter → impl → arch review → handoff",
+    "should_trigger": true
+  },
+  {
+    "query": "我把 PRD 写好了贴在下面，能不能像之前那样派一个 agent 团跑完这条线，要从拆 backlog 一路做到 BOARD 全绿\n\n## PRD\n本季度我们要把 dashboard 的导航重做一遍，现有的两层 tab 模型已经撑不住 12 条业务线了……（剩下 800 字省略）",
+    "should_trigger": true
+  },
+  {
+    "query": "spec/plan 已经 review 过了，准备进 implement 阶段了，让一个 fresh thread 接着跑",
+    "should_trigger": true
+  },
+  {
+    "query": "看一下 BOARD.html 现在 ACTIVE 显示啥，如果是 Idle 就拿下一条 Ready 启动",
+    "should_trigger": true
+  },
+  {
+    "query": "把 IS-012 这条 backlog 完整跑完，自动调度子 agent 处理 spec/plan/impl/review/handoff，按 RUNBOOK §3 走",
+    "should_trigger": true
+  },
+  {
+    "query": "工单 IS-009 implementation commit 已经落地了（6f3a82e），帮我做 §7 状态翻档：active 翻 Idle、queue 翻 Done、cv 追加段、render board、handoff commit",
+    "should_trigger": true
+  },
+  {
+    "query": "帮我写一个 NDR SQL，查 2024 Q4 vs 2025 Q4 同一批客户的合同金额变化，按品牌分组",
+    "should_trigger": false
+  },
+  {
+    "query": "插件市场上有没有现成的 work item tracker 集成？我懒得自己搭一套",
+    "should_trigger": false
+  },
+  {
+    "query": "git status 显示我有几个 untracked 文件，帮我看看要不要 commit",
+    "should_trigger": false
+  },
+  {
+    "query": "BOARD.html 里那个 KPI 数字看起来不对——READY QUEUE 显示 0 但 queue.md 里明明有 2 条 Ready，这是为什么",
+    "should_trigger": false
+  },
+  {
+    "query": "我想在 the agent runtime settings file 里加一个 hook，每次 an agent stop event 时自动跑一次 npm run validate:state，怎么配？",
+    "should_trigger": false
+  },
+  {
+    "query": "spec.md 里的 §4 文件白名单写错了，少了一个 dao 文件，能直接帮我加进去吗？",
+    "should_trigger": false
+  },
+  {
+    "query": "review 一下我刚 commit 的代码（hash 4d8e1a2），看看有没有违反 RUNBOOK §6 红线",
+    "should_trigger": false
+  },
+  {
+    "query": "今天的 sprint planning 会议要开了，team capacity 30 人天，3 个人有 PTO，帮我估一下 backlog 里哪些 IS-NNN 能进这个 sprint",
+    "should_trigger": false
+  },
+  {
+    "query": "我刚才那条 message 里说的 'IS-007' 是指 sprint 里的故事点，不是工单编号——别启动什么 sub-agent，就给我看看那个故事点对应的需求文档在哪",
+    "should_trigger": false
+  },
+  {
+    "query": "把 dev/workflow/scripts/promote.mjs 里那个 extractDependencies 函数加个测试，覆盖一下中文句号「。」的边界",
+    "should_trigger": false
+  }
+]

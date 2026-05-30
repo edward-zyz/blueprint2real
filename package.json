@@ -1,0 +1,22 @@
+{
+  "name": "blueprint2real",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-neutral workflow orchestration skill for turning roadmaps into auditable Done work items.",
+  "license": "MIT",
+  "scripts": {
+    "quick:validate": "python3 .github/scripts/quick_validate.py .",
+    "test": "npm --prefix bootstrap/workflow test",
+    "evals": "bash evals/run-all-assertions.sh",
+    "validate": "npm run quick:validate && npm run test && npm run evals"
+  },
+  "keywords": [
+    "agent-skill",
+    "workflow",
+    "multi-agent",
+    "tdd",
+    "roadmap",
+    "project-management"
+  ]
+}
