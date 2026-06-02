@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
-import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdLoosePattern } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdLoosePattern, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_FILES = ['active.md', 'queue.md', 'roadmap.md', 'customer-visible.md'];
@@ -765,7 +765,7 @@ export async function renderBoard({ stateDir, outPath, config }) {
   return { activeId, cvCount: cvSegments.length, outPath };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const devRoot = inferDevRoot();
   const stateDir = process.env.STATE_DIR || join(devRoot, 'state');
   const outPath = process.env.BOARD_OUT || join(devRoot, 'BOARD.html');

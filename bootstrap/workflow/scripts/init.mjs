@@ -44,7 +44,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defaults } from './config.mjs';
+import { defaults, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = resolve(__dirname, '..', 'templates');
@@ -360,6 +360,6 @@ export async function runInit({ argv = process.argv.slice(2) } = {}) {
   return { ok: true, dryRun: false, items };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   await runInit();
 }

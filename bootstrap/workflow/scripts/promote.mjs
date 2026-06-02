@@ -17,7 +17,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateState } from './validate-state.mjs';
 import { renderBoard } from './render-board.mjs';
-import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, workItemSlug } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, workItemSlug, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -518,7 +518,7 @@ export async function promote({ stateDir, workDir, workId, config, dryRun = fals
   return { ok: true, dryRun: false, summary: dryRunSummary, validation, board: boardResult };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const workId = args.find((a) => !a.startsWith('--'));
   const dryRun = args.includes('--dry-run');

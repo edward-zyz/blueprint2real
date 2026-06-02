@@ -1,12 +1,38 @@
-# e2e-verifier · Sub-Agent Prompt 模板（里程碑级 E2E 验收）
+# e2e-verifier · Sub-Agent Prompt 模板（蓝图级 / 批次级 E2E 验收）
 
-主线 thread 在里程碑边界到达后用本模板派出 sub-agent，对整合后的应用做蓝图级 E2E 验收。它不属于 per-ticket 6 阶段循环，每个里程碑边界最多派一次；FAIL 修复工单由主线根据 receipt 去重后写入 queue。
+主线 thread 在**验收边界**到达后用本模板派出 sub-agent，对整合后的应用做 E2E 验收并把稳定旅程固化成项目回归测试。它不属于 per-ticket 6 阶段循环；FAIL 修复工单由主线根据 receipt 去重后写入 queue。
+
+本模板支持两种 `mode`，由 `config.e2e.unit` 决定可用性：
+
+- **`mode=milestone`**（粗里程碑收口）：验收单元是一个里程碑（M0/M1/…），旅程基准来自 `state/acceptance.md` 的该里程碑段。每个里程碑边界最多派一次。
+- **`mode=group`**（一次 b2r 提交 = 一个验收单元，per-submission）：验收单元是一次提交 mint 的一批工单（`{{scopeId}}` 形如 `EG-260602-190312`，成员见 `state/e2e-groups.md`）。旅程基准来自**这批成员工单各自 spec 的 §验收标准**（不依赖 `acceptance.md`）。每个 group 边界最多派一次。
+
+下文以 milestone 为主线书写；`mode=group` 时按 **§组级模式覆盖** 重映射对应字段。
 
 ## 何时使用
 
-- `workflow.config.mjs` 配置了 `e2e` 块
-- 主线已亲跑 `cd {{devRoot}} && npm run milestone:status {{milestone}} -- --json`
-- 该脚本返回 `boundary_reached=true` 且 `next_action=run_e2e_acceptance`
+- `workflow.config.mjs` 配置了 `e2e` 块，且 `e2e.unit` 含本次 mode
+- 主线已亲跑边界脚本：
+  - milestone：`cd {{devRoot}} && npm run milestone:status {{scopeId}} -- --json` 返回 `boundary_reached=true` 且 `next_action=run_e2e_acceptance`
+  - group：`cd {{devRoot}} && npm run e2e-group:status {{scopeId}} -- --json` 返回 `boundary_reached=true` 且 `next_action=run_group_e2e`
+
+## 组级模式覆盖（mode=group）
+
+当 `{{mode}}=group` 时，把下文里的字段如此重映射，其余流程（探索→固化→报告→FAIL 提案）完全一致：
+
+| 下文（milestone 写法） | group 模式实际用 |
+|---|---|
+| `{{milestone}}` / 里程碑 | `{{scopeId}}`（group id，如 `EG-260602-190312`） |
+| 旅程基准 `state/acceptance.md` 的里程碑段 | `state/e2e-groups.md` 中本 group 的成员工单，逐个读其 spec 的 **§验收标准** 段，合成这批交付的客户旅程 |
+| 收敛范围用 `customer-visible.md` 的里程碑交付 | 用 `customer-visible.md` 中本 group 成员工单的 Done 段 |
+| 报告 `{{reportsDir}}/{{milestone}}-acceptance.md` | `{{reportsDir}}/{{scopeId}}-acceptance.md` |
+| receipt `{{reportsDir}}/e2e-{{milestone}}.json` | `{{reportsDir}}/e2e-{{scopeId}}.json` |
+| receipt 字段 `"milestone"` | 改填 `"group": "{{scopeId}}"`（`"milestone": null`） |
+| FAIL 去重键 `(milestone, journey_id)` | `(group, journey_id)`，`source` 仍 `"e2e-fail"` |
+
+group 模式下**不读 `acceptance.md`**；若某成员工单 spec 无 §验收标准段，在报告里写明"该工单无显式验收标准，按 spec 目标粗推旅程"，不要假装有基准。其余约束（固化跑一次绿、不擅改 config、PASS 不打扰、不静默超 maxRerun）一致。
+
+**写权归属**：`state/e2e-groups.md` 是组的状态机，**由主线翻档**（PASS→Accepted+Receipt / 无可观测面→Skipped+原因），verifier **只读该文件取成员列表、只产 receipt**，不得改它（已列入禁项）。
 
 ## 模板（替换 `{{...}}` 后作为 sub-agent prompt）
 
@@ -142,7 +168,7 @@
 
 == 禁项 ==
 
-- 不要修改 `state/queue.md`、`state/active.md`、`state/roadmap.md`、`state/customer-visible.md`
+- 不要修改 `state/queue.md`、`state/active.md`、`state/roadmap.md`、`state/customer-visible.md`、`state/e2e-groups.md`（`mode=group` 时 `e2e-groups.md` 的翻档由主线做，你只读成员列表、只产 receipt）
 - 不要改 `workflow.config.mjs` 来让测试命令看起来覆盖了你的固化测试
 - 不要把报告写成 receipt JSON 的 markdown dump
 - 不要为 PASS 打扰用户；PASS 的作用是给主线翻档提供证据

@@ -231,3 +231,13 @@ test('t. workId loose pattern 全局扫描不截断 timestamp ID', () => {
   const text = '依赖：IS-260602-143052-7f / IS-260700-090000-a3 / IS-001。';
   assert.deepEqual(text.match(re), ['IS-260602-143052-7f', 'IS-260700-090000-a3', 'IS-001']);
 });
+
+import { mintGroupId } from './config.mjs';
+test('u. mintGroupId 同秒碰撞时追加 base36 尾缀去重', () => {
+  const now = new Date(2026, 5, 2, 19, 3, 12);
+  const a = mintGroupId(now, []);
+  assert.equal(a, 'EG-260602-190312');
+  const b = mintGroupId(now, [a], () => 0.5);
+  assert.notEqual(b, a);
+  assert.match(b, /^EG-260602-190312-[0-9a-z]{2}$/);
+});

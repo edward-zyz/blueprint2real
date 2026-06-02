@@ -18,7 +18,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot } from './config.mjs';
+import { loadConfig, inferDevRoot, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -97,7 +97,7 @@ export function scanAll({ devRoot, receiptsDir }) {
   return results;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const asJson = args.includes('--json');
   const single = args.find((a) => !a.startsWith('--'));

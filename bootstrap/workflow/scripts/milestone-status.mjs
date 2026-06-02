@@ -13,7 +13,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot, makeWorkIdRegex } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -162,7 +162,7 @@ function formatHuman(result) {
   return lines.join('\n');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   let opts;
   try {
     opts = parseArgs(process.argv.slice(2));

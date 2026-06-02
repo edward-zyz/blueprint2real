@@ -12,7 +12,7 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot } from './config.mjs';
+import { loadConfig, inferDevRoot, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -52,7 +52,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const opts = parseArgs(process.argv.slice(2));
   const devRoot = process.env.DEV_ROOT ? resolve(process.env.DEV_ROOT) : inferDevRoot();
   let result;

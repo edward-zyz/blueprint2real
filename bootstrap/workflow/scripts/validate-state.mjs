@@ -11,18 +11,20 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, makeWorkIdLoosePattern, workItemSlug } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, makeWorkIdLoosePattern, workItemSlug, isMainModule } from './config.mjs';
+import { parseGroupRows } from './e2e-group-status.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const ACTIVE_STATUSES = ['Idle', 'Ready', 'In Progress', 'Blocked'];
 const QUEUE_STATUSES = ['Planned', 'Ready', 'In Progress', 'Blocked', 'Done', 'Superseded'];
 const MILESTONE_STATUSES = ['Planned', 'Contract Done', 'Demo Ready', 'Production Ready'];
+const E2E_GROUP_STATUSES = ['Open', 'Accepted', 'Skipped'];
 
 // 本校验器只读这 4 个核心 state 文件；其它在 state/ 下出现的文件（如 v5.1 的 retro.md）
 // 由 blueprint2real skill / 其他工具维护，不在本校验范围。若未来加"未知 state 文件警告"功能，
 // 需把以下白名单同步纳入：active.md / queue.md / roadmap.md / customer-visible.md / retro.md / acceptance.md
-const KNOWN_STATE_FILES = ['active.md', 'queue.md', 'roadmap.md', 'customer-visible.md', 'retro.md', 'acceptance.md'];
+const KNOWN_STATE_FILES = ['active.md', 'queue.md', 'roadmap.md', 'customer-visible.md', 'retro.md', 'acceptance.md', 'e2e-groups.md'];
 const COMMIT_HASH_RE = /^[0-9a-f]{7,40}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -265,8 +267,9 @@ export function validateState({ stateDir, config }) {
     }
   }
 
-  // D2 · acceptance.md（仅 e2e opt-in 时校验存在性；语义质量交 roadmap-planner / verifier）
-  if (config.e2e !== undefined && config.milestones.length > 0) {
+  // D2 · acceptance.md（仅 e2e opt-in 且里程碑级线启用时校验；纯 group 线不读 acceptance.md，
+  //       故 unit='group' 不强制其存在——与 D3 的 unit 守卫对称）
+  if (config.e2e !== undefined && ['milestone', 'both'].includes(config.e2e.unit) && config.milestones.length > 0) {
     const acceptancePath = join(stateDir, 'acceptance.md');
     if (!existsSync(acceptancePath)) {
       err('acceptance.md', 'config.e2e 已启用，但缺少 state/acceptance.md');
@@ -305,6 +308,50 @@ export function validateState({ stateDir, config }) {
     }
   }
 
+  // D3 · e2e-groups.md · per-submission E2E 验收硬卡（仅 e2e.unit∈{group,both} 时启用）
+  // 一次 b2r 提交 mint 的一批工单为一个 group；该组全部工单 Done 但 Status 仍 Open
+  // （= 没固化组级 E2E）→ error，堵死"跑完即弃"。validate:state 一红，promote/handoff 全卡。
+  if (config.e2e !== undefined && ['group', 'both'].includes(config.e2e.unit)) {
+    const groupsPath = join(stateDir, 'e2e-groups.md');
+    if (existsSync(groupsPath)) {
+      const seenGroups = new Set();
+      const seenMembers = new Map(); // workId -> 首个所属 group（成员跨组 = 簿记错误）
+      for (const g of parseGroupRows(readFileSync(groupsPath, 'utf8'))) {
+        if (seenGroups.has(g.group)) err('e2e-groups.md', `Group ${g.group} 重复`);
+        seenGroups.add(g.group);
+        if (!E2E_GROUP_STATUSES.includes(g.status)) {
+          err('e2e-groups.md', `${g.group}: Status "${g.status}" 不在合法集 { ${E2E_GROUP_STATUSES.join(' | ')} }`);
+        }
+        if (g.workIds.length === 0) err('e2e-groups.md', `${g.group}: WorkIds 为空`);
+        // 成员"已消解"= Done 或 Superseded；被 drop 的成员不阻断组边界
+        let allResolved = g.workIds.length > 0;
+        for (const wid of g.workIds) {
+          if (seenMembers.has(wid)) {
+            err('e2e-groups.md', `${g.group}: 成员 ${wid} 已属于组 ${seenMembers.get(wid)}（一个工单只能属于一个提交批次）`);
+          } else {
+            seenMembers.set(wid, g.group);
+          }
+          const r = rowsById.get(wid);
+          if (!r) {
+            err('e2e-groups.md', `${g.group}: 成员 ${wid} 在 queue.md 中查无此条`);
+            allResolved = false;
+          } else if (r.status !== 'Done' && r.status !== 'Superseded') {
+            allResolved = false;
+          }
+        }
+        if (allResolved && g.status === 'Open') {
+          err('e2e-groups.md', `${g.group}: 该批工单全部 Done/Superseded，但未完成组级 E2E 验收（Status 仍 Open）。派 e2e-verifier(mode:group) 固化测试后翻 Accepted；确无可观测面则翻 Skipped`);
+        }
+        if (g.status === 'Accepted' && !g.receipt) {
+          err('e2e-groups.md', `${g.group}: Status=Accepted 但缺少 Receipt 路径`);
+        }
+        if (g.status === 'Skipped' && !g.receipt) {
+          err('e2e-groups.md', `${g.group}: Status=Skipped 但缺少 Receipt 原因（应写 "skip:<原因>"）`);
+        }
+      }
+    }
+  }
+
   const errors = issues.filter((i) => i.severity === 'error');
   return { issues, ok: errors.length === 0 };
 }
@@ -314,7 +361,7 @@ function formatIssue(it) {
   return `${tag} ${it.file}: ${it.msg}`;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const devRoot = inferDevRoot();
   const stateDir = process.env.STATE_DIR || join(devRoot, 'state');
   const asJson = process.argv.includes('--json');

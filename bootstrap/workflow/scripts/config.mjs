@@ -10,11 +10,24 @@
 //
 // 任何脚本都应该走 `await loadConfig({ devRoot })` 而不是自行 import config 文件。
 
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// symlink-safe 的 "本模块是否被直接 node 执行" 判定。
+// 旧写法 `import.meta.url === \`file://${process.argv[1]}\`` 在两种情况下会误判为 false，
+// 导致脚本被直接运行时 main 块整个被跳过（exit 0、零输出、零副作用）：
+//   1. 软链安装：argv[1] 是软链路径，import.meta.url 是 Node 解析软链后的真实路径，两者不等。
+//   2. 路径含空格 / 非 ASCII：`file://` 字符串直拼未做 URL 编码。
+// realpathSync 解开软链 + pathToFileURL 正确编码，两侧统一到真实路径的 file URL 再比。
+export function isMainModule(importMetaUrl, invokedPath = process.argv[1]) {
+  if (!invokedPath) return false;
+  let real;
+  try { real = realpathSync(invokedPath); } catch { real = invokedPath; }
+  return importMetaUrl === pathToFileURL(real).href;
+}
 
 // === 默认值 ===
 
@@ -160,6 +173,9 @@ function validate(config) {
       if (!Number.isInteger(e2e.maxRerun) || e2e.maxRerun < 0 || e2e.maxRerun > 10) {
         errs.push(`e2e.maxRerun 必须是 0-10 的整数（当前: ${JSON.stringify(e2e.maxRerun)}）`);
       }
+      if (e2e.unit !== undefined && !['milestone', 'group', 'both'].includes(e2e.unit)) {
+        errs.push(`e2e.unit 必须是 "milestone" / "group" / "both"（当前: ${JSON.stringify(e2e.unit)}）`);
+      }
     }
   }
 
@@ -252,6 +268,20 @@ export function mintWorkId(config, existingIds = [], now = new Date(), random = 
   throw new Error(`未知 idScheme: ${scheme}`);
 }
 
+// per-submission E2E 单位编号：一次 b2r 提交 mint 的一批工单共享一个 group id。
+// 形如 EG-260602-190312（本地时间戳，秒级）；同秒二次提交碰撞时追加 2 位 base36 尾缀去重
+// （与 mintWorkId timestamp scheme 同构，防无人值守/CI 连发撞号）。
+export function mintGroupId(now = new Date(), existingIds = [], random = Math.random) {
+  const existing = new Set([...existingIds].map((id) => String(id)));
+  const stem = `EG-${formatLocalTimestamp(now)}`;
+  if (!existing.has(stem)) return stem;
+  for (let attempt = 0; attempt < 4096; attempt++) {
+    const candidate = `${stem}-${randomBase36Suffix(random)}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+  throw new Error(`mintGroupId 无法为 ${stem} 找到未占用尾缀`);
+}
+
 // v5.2+: 把工单标题转成文件名安全的 slug
 // 规则：
 //   - 非法字符 / : ? * < > | " \ → 去掉
@@ -332,6 +362,7 @@ function mergeConfig(base, override) {
     if (out.e2e.launch === undefined) out.e2e.launch = '';
     if (out.e2e.reportsDir === undefined) out.e2e.reportsDir = 'e2e';
     if (out.e2e.maxRerun === undefined) out.e2e.maxRerun = 2;
+    if (out.e2e.unit === undefined) out.e2e.unit = 'milestone';
   }
   return out;
 }
