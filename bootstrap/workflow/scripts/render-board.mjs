@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marked } from 'marked';
-import { loadConfig, inferDevRoot, makeWorkIdLoosePattern } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdLoosePattern } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const STATE_FILES = ['active.md', 'queue.md', 'roadmap.md', 'customer-visible.md'];
@@ -663,8 +663,8 @@ const TEMPLATE = `<!DOCTYPE html>
 
 export async function renderBoard({ stateDir, outPath, config }) {
   if (!config) throw new Error('renderBoard 需要传入 config（来自 loadConfig）');
-  const WORK_ID_LOOSE = makeWorkIdLoosePattern(config); // 如 "IS-\\d+"
-  const WORK_ID_STRICT = new RegExp(`^${config.workIdPrefix}-\\d+$`);
+  const WORK_ID_LOOSE = makeWorkIdLoosePattern(config); // 如 "IS-(?:\\d{6}-\\d{6}-[0-9a-z]{2}|\\d+)"
+  const WORK_ID_STRICT = makeWorkIdRegex(config);
 
   for (const f of STATE_FILES) {
     if (!existsSync(join(stateDir, f))) {
@@ -693,7 +693,7 @@ export async function renderBoard({ stateDir, outPath, config }) {
     });
 
   if (cvSegments.length === 0) {
-    console.warn(`[render-board] warning: customer-visible.md 不含任何 "## YYYY-MM-DD · ${config.workIdPrefix}-NNN Done" 段，HERO 上一轮出产将留空。`);
+    console.warn(`[render-board] warning: customer-visible.md 不含任何 Done 段，HERO 上一轮出产将留空。`);
   }
 
   const activeIdRe = new RegExp(`^-\\s*ID:\\s*(${WORK_ID_LOOSE})`, 'm');

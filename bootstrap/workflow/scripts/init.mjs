@@ -124,6 +124,17 @@ function buildMilestoneSections(milestones) {
   }).join('\n\n');
 }
 
+function buildAcceptanceSections(milestones) {
+  if (milestones.length === 0) {
+    return '> 本项目当前未配置里程碑。启用 E2E 验收前，请先在 `workflow.config.mjs` 添加 `milestones`，并在本文件补对应验收段。';
+  }
+  return milestones.map((m) => `## ${m} · （待命名）
+
+### 旅程 J1：<客户从 X 进入，完成 Y>
+- 验收标准：<可观测的成功判据，业务语言>
+- 交付范围收敛：以 \`customer-visible.md\` 中 ${m} 已 Done 工单为准，避免验未交付功能。`).join('\n\n');
+}
+
 function buildDocsRefsBullets(docsRefs) {
   if (docsRefs.length === 0) return '- （项目未配置文档引用路径）';
   return docsRefs.map((p) => `- \`${p}\``).join('\n');
@@ -201,6 +212,7 @@ export function planInit({ config, targetDir, bootstrap = false }) {
     regressionCommandsJson: JSON.stringify(config.regressionCommands, null, 2).replace(/\n/g, '\n  '),
     docsRefsBullets: buildDocsRefsBullets(config.docsRefs),
     milestoneSections: buildMilestoneSections(config.milestones),
+    acceptanceSections: buildAcceptanceSections(config.milestones),
     skillRoot: skillRootRel,
   };
 
@@ -229,6 +241,10 @@ export function planInit({ config, targetDir, bootstrap = false }) {
     {
       out: join(targetDir, 'state', 'customer-visible.md'),
       tmpl: join(TEMPLATES_DIR, 'state', 'customer-visible.md.tmpl'),
+    },
+    {
+      out: join(targetDir, 'state', 'acceptance.md'),
+      tmpl: join(TEMPLATES_DIR, 'state', 'acceptance.md.tmpl'),
     },
     {
       out: join(targetDir, 'state', 'retro.md'),

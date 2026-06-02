@@ -69,7 +69,7 @@ export function verifyHandoff({ stateDir, workDir, boardPath, workId, config }) 
   if (!config) throw new Error('verifyHandoff 需要传入 config');
   const WORK_ID_RE = makeWorkIdRegex(config);
   const WORK_ID_PATTERN = makeWorkIdPattern(config);
-  const WORK_ID_LABEL = `${config.workIdPrefix}-\\d{${config.workIdDigits}}`;
+  const WORK_ID_LABEL = WORK_ID_PATTERN;
 
   const checks = [];
   const pass = (name, detail) => checks.push({ name, ok: true, detail });

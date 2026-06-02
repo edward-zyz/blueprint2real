@@ -39,6 +39,27 @@ test('解析 5 个节点，3 条依赖关系正确', () => {
   assert.deepEqual(v5.deps.sort(), ['IS-002', 'IS-004']);
 });
 
+test('timestamp ID 依赖解析不被全局扫描截成日期前缀', () => {
+  const queue = `# Work Queue
+
+| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| IS-260602-143052-7f | A | Done | M0 | \`a\` | \`b\` | abc1234 | 2026-06-02 |
+| IS-260700-090000-a3 | B | Done | M0 | \`a\` | \`b\` | def5678 | 2026-06-07 |
+| IS-260700-091500-b4 | C | Planned | M0 | — | — | — | — |
+
+## Planned 工单范围摘要
+
+### IS-260700-091500-b4 · C
+
+目标：x。不做：y。验收：z。依赖：IS-260602-143052-7f / IS-260700-090000-a3。
+`;
+  const m = buildDependencyModel({ queueMd: queue, config: testConfig });
+  const c = m.nodes.find((n) => n.id === 'IS-260700-091500-b4');
+  assert.deepEqual(c.deps.sort(), ['IS-260602-143052-7f', 'IS-260700-090000-a3']);
+  assert.deepEqual(m.issues, []);
+});
+
 test('leaves 是 IS-001 和 IS-002（无依赖）', () => {
   const m = buildDependencyModel({ queueMd: QUEUE, config: testConfig });
   assert.deepEqual(m.leaves.sort(), ['IS-001', 'IS-002']);

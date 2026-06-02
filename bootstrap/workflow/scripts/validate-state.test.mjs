@@ -7,6 +7,19 @@ import { validateState } from './validate-state.mjs';
 import { loadConfigSync } from './config.mjs';
 
 const testConfig = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3 } });
+const e2eConfig = loadConfigSync({
+  override: {
+    workIdPrefix: 'IS',
+    workIdDigits: 3,
+    e2e: {
+      verifySkill: 'verify',
+      launch: '',
+      e2eCommands: ['npm run test:e2e'],
+      reportsDir: 'e2e',
+      maxRerun: 2,
+    },
+  },
+});
 
 function makeStateDir(files) {
   const dir = mkdtempSync(join(tmpdir(), 'validate-state-test-'));
@@ -82,12 +95,114 @@ const CV_OK = `# Customer-Visible Changelog
 - Internal-only 变化：v2 骨架仓库
 `;
 
+const ACCEPTANCE_OK = `# Acceptance
+
+## M0 · 可被部署
+
+### 旅程 J1：基础链路可运行
+- 验收标准：用户可以完成基础链路。
+
+## M1 · 业务工程师工作环境就绪
+
+### 旅程 J1：业务工程师可自助使用
+- 验收标准：用户可以完成核心流程。
+
+## M2 · 可被复制交付
+
+### 旅程 J1：新客户复制交付
+- 验收标准：新客户可按模板完成交付。
+`;
+
 test('全合法的 Idle 状态通过', () => {
   const dir = makeStateDir({
     'active.md': ACTIVE_IDLE,
     'queue.md': QUEUE_OK,
     'roadmap.md': ROADMAP_OK,
     'customer-visible.md': CV_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.equal(ok, true, `应当通过，实际 issues:\n${issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('未启用 e2e 时缺 acceptance.md 不阻断', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.equal(ok, true, `未启用 e2e 时不应要求 acceptance.md，实际 issues:\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('启用 e2e 时缺 acceptance.md 报 error', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: e2eConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'acceptance.md' && /缺少 state\/acceptance\.md/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('启用 e2e 时每个里程碑都必须有 acceptance 段', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK.replace(/## M1[\s\S]*?(?=## M2)/, ''),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: e2eConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'acceptance.md' && /缺少里程碑验收段 "## M1 ·"/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('启用 e2e 且 acceptance 覆盖所有里程碑时通过', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: e2eConfig });
+  assert.equal(ok, true, `应当通过，实际 issues:\n${issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('混合旧 sequential ID 与新 timestamp ID 的 queue/customer-visible 通过', () => {
+  const queue = `# Work Queue
+
+| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| IS-001 | 骨架 | Done | M0 | \`../work/IS-001/spec.md\` | \`../work/IS-001/plan.md\` | 33163ba | 2026-05-13 |
+| IS-260602-143052-7f | Timestamp 工单 | Planned | M0 | — | — | — | — |
+
+## Planned 工单范围摘要
+
+### IS-260602-143052-7f · Timestamp 工单
+
+目标：验证 timestamp ID 读取端兼容。
+`;
+  const cv = `# Customer-Visible Changelog
+
+## 2026-05-13 · IS-001 Done
+
+- 客户可感知变化：无
+- Internal-only 变化：旧工单保留
+`;
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': queue,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': cv,
   });
   const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
   assert.equal(ok, true, `应当通过，实际 issues:\n${issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);

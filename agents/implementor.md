@@ -26,12 +26,14 @@
   - pipeline.receiptsDir: {{receiptsDir}}
   - pipeline.specsDir: {{specsDir}}
 - 工单 slug 目录名: {{slugDir}}（spec 在 `{{specsDir}}/{{slugDir}}.md`；plan/context/receipt 在 `work/{{slugDir}}/`）
+- UI 设计 receipt（非 UI 工单填 null）: {{uiDesignReceiptPath}}
 
 == 必读 ==
 
 1. {{devRoot}}/{{specsDir}}/{{slugDir}}.md — §1-§11 已 review 通过
 2. {{devRoot}}/work/{{slugDir}}/plan.md — §0-§7 已 review 通过
 3. {{devRoot}}/work/{{slugDir}}/context-pack.md — 依赖工单交付能力
+4. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON 以及其中 `mockups[].path` 指向的文件；这些 mockups 是本工单 UI 实现目标。
 
 按 spec §1 上游引用 + §4 文件白名单读项目代码——白名单外的文件不要扫读。
 
@@ -72,6 +74,8 @@
 2. **不要修改 state/\* / BOARD.html**——那是 handoff-committer 的事
 3. **不要起 sub-agent**
 4. **不顺手 refactor / cleanup / rename 无关代码**——commit 范围严格限制
+5. **删除受版本控制的文件一律用 `git rm`，禁止裸 `rm -rf` 删仓库路径**——git rm 可回滚（`git restore --staged` / `git reset`）、进 handoff diff 可审计，符合 b2r 可回滚可审计原则；裸 `rm` 不可逆、不留痕，且在无人值守下会触发权限确认弹窗卡死流水线。仅临时产物（`/tmp`、构建输出等非受控文件）可用 `rm`。退役/cleanup 类工单的删除清单同样走 `git rm`（与 spec-drafter §4 由 `git ls-files` 枚举的清单一致）。
+6. **UI 工单必须对齐 mockups**：如果存在 `2.0-ui-design.json`，实现目标包含其中每个 `mockups[].path`。不要只实现功能而忽略布局/状态/屏幕结构；无法对齐时停下说明是 spec §4/设计产物问题。
 
 == Step 3 · 本切片 targeted（自跑兜底；全量 regression 收敛到末切片后由主线跑）==
 
@@ -93,6 +97,7 @@ targeted 红 → **停下**，不进 commit，改实现让它过（或 systemati
 - 本切片 targeted 测试绿 ✓（全量 regression 不在切片内跑，主线末切片后收敛跑）
 - git diff 文件清单 ⊆ spec §4 ✓
 - 没有 state/* / BOARD.html 在暂存区 ✓
+- UI 工单：已核对实现与 `2.0-ui-design.json.mockups[]`，差异已解释或修正 ✓
 
 通过后再 commit：
 
@@ -136,9 +141,12 @@ receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{
   ],
   "files_changed": ["..."],
   "in_spec_scope": true,
+  "ui_mockups_checked": true,
   "skills_used": ["test-driven-development", "verification-before-completion"]
 }
 ```
+
+非 UI 工单可填 `"ui_mockups_checked": null`；UI 工单必须为 `true`。
 
 精简报告（≤300 字）：
 - Step 1 失败测试的实际输出（贴红色那次的关键行）

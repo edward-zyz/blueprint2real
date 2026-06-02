@@ -268,3 +268,43 @@ test('依赖解析含多个 IS-NNN（"IS-001 / IS-002"）', async () => {
   assert.deepEqual(r.summary.depsResolved.sort(), ['IS-001', 'IS-002']);
   rmSync(root, { recursive: true, force: true });
 });
+
+test('timestamp ID 依赖解析不被截断，promote 依赖门通过', async () => {
+  const queue = `# Work Queue
+
+| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| IS-001 | legacy | Done | M0 | \`../work/IS-001/spec.md\` | \`../work/IS-001/plan.md\` | 33163ba | 2026-05-13 |
+| IS-260602-143052-7f | A | Done | M0 | \`../work/IS-260602-143052-7f/spec.md\` | \`../work/IS-260602-143052-7f/plan.md\` | 182c25a | 2026-06-02 |
+| IS-260700-090000-a3 | B | Done | M0 | \`../work/IS-260700-090000-a3/spec.md\` | \`../work/IS-260700-090000-a3/plan.md\` | 282c25b | 2026-06-07 |
+| IS-260700-091500-b4 | C | Planned | M0 | — | — | — | — |
+
+## Planned 工单范围摘要
+
+### IS-260700-091500-b4 · C
+
+目标：x。不做：y。验收：z。依赖：IS-260602-143052-7f / IS-260700-090000-a3。
+`;
+  const { root, stateDir, workDir } = setupFixture(queue);
+  writeFileSync(join(stateDir, 'customer-visible.md'), `# Customer-Visible Changelog
+
+## 2026-06-07 · IS-260700-090000-a3 Done
+
+- 客户可感知变化：B
+- Internal-only 变化：B
+
+## 2026-06-02 · IS-260602-143052-7f Done
+
+- 客户可感知变化：A
+- Internal-only 变化：A
+
+## 2026-05-13 · IS-001 Done
+
+- 客户可感知变化：legacy
+- Internal-only 变化：legacy
+`);
+  const r = await promote({ stateDir, workDir, workId: 'IS-260700-091500-b4', config: testConfig });
+  assert.deepEqual(r.summary.depsResolved.sort(), ['IS-260602-143052-7f', 'IS-260700-090000-a3']);
+  assert.equal(r.validation.ok, true);
+  rmSync(root, { recursive: true, force: true });
+});

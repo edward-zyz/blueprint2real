@@ -9,6 +9,7 @@
     "validate:state": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/validate-state.mjs\"",
     "validate:config": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/validate-config.mjs\"",
     "validate:pipeline": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/validate-pipeline-status.mjs\"",
+    "milestone:status": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/milestone-status.mjs\"",
     "promote": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/promote.mjs\"",
     "deps:graph": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/render-dependencies.mjs\"",
     "verify:handoff": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/verify-handoff.mjs\"",

@@ -6,6 +6,9 @@ export default {
   // 工单编号
   workIdPrefix: '{{workIdPrefix}}',
   workIdDigits: {{workIdDigits}},
+  // sequential: {{workIdPrefix}}-{{workIdNumberMask}}（默认，适合单工作区顺序推进）
+  // timestamp: {{workIdPrefix}}-YYMMDD-HHMMSS-xx（适合多 git worktree/分支并行发号）
+  idScheme: 'sequential',
 
   // 里程碑（数组顺序 = BOARD 显示顺序；空数组表示不用里程碑）
   milestones: {{milestonesJson}},
@@ -19,4 +22,21 @@ export default {
 
   // promote 生成的 spec/plan stub 中嵌入的 regression 命令
   regressionCommands: {{regressionCommandsJson}},
+
+  // 可选 UI 设计线。缺省即关闭；纯后端 / CLI 项目不要配置本段。
+  // ui: {
+  //   designSkill: 'ui-ux-pro-max',            // 推荐；提供 UI/UX 推理与质检清单
+  //   designRefs: ['../docs/design-system/'],  // 可选；项目设计系统优先级最高，缺省/空数组时自动发现，仍找不到则合成 anchor
+  //   uiPaths: ['web/src/views/**'],           // 相对 projectRoot，用于和 triage files_estimated 比对
+  //   anchorPath: 'state/ui-anchor.md',        // 相对 devRoot，不能越界
+  // },
+
+  // 可选蓝图级 E2E 验收线。缺省即关闭；纯库 / 无可启动应用项目不要配置本段。
+  // e2e: {
+  //   verifySkill: 'verify',                   // 委派的实时验证 skill
+  //   launch: '',                              // 可选：启动整合应用的命令；空串表示交给 verifySkill
+  //   e2eCommands: ['npm run test:e2e'],       // 固化旅程测试长期回归命令
+  //   reportsDir: 'e2e',                       // 相对 devRoot
+  //   maxRerun: 2,                             // FAIL 修复闭环自动重跑上限
+  // },
 };

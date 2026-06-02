@@ -69,7 +69,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (opts.json) {
     process.stdout.write(JSON.stringify({ ok: result.ok, errors: result.errors, loadedFrom: result.config?._loadedFrom || null }) + '\n');
   } else if (result.ok) {
-    console.log(`[validate-config] OK · ${result.config.workIdPrefix}-\\d{${result.config.workIdDigits}} · ${result.config.milestones.length} milestones · loaded from ${result.config._loadedFrom}`);
+    console.log(`[validate-config] OK · idScheme=${result.config.idScheme} · ${result.config.workIdPrefix}-\\d{${result.config.workIdDigits}} · ${result.config.milestones.length} milestones · loaded from ${result.config._loadedFrom}`);
   } else {
     console.log(`[validate-config] FAIL · ${result.errors.length} errors:`);
     for (const err of result.errors) {

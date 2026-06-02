@@ -21,8 +21,8 @@ const MILESTONE_STATUSES = ['Planned', 'Contract Done', 'Demo Ready', 'Productio
 
 // 本校验器只读这 4 个核心 state 文件；其它在 state/ 下出现的文件（如 v5.1 的 retro.md）
 // 由 blueprint2real skill / 其他工具维护，不在本校验范围。若未来加"未知 state 文件警告"功能，
-// 需把以下白名单同步纳入：active.md / queue.md / roadmap.md / customer-visible.md / retro.md
-const KNOWN_STATE_FILES = ['active.md', 'queue.md', 'roadmap.md', 'customer-visible.md', 'retro.md'];
+// 需把以下白名单同步纳入：active.md / queue.md / roadmap.md / customer-visible.md / retro.md / acceptance.md
+const KNOWN_STATE_FILES = ['active.md', 'queue.md', 'roadmap.md', 'customer-visible.md', 'retro.md', 'acceptance.md'];
 const COMMIT_HASH_RE = /^[0-9a-f]{7,40}$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -111,11 +111,21 @@ function parseMilestones(md, milestones) {
   return result;
 }
 
+function parseAcceptanceMilestoneIds(md, milestones) {
+  const idAlt = milestones.map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  if (!idAlt) return [];
+  const re = new RegExp(`^##\\s+(${idAlt})\\s+·`, 'gm');
+  const ids = [];
+  let m;
+  while ((m = re.exec(md)) !== null) ids.push(m[1]);
+  return ids;
+}
+
 export function validateState({ stateDir, config }) {
   if (!config) throw new Error('validateState 需要传入 config（来自 loadConfig）');
   const WORK_ID_RE = makeWorkIdRegex(config);
   const WORK_ID_PATTERN = makeWorkIdPattern(config);
-  const WORK_ID_LABEL = `${config.workIdPrefix}-\\d{${config.workIdDigits}}`;
+  const WORK_ID_LABEL = WORK_ID_PATTERN;
 
   const issues = [];
   const err = (file, msg) => issues.push({ severity: 'error', file, msg });
@@ -247,11 +257,27 @@ export function validateState({ stateDir, config }) {
   // D · customer-visible.md
   const segments = parseCvSegments(cvMd, WORK_ID_PATTERN);
   if (segments.length === 0) {
-    warn('customer-visible.md', `不含任何 "## YYYY-MM-DD · ${config.workIdPrefix}-NNN Done" 段；首次启动可忽略`);
+    warn('customer-visible.md', `不含任何 "## YYYY-MM-DD · <workId> Done" 段；首次启动可忽略`);
   }
   for (const seg of segments) {
     if (Number.isNaN(Date.parse(seg.date + 'T00:00:00+08:00'))) {
       err('customer-visible.md', `${seg.workId}: 日期 "${seg.date}" 非法`);
+    }
+  }
+
+  // D2 · acceptance.md（仅 e2e opt-in 时校验存在性；语义质量交 roadmap-planner / verifier）
+  if (config.e2e !== undefined && config.milestones.length > 0) {
+    const acceptancePath = join(stateDir, 'acceptance.md');
+    if (!existsSync(acceptancePath)) {
+      err('acceptance.md', 'config.e2e 已启用，但缺少 state/acceptance.md');
+    } else {
+      const acceptanceMd = readFileSync(acceptancePath, 'utf8');
+      const seen = new Set(parseAcceptanceMilestoneIds(acceptanceMd, config.milestones));
+      for (const expected of config.milestones) {
+        if (!seen.has(expected)) {
+          err('acceptance.md', `缺少里程碑验收段 "## ${expected} ·"`);
+        }
+      }
     }
   }
 

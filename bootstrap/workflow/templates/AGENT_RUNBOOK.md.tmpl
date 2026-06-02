@@ -5,7 +5,7 @@
 {{docsRefsBullets}}
 - `state/roadmap.md`（{{milestonesSlash}} 路线图）
 - `state/active.md`（当前 work item，唯一一张）
-- `state/queue.md`（work queue，编号 {{workIdPrefix}}-{{workIdNumberMask}} 起算）
+- `state/queue.md`（work queue，编号由 `workflow.config.mjs` 的 `idScheme` 决定）
 - `state/customer-visible.md`（客户 / 产品可感知变化流水）
 
 ## 0. 事实源关系
@@ -16,7 +16,9 @@
 
 ## 1. 工单编号
 
-- 本项目工单一律使用 **{{workIdPrefix}}-{{workIdNumberMask}}** 前缀（{{workIdPrefix}}-{{firstWorkIdSuffix}} 起算，{{workIdDigits}} 位补零）。
+- 默认 `idScheme: 'sequential'`：新工单使用 **{{workIdPrefix}}-{{workIdNumberMask}}**（{{workIdPrefix}}-{{firstWorkIdSuffix}} 起算，{{workIdDigits}} 位补零）。
+- 多 git worktree / 多分支并行发号时，把 `workflow.config.mjs` 设为 `idScheme: 'timestamp'`：新工单使用 **{{workIdPrefix}}-YYMMDD-HHMMSS-xx**，其中 `xx` 是 2 位 base36 随机尾缀。
+- 切到 `timestamp` 后只新增 timestamp 号；已有 `{{workIdPrefix}}-{{workIdNumberMask}}` 行只读保留，不重编号。
 
 ## 2. 核心规则
 

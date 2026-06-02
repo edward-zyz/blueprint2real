@@ -24,6 +24,9 @@ to leave a clear evidence trail instead of becoming an informal chat transcript.
   direct fixes, and handoff commits.
 - **Quality gates by default**: validates state, dependencies, redlines,
   receipts, generated boards, and handoff boundaries.
+- **Milestone E2E acceptance**: optionally validates completed milestones
+  against `state/acceptance.md`, writes human-readable acceptance reports, and
+  feeds integration failures back into the work queue.
 - **TDD and commit discipline**: enforces failing-test-first implementation and
   separates implementation commits from state/board handoff commits.
 - **Bootstrap for any repo**: installs a `b2r-process/` workspace with workflow
@@ -89,6 +92,8 @@ The skill follows a fixed delivery chain:
 4. **Implement** with failing tests before production changes.
 5. **Review** architecture and security redlines when complexity requires it.
 6. **Handoff** with state transitions, board rendering, and verification.
+7. **Accept milestones** with optional blueprint-level E2E journeys once all
+   work items in a milestone are Done.
 
 Every stage writes or validates structured artifacts under the target project,
 so a finished work item can be audited after the fact.
@@ -100,10 +105,13 @@ so a finished work item can be audited after the fact.
 ├── SKILL.md
 ├── agents/
 │   ├── roadmap-planner.md
+│   ├── ui-designer.md
+│   ├── design-reviewer.md
 │   ├── spec-drafter.md
 │   ├── plan-drafter.md
 │   ├── implementor.md
 │   ├── arch-security-reviewer.md
+│   ├── e2e-verifier.md
 │   ├── direct-fix.md
 │   └── handoff-committer.md
 ├── bootstrap/

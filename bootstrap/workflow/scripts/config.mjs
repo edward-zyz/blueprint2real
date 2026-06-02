@@ -22,6 +22,7 @@ export const defaults = Object.freeze({
   // 工单编号
   workIdPrefix: 'WORK',
   workIdDigits: 3,
+  idScheme: 'sequential',
 
   // 里程碑（数组顺序 = 显示顺序；空数组表示项目不用里程碑）
   milestones: ['M0', 'M1', 'M2'],
@@ -69,6 +70,9 @@ function validate(config) {
   if (!Number.isInteger(config.workIdDigits) || config.workIdDigits < 1 || config.workIdDigits > 6) {
     errs.push(`workIdDigits 必须是 1-6 的整数（当前: ${JSON.stringify(config.workIdDigits)}）`);
   }
+  if (!['sequential', 'timestamp'].includes(config.idScheme)) {
+    errs.push(`idScheme 必须是 "sequential" 或 "timestamp"（当前: ${JSON.stringify(config.idScheme)}）`);
+  }
   if (!Array.isArray(config.milestones)) {
     errs.push(`milestones 必须是数组`);
   } else {
@@ -102,6 +106,63 @@ function validate(config) {
     errs.push('pipeline 段必须存在（提示：从 defaults 合并；若手动覆盖时请保留全部三个字段或留空走 defaults）');
   }
 
+  // Optional UI design lane. Missing `ui` means disabled. `designRefs` is optional:
+  // when absent/empty, ui-designer must actively discover or synthesize an anchor.
+  if (config.ui !== undefined) {
+    const ui = config.ui;
+    if (!ui || typeof ui !== 'object' || Array.isArray(ui)) {
+      errs.push(`ui 必须是对象（当前: ${JSON.stringify(ui)}）`);
+    } else {
+      if (typeof ui.designSkill !== 'string' || !ui.designSkill.trim()) {
+        errs.push(`ui.designSkill 必须是非空字符串（当前: ${JSON.stringify(ui.designSkill)}）`);
+      }
+      if (ui.designRefs !== undefined && (!Array.isArray(ui.designRefs) || ui.designRefs.some((p) => typeof p !== 'string' || !p.trim()))) {
+        errs.push(`ui.designRefs 必须是字符串数组且元素非空；可缺省或空数组以启用自动发现（当前: ${JSON.stringify(ui.designRefs)}）`);
+      }
+      if (!Array.isArray(ui.uiPaths) || ui.uiPaths.some((p) => typeof p !== 'string' || !p.trim())) {
+        errs.push(`ui.uiPaths 必须是非空字符串数组（当前: ${JSON.stringify(ui.uiPaths)}）`);
+      }
+      if (typeof ui.anchorPath !== 'string' || !ui.anchorPath.trim()) {
+        errs.push(`ui.anchorPath 必须是非空字符串（当前: ${JSON.stringify(ui.anchorPath)}）`);
+      } else {
+        const normalized = ui.anchorPath.replace(/\\/g, '/');
+        if (normalized.startsWith('/') || normalized.split('/').includes('..')) {
+          errs.push(`ui.anchorPath 不得是绝对路径或包含路径越界 ".."（当前: ${JSON.stringify(ui.anchorPath)}）`);
+        }
+      }
+    }
+  }
+
+  // Optional milestone-level E2E acceptance lane. Missing `e2e` means disabled,
+  // which lets library / CLI-only projects keep the per-ticket pipeline only.
+  if (config.e2e !== undefined) {
+    const e2e = config.e2e;
+    if (!e2e || typeof e2e !== 'object' || Array.isArray(e2e)) {
+      errs.push(`e2e 必须是对象（当前: ${JSON.stringify(e2e)}）`);
+    } else {
+      if (typeof e2e.verifySkill !== 'string' || !e2e.verifySkill.trim()) {
+        errs.push(`e2e.verifySkill 必须是非空字符串（当前: ${JSON.stringify(e2e.verifySkill)}）`);
+      }
+      if (e2e.launch !== undefined && typeof e2e.launch !== 'string') {
+        errs.push(`e2e.launch 必须是字符串或缺省（当前: ${JSON.stringify(e2e.launch)}）`);
+      }
+      if (!Array.isArray(e2e.e2eCommands) || e2e.e2eCommands.some((cmd) => typeof cmd !== 'string' || !cmd.trim())) {
+        errs.push(`e2e.e2eCommands 必须是非空字符串数组（当前: ${JSON.stringify(e2e.e2eCommands)}）`);
+      }
+      if (typeof e2e.reportsDir !== 'string' || !e2e.reportsDir.trim()) {
+        errs.push(`e2e.reportsDir 必须是非空字符串（当前: ${JSON.stringify(e2e.reportsDir)}）`);
+      } else {
+        const normalized = e2e.reportsDir.replace(/\\/g, '/');
+        if (normalized.startsWith('/') || normalized.split('/').includes('..')) {
+          errs.push(`e2e.reportsDir 不得是绝对路径或包含路径越界 ".."（当前: ${JSON.stringify(e2e.reportsDir)}）`);
+        }
+      }
+      if (!Number.isInteger(e2e.maxRerun) || e2e.maxRerun < 0 || e2e.maxRerun > 10) {
+        errs.push(`e2e.maxRerun 必须是 0-10 的整数（当前: ${JSON.stringify(e2e.maxRerun)}）`);
+      }
+    }
+  }
+
   if (errs.length > 0) {
     throw new ConfigError(`workflow.config 校验失败:\n  - ${errs.join('\n  - ')}`);
   }
@@ -110,22 +171,85 @@ function validate(config) {
 
 // === 派生工具：根据 prefix + digits 生成 regex / 模板字符串 ===
 
+const BASE36 = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function timestampBodyPattern() {
+  return '\\d{6}-\\d{6}-[0-9a-z]{2}';
+}
+
 export function makeWorkIdRegex({ workIdPrefix, workIdDigits }) {
-  return new RegExp(`^${workIdPrefix}-\\d{${workIdDigits}}$`);
+  return new RegExp(`^${makeWorkIdPattern({ workIdPrefix, workIdDigits })}$`);
 }
 
 export function makeWorkIdPattern({ workIdPrefix, workIdDigits }) {
   // 用于 regex 中嵌入（不带 ^$ 锚点）
-  return `${workIdPrefix}-\\d{${workIdDigits}}`;
+  const prefix = escapeRegExp(workIdPrefix);
+  return `${prefix}-(?:${timestampBodyPattern()}|\\d{${workIdDigits},})`;
 }
 
 export function makeWorkIdLoosePattern({ workIdPrefix }) {
   // 解析 customer-visible.md 等场景：编号可能在文中匹配，digits 不严格
-  return `${workIdPrefix}-\\d+`;
+  const prefix = escapeRegExp(workIdPrefix);
+  return `${prefix}-(?:${timestampBodyPattern()}|\\d+)`;
 }
 
 export function formatWorkId({ workIdPrefix, workIdDigits }, n) {
   return `${workIdPrefix}-${String(n).padStart(workIdDigits, '0')}`;
+}
+
+function formatLocalTimestamp(now) {
+  const d = now instanceof Date ? now : new Date(now);
+  if (Number.isNaN(d.getTime())) throw new Error(`now 不是合法 Date（当前: ${JSON.stringify(now)}）`);
+  const pad = (n) => String(n).padStart(2, '0');
+  return [
+    String(d.getFullYear()).slice(-2),
+    pad(d.getMonth() + 1),
+    pad(d.getDate()),
+  ].join('') + '-' + [
+    pad(d.getHours()),
+    pad(d.getMinutes()),
+    pad(d.getSeconds()),
+  ].join('');
+}
+
+function randomBase36Suffix(random) {
+  const pick = () => {
+    const raw = Number(random());
+    const idx = Math.max(0, Math.min(BASE36.length - 1, Math.floor(raw * BASE36.length)));
+    return BASE36[idx];
+  };
+  return `${pick()}${pick()}`;
+}
+
+export function mintWorkId(config, existingIds = [], now = new Date(), random = Math.random) {
+  if (!config) throw new Error('mintWorkId 需要传入 config');
+  const existing = new Set([...existingIds].map((id) => String(id)));
+  const scheme = config.idScheme || 'sequential';
+
+  if (scheme === 'sequential') {
+    const re = new RegExp(`^${escapeRegExp(config.workIdPrefix)}-(\\d{${config.workIdDigits},})$`);
+    let max = 0;
+    for (const id of existing) {
+      const m = id.match(re);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return formatWorkId(config, max + 1);
+  }
+
+  if (scheme === 'timestamp') {
+    const stem = `${config.workIdPrefix}-${formatLocalTimestamp(now)}`;
+    for (let attempt = 0; attempt < 4096; attempt++) {
+      const candidate = `${stem}-${randomBase36Suffix(random)}`;
+      if (!existing.has(candidate)) return candidate;
+    }
+    throw new Error(`mintWorkId 无法为 ${stem} 找到未占用尾缀`);
+  }
+
+  throw new Error(`未知 idScheme: ${scheme}`);
 }
 
 // v5.2+: 把工单标题转成文件名安全的 slug
@@ -198,6 +322,16 @@ function mergeConfig(base, override) {
   const out = { ...base, ...override };
   if (base.pipeline || override.pipeline) {
     out.pipeline = { ...(base.pipeline || {}), ...(override.pipeline || {}) };
+  }
+  if (base.ui || override.ui) {
+    out.ui = { ...(base.ui || {}), ...(override.ui || {}) };
+    if (out.ui.designRefs === undefined) out.ui.designRefs = [];
+  }
+  if (base.e2e || override.e2e) {
+    out.e2e = { ...(base.e2e || {}), ...(override.e2e || {}) };
+    if (out.e2e.launch === undefined) out.e2e.launch = '';
+    if (out.e2e.reportsDir === undefined) out.e2e.reportsDir = 'e2e';
+    if (out.e2e.maxRerun === undefined) out.e2e.maxRerun = 2;
   }
   return out;
 }

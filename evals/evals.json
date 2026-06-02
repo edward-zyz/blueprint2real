@@ -72,10 +72,10 @@
           "expected": "0"
         },
         {
-          "text": "对接具体工单的 7 个 agent 都引用 {{workId}} 占位（roadmap-planner 例外；含 v5.1 新增 direct-fix）",
+          "text": "对接具体工单/里程碑的 9 个 agent 都引用 {{workId}} 或相关占位（含 UI 与 E2E 角色）",
           "type": "shell",
           "command": "grep -l '{{workId}}' \"$SKILL_ROOT\"/agents/*.md | wc -l",
-          "expected": "7"
+          "expected": "9"
         },
         {
           "text": "需要生成新 work-id 的角色（roadmap-planner / handoff-committer）引用 {{workIdPrefix}}",
@@ -120,22 +120,40 @@
           "expected": ">=5"
         },
         {
-          "text": "v5.1: 8 个 agent（含 direct-fix）",
+          "text": "v5.3: 11 个 agent（含 UI 设计线与 e2e-verifier）",
           "type": "shell",
           "command": "ls \"$SKILL_ROOT\"/agents/*.md | wc -l",
-          "expected": "8"
+          "expected": "11"
         },
         {
-          "text": "v5.1: 7 个 stage agent 都含'自报阻塞'段（roadmap-planner / direct-fix / 7 个 stage agent）",
+          "text": "v5.3: e2e-verifier agent 已存在",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/agents/e2e-verifier.md && echo ok",
+          "expected": "ok"
+        },
+        {
+          "text": "v5.3: 所有 agent 都含'自报阻塞'段或 blocked_evidence 约束",
           "type": "shell",
           "command": "grep -lE '自报阻塞|blocked_evidence' \"$SKILL_ROOT\"/agents/*.md | wc -l",
-          "expected": ">=7"
+          "expected": ">=11"
         },
         {
-          "text": "v5.1: 6 个 stage agent 都含 receipt envelope JSON 模板（roadmap-planner / direct-fix 除外结构特殊）",
+          "text": "v5.3: 所有 agent 都含 receipt envelope JSON 模板或 stage_id",
           "type": "shell",
           "command": "grep -lE 'receipt envelope|stage_id' \"$SKILL_ROOT\"/agents/*.md | wc -l",
-          "expected": ">=7"
+          "expected": ">=11"
+        },
+        {
+          "text": "v5.3: milestone-status 脚本与 npm alias 已注册",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/scripts/milestone-status.mjs && grep -c '\"milestone:status\"' \"$SKILL_ROOT\"/bootstrap/workflow/templates/dev-package.json.tmpl",
+          "expected": "1"
+        },
+        {
+          "text": "v5.3: acceptance.md 模板已加入 bootstrap",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/templates/state/acceptance.md.tmpl && echo ok",
+          "expected": "ok"
         },
         {
           "text": "v5.1: references/ 新增 receipts-schema.md 含 envelope + 8 stage schema",
@@ -211,6 +229,12 @@
           "type": "shell",
           "command": "test -f /tmp/b2r-fA/state/retro.md && grep -c 'Manager Override' /tmp/b2r-fA/state/retro.md",
           "expected": ">=1"
+        },
+        {
+          "text": "v5.3: fixture A 含 state/acceptance.md 且覆盖 Q1/Q2",
+          "type": "shell",
+          "command": "test -f /tmp/b2r-fA/state/acceptance.md && grep -cE '^## Q[12] ·' /tmp/b2r-fA/state/acceptance.md",
+          "expected": "2"
         }
       ]
     },
@@ -276,7 +300,7 @@
       "weight": "light",
       "prompt": "(static check) v5.1+ thin 架构：用 skill bundle 的 init.mjs --bootstrap 模式在 b2r-process 真实位置初始化，断言只生成 state/config/package.json (无 workflow/ 子树)，且 npm script 指向已安装的 skill bundle。",
       "fixture_dir": null,
-      "expected_output": "8 个文件（5 state + workflow.config.mjs + AGENT_RUNBOOK.md + package.json）；package.json 含 DEV_ROOT 注入；脚本指向 the installed skill bundle bootstrap/workflow/scripts/。",
+      "expected_output": "9 个文件（6 state + workflow.config.mjs + AGENT_RUNBOOK.md + package.json）；package.json 含 DEV_ROOT 注入；脚本指向 the installed skill bundle bootstrap/workflow/scripts/。",
       "assertions": [
         {
           "text": "bootstrap: skill 自带 bootstrap/workflow/scripts/init.mjs 资产存在",
@@ -285,10 +309,10 @@
           "expected": "ok"
         },
         {
-          "text": "bootstrap: 资产含 8 个核心脚本",
+          "text": "bootstrap: 资产含至少 11 个核心脚本",
           "type": "shell",
           "command": "ls \"$SKILL_ROOT\"/bootstrap/workflow/scripts/*.mjs | grep -v '\\.test\\.' | wc -l",
-          "expected": ">=8"
+          "expected": ">=11"
         },
         {
           "text": "bootstrap: 资产含 dev-package.json.tmpl",
@@ -297,10 +321,10 @@
           "expected": "ok"
         },
         {
-          "text": "v5.1 thin: 端到端跑 --bootstrap 在真实项目位置（生成 8 文件，无 workflow/）",
+          "text": "v5.3 thin: 端到端跑 --bootstrap 在真实项目位置（生成 9 文件，无 workflow/）",
           "type": "shell",
           "command": "rm -rf /tmp/b2r-bs-eval && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --bootstrap --prefix ZZ --milestones M0,M1 --project zzapp --target /tmp/b2r-bs-eval >/dev/null 2>&1 && find /tmp/b2r-bs-eval -type f | wc -l | tr -d ' '",
-          "expected": "8"
+          "expected": "9"
         },
         {
           "text": "v5.1 thin: 生成的 target 不含 workflow/ 子树（thin 架构）",
