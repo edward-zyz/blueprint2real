@@ -15,6 +15,8 @@
 | 1 | roadmap-planner 返回后 | `cd {{devRoot}} && npm run validate:state` | 0 error | sub-agent 显然没写好 queue.md，回报用户决定是否打回重做 |
 | 1 | roadmap-planner 返回后 | `cd {{devRoot}} && npm run deps:graph` | 退出码 0（无环）+ 文本输出依赖关系合理 | 依赖循环或孤儿节点 → 打回 planner 调整 |
 | 2 | promote.mjs 后 | promote.mjs 内嵌跑了 validate:state；主线再跑一次冷确认 | 0 error | promote 应该不会留 broken state，但万一发生，回报 |
+| 1.5 | UI anchor（可选） | 主线读 `1.5-ui-anchor.json` + 校验 `state/ui-anchor.md` 存在 | `reviewer_verdict=PASS`，且 `ref_grep_hits` 非空或 `synthesized_design_system=true` 且 `synthesis_evidence` 非空；项目事实源未被通用 designSkill 覆盖 | `NEEDS_FIX`、需要发现时未主动发现、或合成证据为空 → retry-once；仍失败进 Manager Override |
+| 2.0 | UI delta（可选） | 主线读 `2.0-ui-design.json` + 校验 `mockups[].path` 存在 | `reviewer_verdict=PASS` 且 `mockups[]` 非空；`ui_novel=false`；mockup 对齐 anchor | `NEEDS_FIX` 或 `ui_novel=true` → surface / Manager Override；PASS 后 spec-drafter 必须引用 mockups |
 | 2 | spec-drafter 返回后 | grep `TBD\|待定\|TODO` work/<id>/spec.md | 0 命中（§11 中明示的不算） | 打回 spec-drafter 补全 |
 | 2 | spec-plan-reviewer 返回后 | reviewer 报告"总判定" | `READY TO IMPLEMENT` | `NEEDS REVISION` → 打回 spec-drafter / plan-drafter |
 | 3 | implementor 启动前 | `cd {{devRoot}} && cat state/active.md \| head -10` | Status: In Progress + ID 是当前 work-id | 没翻好 → 提醒 implementor 重新跑 Stage 3 启动动作 |
@@ -30,6 +32,8 @@
 | 5 | handoff-committer 第 8 步 commit 后 | `git show --stat <hash>` | 仅 state/* + BOARD.html | 超范围 → 把 handoff commit reset，重新做 |
 | 5 | handoff-committer 第 10 步 | `cd {{devRoot}} && npm run verify:handoff <id>` | 7 项 check 全 ✓（L0 跳 Check 4，6/6） | 任一 ✗ → 按 check 输出修正后**主线**再跑一次（不让 committer 自报） |
 | 0 | roadmap-planner Triage 段 | 主线读 `<devRoot>/work/<id>/receipts/0-triage.json` | `level ∈ {L0,L1,L2,L3}`；`reasons[]` 非空 | level 缺或为空 → 打回 planner 重打标 |
+| M | Stage 5 handoff 后 | `cd {{devRoot}} && npm run milestone:status <milestone> -- --json` | `boundary_reached=true` 才进入 E2E；`next_action=skip_e2e_disabled` 时跳过 E2E 不报错 | 脚本未到边界 → 回 per-ticket pipeline；脚本异常 → 先修 state/config |
+| M | E2E acceptance（可选） | 主线读 `<reportsDir>/e2e-<milestone>.json` + 跑 `e2e.e2eCommands` | `overall_verdict=PASS` + `e2e_regression_green=true` + 人类可读报告存在 | FAIL → 按 `(milestone, journey_id)` 去重生成/复用 Planned 修复工单；`e2e_rerun_count > maxRerun` → Manager Override |
 | × | 任意 sub-agent 自报 `blocked: true` | 主线读 receipt `blocked_evidence` 字段 | 非空 + 具体引用（路径 / grep 结果 / 测试输出） | 空 evidence → 视为偷懒早退，原 stage 重派一次（不计入 attempt） |
 | × | 任意 Agent 返回后（**先于 gate 判定**） | 主线解析末条消息能否成本 stage 的 receipt envelope | 可解析（stage_id/level/attempt 齐） | 不可解析（散文/报错/空/截断）= **交付失败**（不变量 10）→ fresh 重派 1 次 → 仍不可用主线内联接手（标 `dispatch_recovery`）→ 才 Manager Override；**不计入 gate attempt**，不在前两步惊动用户。真 hang 不在范围（依赖 harness 超时回收） |
 | 5 | handoff-committer 第 11 步 | `cat <devRoot>/work/<id>/receipts/pipeline-status.json` | `status: "done"` + `escalation_pack: null` | 仍 escalation → 不允许 handoff，回 Manager Override 再处理 |

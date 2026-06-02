@@ -18,7 +18,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateState } from './validate-state.mjs';
-import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, workItemSlug } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, workItemSlug, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const COMMIT_HASH_RE = /^[0-9a-f]{7,40}$/;
@@ -69,7 +69,7 @@ export function verifyHandoff({ stateDir, workDir, boardPath, workId, config }) 
   if (!config) throw new Error('verifyHandoff 需要传入 config');
   const WORK_ID_RE = makeWorkIdRegex(config);
   const WORK_ID_PATTERN = makeWorkIdPattern(config);
-  const WORK_ID_LABEL = `${config.workIdPrefix}-\\d{${config.workIdDigits}}`;
+  const WORK_ID_LABEL = WORK_ID_PATTERN;
 
   const checks = [];
   const pass = (name, detail) => checks.push({ name, ok: true, detail });
@@ -224,7 +224,7 @@ export function verifyHandoff({ stateDir, workDir, boardPath, workId, config }) 
   return { ok, checks };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const workId = args.find((a) => !a.startsWith('--'));
   const asJson = args.includes('--json');

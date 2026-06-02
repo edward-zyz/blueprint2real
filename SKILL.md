@@ -64,7 +64,7 @@ skill 被调用时，第一件事永远是**定位工作目录与读 workflow.co
 
 读到 config 后，提取以下字段作为后续所有 sub-agent 的上下文（外加为每条工单按 `workItemSlug({ workId, title })` 算出的 `slugDir`，用于派工时填 prompt 中 `{{slugDir}}` 占位）：
 
-- `workIdPrefix` + `workIdDigits` — 编号格式（如 `IS-\d{3}`）
+- `workIdPrefix` + `workIdDigits` + `idScheme` — 编号格式。`idScheme` 缺省为 `sequential`（如 `<prefix>-\d{3}`）；多 worktree 并行项目可设为 `timestamp`，新号形如 `<prefix>-260602-143052-7f`
 - `milestones` — 里程碑数组
 - `projectName` / `boardTitle` — 品牌
 - `docsRefs` — 项目上游文档路径（spec 必须从这些位置引用具体章节）
@@ -73,6 +73,8 @@ skill 被调用时，第一件事永远是**定位工作目录与读 workflow.co
 - `pipeline.retroSurfaceThreshold`（默认 `3`） — 累计 N 条 retro override 主动 surface 给用户
 - `pipeline.receiptsDir`（默认 `receipts`） — `work/<slugDir>/` 下 receipt 子目录名
 - `pipeline.specsDir`（默认 `specs`） — 工单 spec.md 沉淀位置（路径：`<devRoot>/<specsDir>/<slugDir>.md`）
+- `ui`（可缺省） — UI 设计线配置。缺省表示关闭；存在时提取 `designSkill`、`designRefs`（可缺省 / 空数组）、`uiPaths`（projectRoot 相对 glob）、`anchorPath`（devRoot 相对路径）。`designSkill` 推荐 `ui-ux-pro-max`；`designRefs` 若存在是项目设计系统事实源，若缺失则由 `ui-designer` 主动发现项目设计线索，仍找不到时用 `ui-ux-pro-max` 合成最小可执行设计系统 anchor
+- `e2e`（可缺省） — 蓝图级 E2E 验收线配置。缺省表示关闭；存在时提取 `verifySkill`、`launch`、`e2eCommands`、`reportsDir`、`maxRerun`。E2E 只在里程碑边界运行，不进入单工单 6 阶段循环。
 
 **不要把 config 里的值硬编码到 prompt 里**——work-id 前缀、里程碑名、项目名、文档路径都来自 `workflow.config.mjs`，每次派 sub-agent 时按当前 config 派生填充占位。Skill 描述里保留具体示例（如 `IS-XXX`）只是为了帮助用户在自然语言中触发；执行时一律读 config。
 
@@ -97,7 +99,7 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
    │  pre-flight：读 state/active.md + queue.md + roadmap.md
    ▼
 ┌─ Stage 0 · Triage（内嵌于 Stage 1 roadmap-planner）────────┐
-│  目标：每条工单打 L0-L3 level 标签                          │
+│  目标：每条工单打 L0-L3 level 标签；配置 ui 时附加 ui=true/false │
 │  执行者：roadmap-planner 中段                               │
 │  产物：b2r-process/work/<id>/receipts/0-triage.json        │
 │  门槛：level 字段存在 + 判据原文非空                        │
@@ -106,7 +108,7 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
    ▼
 ┌─ Stage 1 · Roadmap → Backlog ───────────────────────────────┐
 │  目标：把 roadmap 拆成 Planned 工单序列（含依赖关系）          │
-│  执行者：roadmap-planner sub-agent                            │
+│  执行者：roadmap-planner sub-agent 提 proposal；主线 mintWorkId 回填 │
 │  产物：queue.md 表 + §Planned 摘要段 + receipt-1.json         │
 │  门槛：npm run validate:state · 0 error                       │
 └────────────────────────────────────────────────────────────┘
@@ -116,12 +118,40 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
    ▼
 ┌─ Stage 2 · Promote ─────────────────────────────────────────┐
 │  目标：把 1 条 Planned 翻 Ready，生成 spec / plan / context-pack │
-│  执行者：promote.mjs（脚本）→ spec-drafter / plan-drafter      │
+│  执行者：promote.mjs（脚本）→ 可选 UI 设计 → spec/plan drafting │
 │            L1：spec + plan 合并 + self-review 内嵌            │
 │            L2/L3：独立 2a / 2b / 2c 三步                      │
-│  产物：b2r-process/work/<id>/{spec,plan,context-pack}.md + receipt-2*.json │
+│  产物：specs/<slug>.md + work/<slug>/{plan,context-pack}.md + receipt-2*.json │
 │  门槛：spec/plan reviewer 通过 + npm run validate:state OK    │
 └────────────────────────────────────────────────────────────┘
+
+> **可选 UI 设计线（Stage 1.5 / 2.0）**：仅当 `workflow.config.mjs` 配置 `ui` 块时启用；缺省 `ui` 块表示整条 UI 线关闭，纯后端 / CLI 项目不产生任何 UI 产物。
+>
+> - Stage 0：roadmap-planner 依据 `0-triage.json.files_estimated` 与 `ui.uiPaths` 打 `ui=true/false`。两者都用 projectRoot 相对路径，避免把 `b2r-process/` devRoot 与实际代码根混淆。
+> - `ui.designSkill` 推荐使用 `ui-ux-pro-max`；它提供 UI/UX 方法、可用性检查与风格推理。`ui-designer` 的设计系统来源顺序是：配置的 `designRefs` → 主动发现的项目文件 → 用 `ui-ux-pro-max` 合成的最小设计系统 anchor。前两类项目事实源优先于通用建议；只有找不到可核验项目事实源时，才允许合成。
+> - Stage 1.5：首个 `ui=true` 工单完成 `promote.mjs` 后、进入 spec-drafter 前，若 `ui.anchorPath` 不存在，主线派 `ui-designer(mode:anchor)` + `design-reviewer` 生成并审 `state/ui-anchor.md`。锚点 receipt 落在触发工单的 `work/<slugDir>/<receiptsDir>/1.5-ui-anchor.json`。
+> - Stage 2.0：每个 `ui=true` 工单在 `promote.mjs` 生成 spec stub / plan stub / context-pack 之后、spec-drafter 之前，主线派 `ui-designer(mode:delta)` + `design-reviewer` 生成 `work/<slugDir>/ui/` mockups，最终 receipt 为 `2.0-ui-design.json`。
+> - spec-drafter 必须把 `2.0-ui-design.json.mockups[]` 写入 spec §4；implementor 必须把这些 mockups 当 UI 实现目标。若 Stage 3 才发现原 triage 漏标 UI，本轮不补设计，只登记 retro 并 surface 给用户，避免回流打断已进入实现的 happy-path。
+>
+> UI 锚点 / delta 的质量失败同样走 retry-once → Manager Override。`design-reviewer` 的 `fail_items` 与 `reviewer_expectation` 进入 `pipeline-status.last_feedback`，和 2c-review 的重试机制保持同构。
+
+> **可选蓝图级 E2E 验收线（里程碑阶段，循环之外）**：仅当 `workflow.config.mjs` 配置 `e2e` 块时启用；缺省表示整条 E2E 验收线关闭，纯库 / CLI / 无可启动应用项目不报错。
+>
+> - Stage 1：roadmap-planner 在 backlog proposal 中同时给出 `state/acceptance.md` 提案，主线写入 state。若 roadmap/blueprint 自带客户旅程或验收标准，直接提取；否则按里程碑粗推一版。粒度只到"客户旅程 + 验收标准"，不要展开成操作脚本。
+> - 每次 Stage 5 handoff 让 active 回 Idle 后，主线亲跑 `cd {{devRoot}} && npm run milestone:status <milestone>`。脚本报告 `boundary_reached=true` 才能进入 E2E，主线不得凭自然语言判断边界。
+> - E2E verifier 读 `state/acceptance.md` 的该里程碑段 + `state/customer-visible.md` 的实际交付范围 + UI 锚点 / `2.0-ui-design.json.mockups[]`，把粗旅程展开成真实验证流。
+> - 探索段由 `e2e.verifySkill` 启动整合应用并取证；固化段把已验过的稳定旅程写成项目 e2e 回归测试，本轮跑一次绿即加入 `e2e.e2eCommands`。
+> - 产物是 `<reportsDir>/<milestone>-acceptance.md`（给人看的业务语言报告）、`<reportsDir>/e2e-<milestone>.json`（主线判 gate 的 receipt）和项目测试目录里的固化 e2e 测试。
+> - PASS 不打扰用户，作为 `Contract Done → Demo Ready` 翻档前置证据之一；FAIL 按 `(milestone, journey_id)` 去重生成/复用 Planned 修复工单，修完后重跑。`e2e_rerun_count > e2e.maxRerun` 时强制 Manager Override，不静默循环。
+
+> **可选批次级 E2E 验收线（per-submission，`e2e.unit∈{group,both}` 时启用）**：把"一次 b2r 提交 mint 出的一批工单"作为一个 E2E 验收单位，比粗里程碑更贴合日常交付节奏；与里程碑级线可并存（`unit:'both'`）。
+>
+> - **mint 时建组**：Stage 1 主线 `mintWorkId` 回填这批 backlog 的真实工单号后，再调 `mintGroupId(new Date())` 生成 group id（`EG-<本地时间戳>`），把这批工单号写进 `state/e2e-groups.md` 一行：`| <group> | <id1>, <id2>, … | Open | — | <YYYY-MM-DD> |`。一次提交一行，缺省 Status=Open。
+> - **边界检测**：每次 Stage 5 handoff 让 active 回 Idle 后，主线亲跑 `cd {{devRoot}} && npm run e2e-group:status -- --json`。对 `next_action=run_group_e2e`（该组工单全 Done 且 Status 仍 Open）的组进入组级 E2E，不得凭自然语言判断边界。
+> - **派 verifier**：用 `agents/e2e-verifier.md` 的 `mode=group`、`{{scopeId}}=<group>` 派一次。旅程基准取该组各成员工单 spec 的 §验收标准 + `customer-visible.md` 的成员 Done 段（**不读 acceptance.md**）。
+> - **收口**：PASS（`overall_verdict=PASS` 且 `e2e_regression_green=true`）→ 主线把该组行翻 `Accepted` 并填 Receipt 路径 `<reportsDir>/e2e-<group>.json`；确认无可观测面（verifier `blocked` 证据为"无可观测面"）→ 翻 `Skipped` 并在该行 Receipt 写 `skip:<原因>`。两者都解除硬卡。
+> - **硬卡**：`validate-state` 对"成员全 Done 但 Status 仍 Open"的组报 error（见校验器 D3）。即整组做完没固化 E2E，validate:state 必红、promote/handoff 全堵——杜绝"跑完即弃"。
+> - **FAIL 闭环**：按 `(group, journey_id)` 去重生成/复用 Planned 修复工单（`source:e2e-fail`），修完后该组仍在边界则重跑；`e2e_rerun_count > e2e.maxRerun` 强制 Manager Override，不静默循环。修复工单可加入同组（追加到该行 WorkIds）或自成新组，由主线按是否同一交付判断。
 
 > **「plan 已存在」捷径（合法化主线裁量）**：当用户输入或 `docsRefs` 已含逐 step 实施计划（如现成的 `*_计划_*.md`）时，spec-drafter / plan-drafter **可降级或跳过**——主线直接把现成 plan 映射落盘为 `work/<id>/{spec,plan}.md`（省 fresh-context drafting 的 token；历史 retro 显示可显著减少重复起草）。
 > **但 `spec-plan-reviewer` 在 L2/L3 不可省**——它是独立质检 gate（reviewer 不见 drafter 内部推理），主线自写 spec/plan 时**更**需要这道独立眼睛兜范围裁剪 / spec §3 不做项 / §4 文件清单。捷径只省"起草"，不省"独立 review"。L1 的 reviewer 仍内嵌于 plan-drafter，照旧。
@@ -153,9 +183,16 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 │  门槛：npm run verify:handoff <id> · 全过                     │
 └────────────────────────────────────────────────────────────┘
    │
-   │  active 翻回 Idle → 回 Stage 2 拿下一条 Ready
+   │  active 翻回 Idle → 主线亲跑 `npm run milestone:status <milestone>`
+   │    ├─ boundary=false → 回 Stage 2 拿下一条 Ready
+   │    ├─ boundary=true 且 e2e 未配置 → 记录跳过，按里程碑翻档要求继续
+   │    └─ boundary=true 且 e2e 已配置 → 进入里程碑 E2E 验收（循环之外）
    ▼
 ```
+
+Stage 1 的真实工单号由主线脚本化分配：`roadmap-planner` 只返回带 `temp_key` 的 backlog proposal（标题、范围、依赖、triage），主线读取当前 `queue.md` 的 existing IDs，逐条调用 `workflow/scripts/config.mjs::mintWorkId(config, existingIds, new Date())`，再把 `temp_key` 替换成真实 workId 并写入 `queue.md` / `0-triage.json`。不要让 sub-agent 手算 `max+1` 或凭自然语言生成 timestamp。
+
+> 若 `config.e2e.unit∈{group,both}`：这批工单号全部回填后，主线再调 `config.mjs::mintGroupId(new Date())` 生成 group id，把这批工单写进 `state/e2e-groups.md` 一行（Status=Open）。详见上文「批次级 E2E 验收线」。
 
 ## 失败处理：交付失败兜底 → 质量失败 retry-once → Manager Override
 
@@ -213,6 +250,16 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 
 **Gate 8 (handoff) fail 后 Manager 仅允许 `accept-override` 或 `drop`**——downgrade / shrink-scope / split-slice 在 handoff 阶段语义不成立。
 
+### 里程碑 E2E FAIL 闭环
+
+E2E acceptance 是蓝图级 gate，不占用单工单 stage attempt；失败时仍要遵守"不静默循环"：
+
+1. e2e-verifier 返回 `overall_verdict="FAIL"` 或固化回归测试未绿时，主线先读 `<reportsDir>/e2e-<milestone>.json` 的 `journeys[]`。
+2. 对每条失败旅程，先查 `state/queue.md` 是否已有未 Done 修复工单带同一组溯源字段：`source: e2e-fail` / `milestone` / `journey_id`。已有则复用，不重复发单。
+3. attended 模式升 Manager Override，由验收报告作 escalation 证据；unattended 模式自动落 Planned 修复工单，并把失败链写入 `state/retro.md`。
+4. 修复工单走正常 per-ticket pipeline；全部 Done 后，下一次 `milestone:status` 仍到边界时重跑 E2E。
+5. `e2e_rerun_count > e2e.maxRerun` 时强制 Manager Override，不再自动重跑。
+
 ### attempt 语义统一
 
 - `attempt` 从 **1** 起算（1 = 首次尝试，2 = 已重试 1 次，3 = 第 2 次重试）
@@ -231,11 +278,16 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
   "attempt": 1,
   "completed_at": "2026-05-16T14:23:00+08:00",
   "manager_override": null,
+  "blocked": false,
+  "blocked_evidence": null,
+  "skills_used": ["<skill-name>"],
   "...stage-specific payload..."
 }
 ```
 
 下个 stage 派 sub-agent 时，主线把上一份 receipt 路径作为 prompt 字段传入。**receipt / plan / context-pack 落到 `<devRoot>/work/<slugDir>/`；spec 落到 `<devRoot>/<specsDir>/<slugDir>.md`**。
+
+里程碑 E2E receipt 是例外：它不属于单工单 slug，落在 `<devRoot>/<reportsDir>/e2e-<milestone>.json`，同目录还有人类可读报告 `<milestone>-acceptance.md`。主线用 receipt 判 gate，用报告向用户解释测了什么。
 
 ## Retro 复盘机制
 
@@ -277,11 +329,17 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 | Stage 0 Triage | （主线读 receipt） | level ∈ {L0,L1,L2,L3}，判据非空 |
 | Stage 1 Backlog 落地 | `cd {{devRoot}} && npm run validate:state` | 0 error（warn 允许） |
 | Stage 2 Promote 后 | `cd {{devRoot}} && npm run validate:state` + `cd {{devRoot}} && npm run deps:graph` | 0 error，依赖图无环、无孤儿 |
+| Stage 1.5 UI Anchor（可选） | 主线读 `1.5-ui-anchor.json` + design source 证据 | `reviewer_verdict=="PASS"`，且 `ref_grep_hits` 非空或 `synthesized_design_system==true` 且 `synthesis_evidence` 非空；项目事实源未被通用 designSkill 覆盖 |
+| Stage 2.0 UI Delta（可选） | 主线读 `2.0-ui-design.json` + mockup 路径存在性 | `reviewer_verdict=="PASS"` 且 `mockups[]` 非空，mockup 对齐 anchor；`ui_novel=true` 或 `NEEDS_FIX` surface |
 | Stage 3 红 gate | 主线核 `3-impl.json`：`failing_test_first=="pass"` + Step 1 红色输出证据非空 | 证据缺失/为空 = 红 gate 未过，打回 implementor（整包派工模式下红→绿在 implementor 内部，主线核 receipt 自证，不亲跑） |
 | Stage 3 Impl 后 targeted（**每切片**） | spec §7 中本工单特有命令 + 本切片 plan §1 Step1 test | 0 error / 测试绿 |
 | Stage 3 收敛 Regression（**末切片后跑一次**，主线亲跑） | config.regressionCommands 每一条 | 全部退出码 0；红了**按切片二分定位**（每切片留 targeted + 增量集成 checkpoint），不裸跑全量面对红海 |
 | Stage 4 Review | `cd {{devRoot}} && npm run lint:redlines` | 0 命中 |
 | Stage 5 Handoff | `cd {{devRoot}} && npm run verify:handoff <id>` | 全过（L3: 7 项 / L0: 跳过 spec/plan 相关 check） |
+| 里程碑边界 | `cd {{devRoot}} && npm run milestone:status <milestone> -- --json` | `boundary_reached=true` 才能进入 E2E；`next_action=skip_e2e_disabled` 时跳过 E2E 不报错 |
+| 里程碑 E2E（可选） | 主线读 `<reportsDir>/e2e-<milestone>.json` + 跑 `e2e.e2eCommands` | `overall_verdict=PASS` 且 `e2e_regression_green=true`，报告存在且是业务语言 |
+| 组级边界（`unit∈{group,both}`） | `cd {{devRoot}} && npm run e2e-group:status -- --json` | `next_action=run_group_e2e` 才进组级 E2E；硬卡见 validate-state D3（组全 Done 仍 Open → error） |
+| 组级 E2E（可选） | 主线读 `<reportsDir>/e2e-<group>.json` + 跑 `e2e.e2eCommands`，PASS 后把组翻 `Accepted`+Receipt | `overall_verdict=PASS` 且 `e2e_regression_green=true`，报告存在且是业务语言 |
 | 任意 Gate fail 后 retry | 重新跑同一脚本 | retry attempt 仍 fail → Manager Override |
 
 任何质检失败 → 进 retry-once → 仍 fail 进 Manager Override（不再"打回用户决定"——主线起草决策，用户拍板）。
@@ -291,6 +349,8 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 | 角色 | 模板文件 | 何时派 |
 |---|---|---|
 | roadmap-planner | `agents/roadmap-planner.md` | Stage 1，每个 skill 调用最多 1 次（除非用户后续追加 roadmap） |
+| ui-designer | `agents/ui-designer.md` | 可选 UI 线：Stage 1.5 anchor / Stage 2.0 delta |
+| design-reviewer | `agents/design-reviewer.md` | 可选 UI 线：审 anchor / delta，产出 PASS/NEEDS_FIX gate |
 | direct-fix | `agents/direct-fix.md` | L0 路径，工单单 stage 跑完 |
 | spec-drafter | `agents/spec-drafter.md` | Stage 2，L1+ 每个工单 1 次 |
 | plan-drafter | `agents/plan-drafter.md` | Stage 2，L1+ 每个工单 1 次 |
@@ -298,6 +358,7 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 | implementor | `agents/implementor.md` | Stage 3，每个 sub-slice 1 次 |
 | arch-security-reviewer | `agents/arch-security-reviewer.md` | Stage 4，L3 每个工单 1 次（L2 轻量内嵌；L1 跳过） |
 | handoff-committer | `agents/handoff-committer.md` | Stage 5，每个工单 1 次 |
+| e2e-verifier | `agents/e2e-verifier.md` | 可选 E2E 线：里程碑边界（`mode=milestone`）或组级边界（`mode=group`，`unit∈{group,both}`）到达且 `e2e` 已配置时派一次 |
 
 读取这些模板时**替换 `{{...}}` 占位**为本工单的具体值（workId、level、config 字段、依赖列表等），然后作为 `Agent` 的 prompt 参数。
 
@@ -318,5 +379,6 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 - **不要修改 BOARD.html**——它是渲染产物，手改会被下次 `render:board` 覆盖。
 - **不要在 SKILL 触发后立即操作代码**——先确认 `state/active.md` 的当前状态、用户的明确意图（哪条工单、是 promote 还是 handoff），再行动。
 - **不要让 retry 静默循环**——retry 失败必进 Manager Override，让用户看到失败链；不要让 sub-agent "再试一次又一次"假装搞定。
+- **不要凭感觉判断里程碑/组级边界**——Stage 5 后必须跑 `npm run milestone:status <milestone>`（里程碑线）或 `npm run e2e-group:status`（组级线，`unit∈{group,both}`）；脚本未报到达边界（`boundary_reached=true` / `next_action=run_group_e2e`）就不能派 E2E verifier。
 - **不要在 Manager Override 时手编 manager-decision.json**——主线起草建议 + 用户 `AskUserQuestion` 确认 + 主线落盘，避免 schema 错填。
 - **不要在新项目首次启动时"贴心生成"底盘脚本**——按不变量 9，新项目首次启动只能跑 `init.mjs --bootstrap` 命令（源是 skill 自带的 `bootstrap/workflow/`）。`Write` 任何 `workflow/scripts/*.mjs` 内容都是错误行为。

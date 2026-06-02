@@ -9,7 +9,7 @@ flowchart TD
     Start([USER input: roadmap]) --> S0{Stage 0 Triage<br/>roadmap-planner 内嵌打 L0-L3 标}
     S0 -->|L0 trivial| L0[direct-fix agent<br/>单 stage: edit+state+commit]
     S0 -->|L1/L2/L3| S1
-    L0 --> Done([Done])
+    L0 --> WorkDone([Work item Done])
 
     S1[Stage 1 Planner] --> R1[(receipt-1)]
     R1 --> G2{Gate 2}
@@ -47,15 +47,25 @@ flowchart TD
 
     S5[Stage 5 Handoff Committer<br/>L0 直接到此] --> R5[(receipt-5)]
     R5 --> G8{Gate 8<br/>verify-handoff}
-    G8 -->|pass| Done
+    G8 -->|pass| WorkDone
     G8 -.fail.-> Mgr
+
+    WorkDone --> MS{milestone-status<br/>boundary?}
+    MS -->|false| Next[Next Ready/Planned work item]
+    Next --> S2a
+    MS -->|true + e2e disabled| MileEvidence([Milestone evidence complete])
+    MS -->|true + e2e enabled| E2E[e2e-verifier<br/>blueprint-level journeys]
+    E2E --> E2EG{E2E gate}
+    E2EG -->|PASS + regression green| MileEvidence
+    E2EG -.FAIL / maxRerun exceeded.-> Mgr
+    E2EG -->|FAIL fix tickets| S1
 
     Mgr{Manager Override<br/>主线起草 + 用户 AskUserQuestion 确认<br/>写 manager-decision.json + retro.md}
     Mgr -->|accept-override| Forward[Force pass<br/>下一 stage]
     Mgr -->|downgrade| G4D[改 0-triage.level<br/>回 Gate 4 重判]
     Mgr -->|shrink-scope| S2a
     Mgr -->|split-slice| S2b
-    Mgr -->|drop| Done
+    Mgr -->|drop| WorkDone
     Forward --> S5
     G4D --> G6
 ```
@@ -64,6 +74,8 @@ flowchart TD
 
 - 虚线（`-.->`）= "fail / self-blocked → Manager"，包含两种触发：(1) attempt > maxRetry+1 (默认 attempt > 2) (2) sub-agent return blocked=true 含非空 evidence
 - 每个 Gate 实线 fail 表示**首次 fail** → 主线自动 retry 一次（attempt++）；retry 后仍 fail 才走虚线进 Manager
+- `milestone-status` 是 Stage 5 之后的确定性边界脚本；只有 `boundary_reached=true` 才能派 e2e-verifier
+- E2E FAIL 默认回流为带 `source=e2e-fail / milestone / journey_id` 的 Planned 修复工单；同一 `(milestone, journey_id)` 查重复用，超过 `e2e.maxRerun` 才进 Manager
 - Manager Override 5 个 action 中：
   - `accept-override` → 跳到 S5 / 下一 stage
   - `downgrade` → 改 0-triage.level，**回 Gate 6 重判 level branch**（不直跳 S3，保留 reviewer）

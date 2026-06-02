@@ -26,6 +26,7 @@
   - pipeline.receiptsDir: {{receiptsDir}}
   - pipeline.specsDir: {{specsDir}}
 - 工单 slug 目录名: {{slugDir}}
+- UI 设计 receipt（非 UI 工单填 null）: {{uiDesignReceiptPath}}
 
 == 必读 ==
 
@@ -33,6 +34,7 @@
 2. {{devRoot}}/{{specsDir}}/{{slugDir}}.md
 3. {{devRoot}}/work/{{slugDir}}/plan.md
 4. {{devRoot}}/AGENT_RUNBOOK.md §2 / §6 / §9
+5. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON，确认 spec §4 引用了全部 `mockups[].path`。
 
 按 context-pack §1 列出的依赖工单，扫一下 dep 的 spec §4/§5（具体路径见 `{{devRoot}}/state/queue.md` 中 dep 行的 Spec 列），确认本工单 §1 上游引用与依赖契约对得上。
 
@@ -56,6 +58,7 @@
 - [ ] §7 Targeted 至少 1 条可自动化验证
 - [ ] §8 失败预案是**具体**的（不只是"如果失败就停下"）
 - [ ] §11 剩余风险都是**非**安全 / 密钥 / 审计 / 客户数据 类
+- [ ] UI 工单：spec §4 有 “UI mockups” 小节，且包含 `2.0-ui-design.json.mockups[]` 的全部路径
 
 ### Plan checklist
 
@@ -70,6 +73,7 @@
 - [ ] spec §4 文件范围 ⊆ plan §3 Commit 范围（同一份白名单）
 - [ ] spec §7 Targeted 在 plan §1 TDD Step 1 里有对应失败测试描述
 - [ ] context-pack §1 依赖 → spec §1 前置段中均有提及
+- [ ] UI 工单：plan §1 / §5 的验证策略能覆盖 mockup 对齐断言
 
 ### 红线（命中即 Fail，不允许 Concern）
 

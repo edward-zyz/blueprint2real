@@ -11,6 +11,7 @@
 //   LINT_ROOT=/path/to/root node ...                       # 覆盖扫描根目录
 
 import { existsSync } from 'node:fs';
+import { isMainModule } from './config.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,7 +29,7 @@ export function lintAll({ rootDir }) {
   return issues;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const asJson = args.includes('--json');
   // 默认扫描根：从 b2r-process/workflow/scripts 上溯三级到仓库根

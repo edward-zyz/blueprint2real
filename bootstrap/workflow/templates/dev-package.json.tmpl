@@ -3,17 +3,19 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "{{projectName}} 开发过程事实源：state/* + AGENT_RUNBOOK + workflow.config.mjs。脚本由 blueprint2real skill bundle 提供。",
+  "description": "{{projectName}} 开发过程事实源：state/* + AGENT_RUNBOOK + workflow.config.mjs。脚本由 blueprint2real skill bundle 提供，路径经 B2R_HOME 解析（默认 init 时的安装位置），可覆盖以适配用户级/迁移安装。",
   "scripts": {
-    "render:board": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/render-board.mjs",
-    "validate:state": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/validate-state.mjs",
-    "validate:config": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/validate-config.mjs",
-    "validate:pipeline": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/validate-pipeline-status.mjs",
-    "promote": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/promote.mjs",
-    "deps:graph": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/render-dependencies.mjs",
-    "verify:handoff": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/verify-handoff.mjs",
-    "lint:redlines": "DEV_ROOT=\"$PWD\" node {{skillBundlePath}}/scripts/lint-redlines.mjs",
-    "init": "node {{skillBundlePath}}/scripts/init.mjs",
-    "test": "cd {{skillBundlePath}} && npm test"
+    "render:board": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/render-board.mjs\"",
+    "validate:state": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/validate-state.mjs\"",
+    "validate:config": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/validate-config.mjs\"",
+    "validate:pipeline": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/validate-pipeline-status.mjs\"",
+    "milestone:status": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/milestone-status.mjs\"",
+    "e2e-group:status": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/e2e-group-status.mjs\"",
+    "promote": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/promote.mjs\"",
+    "deps:graph": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/render-dependencies.mjs\"",
+    "verify:handoff": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/verify-handoff.mjs\"",
+    "lint:redlines": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/lint-redlines.mjs\"",
+    "init": "node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/init.mjs\"",
+    "test": "cd \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow\" && npm test"
   }
 }

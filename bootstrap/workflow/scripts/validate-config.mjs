@@ -12,7 +12,7 @@
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot } from './config.mjs';
+import { loadConfig, inferDevRoot, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -52,7 +52,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const opts = parseArgs(process.argv.slice(2));
   const devRoot = process.env.DEV_ROOT ? resolve(process.env.DEV_ROOT) : inferDevRoot();
   let result;
@@ -69,7 +69,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (opts.json) {
     process.stdout.write(JSON.stringify({ ok: result.ok, errors: result.errors, loadedFrom: result.config?._loadedFrom || null }) + '\n');
   } else if (result.ok) {
-    console.log(`[validate-config] OK · ${result.config.workIdPrefix}-\\d{${result.config.workIdDigits}} · ${result.config.milestones.length} milestones · loaded from ${result.config._loadedFrom}`);
+    console.log(`[validate-config] OK · idScheme=${result.config.idScheme} · ${result.config.workIdPrefix}-\\d{${result.config.workIdDigits}} · ${result.config.milestones.length} milestones · loaded from ${result.config._loadedFrom}`);
   } else {
     console.log(`[validate-config] FAIL · ${result.errors.length} errors:`);
     for (const err of result.errors) {

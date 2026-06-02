@@ -44,7 +44,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defaults } from './config.mjs';
+import { defaults, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = resolve(__dirname, '..', 'templates');
@@ -124,6 +124,17 @@ function buildMilestoneSections(milestones) {
   }).join('\n\n');
 }
 
+function buildAcceptanceSections(milestones) {
+  if (milestones.length === 0) {
+    return '> 本项目当前未配置里程碑。启用 E2E 验收前，请先在 `workflow.config.mjs` 添加 `milestones`，并在本文件补对应验收段。';
+  }
+  return milestones.map((m) => `## ${m} · （待命名）
+
+### 旅程 J1：<客户从 X 进入，完成 Y>
+- 验收标准：<可观测的成功判据，业务语言>
+- 交付范围收敛：以 \`customer-visible.md\` 中 ${m} 已 Done 工单为准，避免验未交付功能。`).join('\n\n');
+}
+
 function buildDocsRefsBullets(docsRefs) {
   if (docsRefs.length === 0) return '- （项目未配置文档引用路径）';
   return docsRefs.map((p) => `- \`${p}\``).join('\n');
@@ -182,10 +193,11 @@ export function planInit({ config, targetDir, bootstrap = false }) {
   const numberMask = 'N'.repeat(config.workIdDigits); // 用于 "PREFIX-NNN" 这种 "any digits" 占位
   const milestonesSlash = config.milestones.length > 0 ? config.milestones.join(' / ') : '（无）';
 
-  // v5.1+: skillBundlePath 让 dev-package.json npm script 指向 skill bundle
-  // (而不是复制 workflow/ 到 target)。用绝对路径避免 /tmp -> /private/tmp 这类
-  // symlink cwd 场景把相对路径解析到错误位置。
-  const skillBundlePathRel = WORKFLOW_DIR.split(sep).join('/');
+  // v5.1+: skillRoot 让 dev-package.json npm script 指向 skill bundle（而不是复制
+  // workflow/ 到 target）。用绝对路径避免 /tmp -> /private/tmp 这类 symlink cwd 场景
+  // 把相对路径解析到错误位置。生成的 script 以 ${B2R_HOME:-<skillRoot>} 包裹：B2R_HOME
+  // 可在用户级 / 迁移安装时覆盖，实现 runtime（b2r-process 状态）与 skill 定义解耦。
+  const skillRootRel = resolve(WORKFLOW_DIR, '..', '..').split(sep).join('/');
 
   const vars = {
     workIdPrefix: config.workIdPrefix,
@@ -200,7 +212,8 @@ export function planInit({ config, targetDir, bootstrap = false }) {
     regressionCommandsJson: JSON.stringify(config.regressionCommands, null, 2).replace(/\n/g, '\n  '),
     docsRefsBullets: buildDocsRefsBullets(config.docsRefs),
     milestoneSections: buildMilestoneSections(config.milestones),
-    skillBundlePath: skillBundlePathRel,
+    acceptanceSections: buildAcceptanceSections(config.milestones),
+    skillRoot: skillRootRel,
   };
 
   const items = [
@@ -228,6 +241,10 @@ export function planInit({ config, targetDir, bootstrap = false }) {
     {
       out: join(targetDir, 'state', 'customer-visible.md'),
       tmpl: join(TEMPLATES_DIR, 'state', 'customer-visible.md.tmpl'),
+    },
+    {
+      out: join(targetDir, 'state', 'acceptance.md'),
+      tmpl: join(TEMPLATES_DIR, 'state', 'acceptance.md.tmpl'),
     },
     {
       out: join(targetDir, 'state', 'retro.md'),
@@ -343,6 +360,6 @@ export async function runInit({ argv = process.argv.slice(2) } = {}) {
   return { ok: true, dryRun: false, items };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   await runInit();
 }
