@@ -182,10 +182,11 @@ export function planInit({ config, targetDir, bootstrap = false }) {
   const numberMask = 'N'.repeat(config.workIdDigits); // 用于 "PREFIX-NNN" 这种 "any digits" 占位
   const milestonesSlash = config.milestones.length > 0 ? config.milestones.join(' / ') : '（无）';
 
-  // v5.1+: skillBundlePath 让 dev-package.json npm script 指向 skill bundle
-  // (而不是复制 workflow/ 到 target)。用绝对路径避免 /tmp -> /private/tmp 这类
-  // symlink cwd 场景把相对路径解析到错误位置。
-  const skillBundlePathRel = WORKFLOW_DIR.split(sep).join('/');
+  // v5.1+: skillRoot 让 dev-package.json npm script 指向 skill bundle（而不是复制
+  // workflow/ 到 target）。用绝对路径避免 /tmp -> /private/tmp 这类 symlink cwd 场景
+  // 把相对路径解析到错误位置。生成的 script 以 ${B2R_HOME:-<skillRoot>} 包裹：B2R_HOME
+  // 可在用户级 / 迁移安装时覆盖，实现 runtime（b2r-process 状态）与 skill 定义解耦。
+  const skillRootRel = resolve(WORKFLOW_DIR, '..', '..').split(sep).join('/');
 
   const vars = {
     workIdPrefix: config.workIdPrefix,
@@ -200,7 +201,7 @@ export function planInit({ config, targetDir, bootstrap = false }) {
     regressionCommandsJson: JSON.stringify(config.regressionCommands, null, 2).replace(/\n/g, '\n  '),
     docsRefsBullets: buildDocsRefsBullets(config.docsRefs),
     milestoneSections: buildMilestoneSections(config.milestones),
-    skillBundlePath: skillBundlePathRel,
+    skillRoot: skillRootRel,
   };
 
   const items = [
