@@ -92,6 +92,8 @@ Stage 4 Review / Stage 5 Handoff 照旧
 ### 5.0 不变量 #9 落点映射（评审补：区分底盘改动 vs prompt 改动）
 
 > 凡改 `bootstrap/workflow/scripts/*`（如 `config.mjs` 的 `ui` 块校验、receipt schema 的脚本支撑）= **skill 自身演进**：改 skill 源的 `bootstrap/workflow/` 资产 + 用户重跑 `init.mjs --bootstrap` 分发，**不是** b2r 运行期就地能加的（不变量 #9）。`agents/*.md` 与 SKILL.md 编排叙述不在 #9 底盘清单内，可正常改。
+>
+> **与 B2R_HOME（commit 458c03d）一致**：本设计**不新增 npm script alias**（`ui` 块校验在 `config.mjs` 内，1.5/2.0 是主线编排不需脚本入口），故无需碰 `dev-package.json.tmpl`。`config.mjs` 运行期经 `${B2R_HOME:-<skillRoot>}/bootstrap/workflow/scripts/` 解析——底盘在 B2R_HOME 而非项目内，坐实 #9。注意 `ui.designRefs`/`uiPaths`/`anchorPath` 都是 **DEV_ROOT（项目）侧**相对路径，与 B2R_HOME（引擎侧）正交。
 
 | 改动 | 类别 | 落点 |
 |---|---|---|

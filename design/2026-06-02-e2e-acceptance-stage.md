@@ -112,10 +112,16 @@ per-ticket 6 阶段循环（promote→...→handoff→下一条 Ready）
 ### 5.0 不变量 #9 落点映射（评审补：底盘 vs prompt）
 
 > 改 `bootstrap/workflow/scripts/*`（新增 `milestone:status` 脚本、`validate-state.mjs` 加 acceptance 存在性校验、`config.mjs` 加 `e2e` 块校验）= **skill 自身演进**：改 skill 源的 `bootstrap/workflow/` + 用户重 bootstrap 分发，非运行期就地加（不变量 #9）。`agents/*.md` 与 SKILL.md 编排叙述可正常改。
+>
+> **与 B2R_HOME（commit 458c03d）的接缝（本 spec 唯一实质触点）**：本设计**新增了 `milestone:status` 这个 npm script alias**，是三份 spec 里唯一要碰 `dev-package.json.tmpl` 的。它**必须沿用 458c03d 的新形态**，不能用已被删除的 `{{skillBundlePath}}`：
+> ```
+> "milestone:status": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/milestone-status.mjs\""
+> ```
+> 其余底盘脚本（`config.mjs`/`validate-state.mjs`/`milestone-status.mjs`）运行期均经 `${B2R_HOME:-<skillRoot>}` 解析，随 bootstrap 分发。`config.e2e.launch`（如何启动整合应用）是 **DEV_ROOT（项目）侧**配置、与 B2R_HOME 正交，由项目自行保证可移植。
 
 | 改动 | 类别 | 落点 |
 |---|---|---|
-| `milestone:status` 确定性脚本 | 底盘（走 bootstrap） | 新增 `bootstrap/workflow/scripts/milestone-status.mjs` + npm script 别名 |
+| `milestone:status` 确定性脚本 | 底盘（走 bootstrap） | 新增 `bootstrap/workflow/scripts/milestone-status.mjs` + `dev-package.json.tmpl` 加 `${B2R_HOME:-{{skillRoot}}}` 形态 alias |
 | `e2e` 块校验 + acceptance 存在性校验 | 底盘 | `config.mjs` / `validate-state.mjs` |
 | e2e 阶段编排 / FAIL 闭环 | 编排叙述 | `SKILL.md` 主流程 + 失败处理两节 |
 | 新增 e2e-verifier | prompt | `agents/e2e-verifier.md` |

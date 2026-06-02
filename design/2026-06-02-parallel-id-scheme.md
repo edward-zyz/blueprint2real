@@ -75,10 +75,13 @@
 
 - 不同 worktree 在不同时刻发号 → 时间戳不同；同秒则尾缀随机互异 → merge 回 master 各 ID 构造级互异，**无语义重号**。
 - 极低残留：见 §3 / §6。
+- **与 B2R_HOME 模型（commit 458c03d）一致**：B2R_HOME 把"引擎装在哪"与 DEV_ROOT"驱动哪个项目"解耦，正式支持"一套引擎驱动 N 个项目状态"。`mintWorkId` 读的是**各 DEV_ROOT 自己的 `queue.md`（existingIds）**、尾缀熵是 per-mint 随机——故**无论 N 个 worktree 共享同一 B2R_HOME 还是各自烘焙 skillRoot，都不引入新撞号向量**，本方案成立性与 B2R_HOME 取值无关。
 
 ## 5. 改动面
 
 > **不变量 #9 边界**：下表中 `bootstrap/workflow/scripts/*` 全是**底盘文件**——按不变量 #9，skill 主线/sub-agent **不得直接 Write/Edit**。这些是 **skill 自身演进**：改 skill 源的 `bootstrap/workflow/` 资产 + 用户重跑 `init.mjs --bootstrap` 分发，**不是** b2r 跑流水线时就地能加的运行期行为。`agents/*.md` 不在 #9 底盘清单内，可正常改。
+>
+> **与 B2R_HOME（commit 458c03d）一致**：本方案不新增 npm script alias（`mintWorkId` 是 `config.mjs` 内函数，被既有脚本调用），故无需碰 `dev-package.json.tmpl`。底盘脚本运行期均经 `${B2R_HOME:-<skillRoot>}/bootstrap/workflow/scripts/` 解析——这进一步坐实 #9：底盘根本不在项目里、在 B2R_HOME，更不该在项目内就地改。
 
 ### 5.1 底盘资产层（改源 + 走 bootstrap 重新分发）
 
