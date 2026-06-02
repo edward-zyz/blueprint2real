@@ -7,6 +7,19 @@ import { validateState } from './validate-state.mjs';
 import { loadConfigSync } from './config.mjs';
 
 const testConfig = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3 } });
+const e2eConfig = loadConfigSync({
+  override: {
+    workIdPrefix: 'IS',
+    workIdDigits: 3,
+    e2e: {
+      verifySkill: 'verify',
+      launch: '',
+      e2eCommands: ['npm run test:e2e'],
+      reportsDir: 'e2e',
+      maxRerun: 2,
+    },
+  },
+});
 
 function makeStateDir(files) {
   const dir = mkdtempSync(join(tmpdir(), 'validate-state-test-'));
@@ -82,12 +95,114 @@ const CV_OK = `# Customer-Visible Changelog
 - Internal-only 变化：v2 骨架仓库
 `;
 
+const ACCEPTANCE_OK = `# Acceptance
+
+## M0 · 可被部署
+
+### 旅程 J1：基础链路可运行
+- 验收标准：用户可以完成基础链路。
+
+## M1 · 业务工程师工作环境就绪
+
+### 旅程 J1：业务工程师可自助使用
+- 验收标准：用户可以完成核心流程。
+
+## M2 · 可被复制交付
+
+### 旅程 J1：新客户复制交付
+- 验收标准：新客户可按模板完成交付。
+`;
+
 test('全合法的 Idle 状态通过', () => {
   const dir = makeStateDir({
     'active.md': ACTIVE_IDLE,
     'queue.md': QUEUE_OK,
     'roadmap.md': ROADMAP_OK,
     'customer-visible.md': CV_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.equal(ok, true, `应当通过，实际 issues:\n${issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('未启用 e2e 时缺 acceptance.md 不阻断', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.equal(ok, true, `未启用 e2e 时不应要求 acceptance.md，实际 issues:\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('启用 e2e 时缺 acceptance.md 报 error', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: e2eConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'acceptance.md' && /缺少 state\/acceptance\.md/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('启用 e2e 时每个里程碑都必须有 acceptance 段', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK.replace(/## M1[\s\S]*?(?=## M2)/, ''),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: e2eConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'acceptance.md' && /缺少里程碑验收段 "## M1 ·"/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('启用 e2e 且 acceptance 覆盖所有里程碑时通过', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: e2eConfig });
+  assert.equal(ok, true, `应当通过，实际 issues:\n${issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('混合旧 sequential ID 与新 timestamp ID 的 queue/customer-visible 通过', () => {
+  const queue = `# Work Queue
+
+| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| IS-001 | 骨架 | Done | M0 | \`../work/IS-001/spec.md\` | \`../work/IS-001/plan.md\` | 33163ba | 2026-05-13 |
+| IS-260602-143052-7f | Timestamp 工单 | Planned | M0 | — | — | — | — |
+
+## Planned 工单范围摘要
+
+### IS-260602-143052-7f · Timestamp 工单
+
+目标：验证 timestamp ID 读取端兼容。
+`;
+  const cv = `# Customer-Visible Changelog
+
+## 2026-05-13 · IS-001 Done
+
+- 客户可感知变化：无
+- Internal-only 变化：旧工单保留
+`;
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': queue,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': cv,
   });
   const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
   assert.equal(ok, true, `应当通过，实际 issues:\n${issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
@@ -256,5 +371,155 @@ test('roadmap.md 里程碑状态非法值报 error', () => {
   const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
   assert.equal(ok, false);
   assert.ok(issues.some((i) => /M0: 状态 "WIP" 不在合法集/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ── D3 · e2e-groups.md per-submission 硬卡 ──
+const groupConfig = loadConfigSync({
+  override: {
+    workIdPrefix: 'IS',
+    workIdDigits: 3,
+    e2e: { verifySkill: 'verify', launch: '', e2eCommands: ['npm run test:e2e'], reportsDir: 'e2e', maxRerun: 2, unit: 'group' },
+  },
+});
+const GROUPS = (rows) => `# E2E Groups
+
+| Group | WorkIds | Status | Receipt | Created |
+| --- | --- | --- | --- | --- |
+${rows}
+`;
+
+test('D3: 整组工单全 Done 但 Status 仍 Open → 硬卡 error', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /未完成组级 E2E 验收/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: 整组全 Done 且已 Accepted（带 receipt）→ 通过', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Accepted | e2e/e2e-EG-260602-190312.json | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), `不应有 e2e-groups 报错：\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  assert.equal(ok, true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: 组内有工单未 Done → 不提前硬卡（继续 per-ticket）', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-003 | Open | — | 2026-06-02 |'),
+  });
+  const { issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), `未全 Done 不应硬卡：\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: Status=Accepted 但缺 Receipt → error', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Accepted | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /Accepted 但缺少 Receipt/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: unit=milestone（默认）时组级硬卡不激活', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |'),
+  });
+  const { issues } = validateState({ stateDir: dir, config: e2eConfig }); // unit 默认 milestone
+  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), 'unit=milestone 不应触发组级硬卡');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: 成员 Superseded 视为已消解，整组 Done/Superseded 仍 Open → 硬卡', () => {
+  const queueSup = QUEUE_OK.replace('| IS-002 | Metadata Store | Done | M0 | `../work/IS-002/spec.md` | `../work/IS-002/plan.md` | 182c25a | 2026-05-13 |', '| IS-002 | Metadata Store | Superseded | M0 | — | — | — | — |');
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE, 'queue.md': queueSup, 'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK, 'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /全部 Done\/Superseded/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: Skipped 缺 Receipt 原因 → error', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE, 'queue.md': QUEUE_OK, 'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK, 'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Skipped | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /Skipped 但缺少 Receipt/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: Skipped 带原因 → 通过（解除硬卡）', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE, 'queue.md': QUEUE_OK, 'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK, 'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Skipped | skip:纯库无可观测面 | 2026-06-02 |'),
+  });
+  const { issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), `Skipped 带原因不应报错：\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: 同一工单跨两个组 → error', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE, 'queue.md': QUEUE_OK, 'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK, 'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS(`| EG-260602-190312 | IS-001 | Accepted | e2e/a.json | 2026-06-02 |
+| EG-260602-190313 | IS-001 | Accepted | e2e/b.json | 2026-06-02 |`),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: groupConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /已属于组/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3: unit=both 时组级硬卡激活', () => {
+  const bothConfig = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3, e2e: { verifySkill: 'verify', e2eCommands: ['npm run test:e2e'], reportsDir: 'e2e', maxRerun: 2, unit: 'both' } } });
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE, 'queue.md': QUEUE_OK, 'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK, 'acceptance.md': ACCEPTANCE_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: bothConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /未完成组级 E2E 验收/.test(i.msg)));
   rmSync(dir, { recursive: true, force: true });
 });

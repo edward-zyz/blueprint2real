@@ -98,6 +98,27 @@ test('全部合法 handoff → ok', () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+test('timestamp ID handoff 校验通过', () => {
+  const id = 'IS-260602-143052-7f';
+  const queue = `# Work Queue
+
+| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| ${id} | timestamp | Done | M0 | \`../work/${id}/spec.md\` | \`../work/${id}/plan.md\` | 33cc44d | 2026-06-02 |
+`;
+  const cv = `# Customer-Visible Changelog
+
+## 2026-06-02 · ${id} Done
+
+- 客户/产品可感知变化：timestamp
+- Internal-only 变化：timestamp
+`;
+  const { root, stateDir, workDir, boardPath } = setupFixture({ queue, cv, withSpecPlan: [id] });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: id, config: testConfig });
+  assert.equal(r.ok, true, `期望通过，实际:\n${r.checks.map((c) => `  ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}`);
+  rmSync(root, { recursive: true, force: true });
+});
+
 test('queue 中工单 Status 非 Done → fail', () => {
   const queue = QUEUE_V3_DONE.replace('| IS-003 | c | Done', '| IS-003 | c | Ready');
   const { root, stateDir, workDir, boardPath } = setupFixture({ queue });

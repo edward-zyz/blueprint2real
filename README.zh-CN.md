@@ -22,6 +22,8 @@ handoff 校验。它适合希望把规划、实现、评审、交付都留下证
   commit 等角色 prompt。
 - **默认质量门禁**：校验 state、依赖关系、架构红线、receipt、生成看板和
   handoff 边界。
+- **里程碑 E2E 验收**：可选地按 `state/acceptance.md` 验证已完成里程碑，
+  产出人类可读验收报告，并把集成失败回流成修复工单。
 - **TDD 与提交纪律**：强制先写 failing test，再写最小实现，并把实现提交与
   state/board handoff 提交物理分离。
 - **任意 repo 可 bootstrap**：生成 `b2r-process/` 工作区，包含 workflow config、
@@ -86,6 +88,7 @@ Use $blueprint2real to turn this roadmap into Done work items.
 4. **Implement**：先跑红测试，再做最小实现。
 5. **Review**：复杂工单触发架构与安全红线审查。
 6. **Handoff**：完成状态翻档、看板渲染和 handoff 校验。
+7. **Milestone acceptance**：可选地在里程碑全部 Done 后跑蓝图级 E2E 旅程。
 
 每个阶段都会写入或校验结构化产物，因此 Done 工单可以被事后审计。
 
@@ -96,10 +99,13 @@ Use $blueprint2real to turn this roadmap into Done work items.
 ├── SKILL.md
 ├── agents/
 │   ├── roadmap-planner.md
+│   ├── ui-designer.md
+│   ├── design-reviewer.md
 │   ├── spec-drafter.md
 │   ├── plan-drafter.md
 │   ├── implementor.md
 │   ├── arch-security-reviewer.md
+│   ├── e2e-verifier.md
 │   ├── direct-fix.md
 │   └── handoff-committer.md
 ├── bootstrap/

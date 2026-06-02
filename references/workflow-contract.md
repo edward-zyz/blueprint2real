@@ -55,7 +55,7 @@ Status 枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
 - Contract Done → Demo Ready：核心 work item 全 Done，可演示
 - Demo Ready → Production Ready：客户接入 + 稳定运行 + 监控 / 告警 / 回滚
 
-翻档需 work item Done + architecture review 通过；**模块边界闭合不构成翻档证据**。
+翻档需 work item Done + architecture review 通过；若配置了 `e2e`，`Contract Done → Demo Ready` 还需要该里程碑 E2E PASS 作为前置证据。**模块边界闭合不构成翻档证据**。
 
 ## state/customer-visible.md
 
@@ -76,6 +76,41 @@ Status 枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
 
 物理顺序不强制（追加在末尾即可）；渲染端按 (date desc, work-id desc) 排序。
 
+## state/acceptance.md（可选 E2E 线启用时必填）
+
+仅当 `workflow.config.mjs` 配置 `e2e` 块时由 `validate-state` 校验存在性；缺省 `e2e` 的项目不因缺失报错。
+
+职责边界：
+
+- `acceptance.md` = 事前验收基准：每个里程碑要验证哪些客户旅程，以及用什么业务标准判 PASS/FAIL
+- `customer-visible.md` = 事后交付事实：每个 Done 工单实际交付了什么
+
+最小结构：
+
+```markdown
+## M1 · <里程碑名>
+
+### 旅程 J1：<客户从 X 进入，完成 Y>
+- 验收标准：<可观测的成功判据，业务语言>
+```
+
+校验：
+
+- 当 `config.e2e` 存在且 `config.milestones` 非空时，每个里程碑都必须有 `## <milestone> ·` 段
+- 脚本只校验存在性；旅程质量由 `roadmap-planner` 和 `e2e-verifier` 负责
+
+## state/ui-anchor.md（可选）
+
+仅当 `workflow.config.mjs` 配置 `ui` 块时存在。它是 UI 设计线的项目级事实源，记录设计语言、共享外壳、导航/组件约定和少量原型屏。缺省 `ui` 块的项目不需要此文件，`validate-state` 不因缺失报错。
+
+`ui.anchorPath` 不存在时，`ui-designer(mode:anchor)` 先读配置的 `ui.designRefs`；若未配置、为空或不可读，则主动从项目文档、style/theme/token/component 目录和现有 UI 页面发现设计线索；仍找不到可核验事实源时，允许用 `ui.designSkill`（推荐 `ui-ux-pro-max`）合成最小可执行设计系统，并在 receipt 里标记 `design_ref_source="synthesized"` 与 `synthesis_evidence`。
+
+约束：
+
+- 由 `ui-designer(mode:anchor)` 生成，`design-reviewer` 审过后才作为后续 UI delta 的依据。
+- 不写具体未 promote 功能的内部行为；具体屏幕 delta 落在 `work/<slugDir>/ui/`。
+- 刷新只在用户显式要求或 delta review 标记锚点漂移时进行，不自动重写。
+
 ## Cross-file 不变量（validate-state 强制）
 
 1. `active.md` 持有的 ID 必在 `queue.md` 且其 Status ∈ {In Progress, Blocked}
@@ -92,6 +127,7 @@ Status 枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
 | `render-board.mjs` | 生成 BOARD.html | 0=OK / 1=fail |
 | `promote.mjs <id>` | Planned → Ready，生成 spec/plan/context-pack | 0=OK / 1=fail / 2=usage error |
 | `verify-handoff.mjs <id>` | 6 项 handoff 完整性检查 | 0=OK / 1=fail / 2=usage error |
+| `milestone-status.mjs <milestone>` | 判断里程碑是否到达 E2E 验收边界 | 0=OK；`--quiet` 下 true=0 / false=1 |
 | `render-dependencies.mjs` | 依赖图（mermaid / 文本 / json） | 0=OK / 1=有依赖问题 |
 | `lint-redlines.mjs` | 红线 lint 兜底 | 0=OK / 1=命中 |
 | `init.mjs --prefix X` | 在新项目初始化整套工作流 | 0=OK / 1=冲突 / 2=usage |

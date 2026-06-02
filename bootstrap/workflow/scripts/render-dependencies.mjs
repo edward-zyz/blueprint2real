@@ -10,7 +10,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern } from './config.mjs';
+import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -146,7 +146,7 @@ export function renderTextReport(model) {
   return lines.join('\n');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const devRoot = inferDevRoot();
   const stateDir = process.env.STATE_DIR || join(devRoot, 'state');
   const queuePath = join(stateDir, 'queue.md');

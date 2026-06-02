@@ -18,14 +18,14 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, inferDevRoot } from './config.mjs';
+import { loadConfig, inferDevRoot, isMainModule } from './config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const VALID_LEVELS = ['L0', 'L1', 'L2', 'L3'];
 const VALID_STATUSES = ['in_progress', 'blocked', 'done'];
 const VALID_STAGES = [
-  '0-triage', '1-planner', '2a-spec', '2b-plan', '2c-review',
+  '0-triage', '1-planner', '1.5-ui-anchor', '2.0-ui-design', '2a-spec', '2b-plan', '2c-review',
   '3-impl', '4-arch', '5-handoff',
 ];
 
@@ -97,7 +97,7 @@ export function scanAll({ devRoot, receiptsDir }) {
   return results;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const asJson = args.includes('--json');
   const single = args.find((a) => !a.startsWith('--'));

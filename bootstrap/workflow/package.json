@@ -5,9 +5,9 @@
   "type": "module",
   "description": "通用 work item 编排工作流：state/* 事实源 + 渲染 / 校验 / 提升 / 依赖图 / handoff 验证脚本",
   "scripts": {
-    "test": "node --test scripts/render-board.test.mjs scripts/validate-state.test.mjs scripts/promote.test.mjs scripts/render-dependencies.test.mjs scripts/verify-handoff.test.mjs scripts/lint-redlines.test.mjs scripts/validate-config.test.mjs"
+    "test": "node --test scripts/render-board.test.mjs scripts/validate-state.test.mjs scripts/promote.test.mjs scripts/render-dependencies.test.mjs scripts/verify-handoff.test.mjs scripts/lint-redlines.test.mjs scripts/validate-config.test.mjs scripts/milestone-status.test.mjs"
   },
   "dependencies": {
-    "marked": "^4.3.0"
+    "marked": "^18.0.4"
   }
 }

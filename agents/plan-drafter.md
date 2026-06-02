@@ -28,6 +28,7 @@
   - pipeline.receiptsDir: {{receiptsDir}}
   - pipeline.specsDir: {{specsDir}}（spec.md 位于 `{{specsDir}}/{{slugDir}}.md`）
 - 工单 slug 目录名: {{slugDir}}（plan/context/receipt 在 `work/{{slugDir}}/`）
+- UI 设计 receipt（非 UI 工单填 null）: {{uiDesignReceiptPath}}
 
 == L1 路径合并指引 ==
 
@@ -37,6 +38,7 @@
 ## §6.X · Self-review checklist（L1 路径）
 - [ ] spec §4 文件范围与 plan §3 commit 范围一致
 - [ ] plan §1 Step 1 失败测试断言与 spec §7 targeted 对得上
+- [ ] UI 工单：spec §4 已引用 `2.0-ui-design.json.mockups[]`，plan 验证策略覆盖 mockup 对齐
 - [ ] §6 失败预案至少 1 条具体到"哪一步 → 怎么处理"
 - [ ] 估时 ≤4 小时 ✓
 ```
@@ -48,6 +50,7 @@ Self-review 失败任一项 → return 自报阻塞，让主线打回 spec/plan 
 1. {{devRoot}}/{{specsDir}}/{{slugDir}}.md — drafter 已写好的 spec
 2. {{devRoot}}/work/{{slugDir}}/plan.md — 当前 stub
 3. {{devRoot}}/AGENT_RUNBOOK.md §3 / §11 — 固定执行链路 + sub-slice 拆分判据
+4. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON，确认 plan 覆盖 mockup 对齐验证。
 
 == 调 skill ==
 
@@ -91,6 +94,7 @@ Self-review 失败任一项 → return 自报阻塞，让主线打回 spec/plan 
 1. plan §3 Commit 范围 = spec §4 文件范围（同一份白名单，不超不缺）
 2. plan §1 Step 1 失败测试断言 ↔ spec §7 Targeted 至少 1 对 1 对应
 3. §6 失败预案至少 1 条具体到"哪一步 → 怎么处理"
+4. UI 工单：plan §1 / §5 覆盖 `2.0-ui-design.json.mockups[]` 的对齐验证
 
 == 返回 ==
 

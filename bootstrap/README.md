@@ -19,10 +19,10 @@ node <SKILL_ROOT>/bootstrap/workflow/scripts/init.mjs \
 - `<target>/workflow/scripts/*.mjs`（validate-state / render-board / verify-handoff / promote / init / ...）
 - `<target>/workflow/templates/`（init 模板）
 - `<target>/workflow/package.json`（marked 依赖）
-- `<target>/package.json`（npm script 别名：validate:state / render:board / verify:handoff / ...）
+- `<target>/package.json`（npm script 别名：validate:state / render:board / verify:handoff / milestone:status / ...）
 - `<target>/workflow.config.mjs`
 - `<target>/AGENT_RUNBOOK.md`
-- `<target>/state/{active,queue,roadmap,customer-visible,retro}.md`
+- `<target>/state/{active,queue,roadmap,customer-visible,acceptance,retro}.md`
 
 跑完后，新项目就具备完整的 b2r 底盘，可以 `cd <target>/workflow && npm install`，然后开始用 skill。
 

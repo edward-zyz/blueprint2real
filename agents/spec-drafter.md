@@ -31,6 +31,7 @@
   - pipeline.receiptsDir: {{receiptsDir}}（默认 `receipts`）
   - pipeline.specsDir: {{specsDir}}（默认 `specs`，spec.md 沉淀位置）
 - 工单 slug 目录名: {{slugDir}}（= `{{workId}}_<slug-of-title>`；plan/context/receipt 均落到 `work/{{slugDir}}/`）
+- UI 设计 receipt（非 UI 工单填 null）: {{uiDesignReceiptPath}}
 
 == Retry 场景（attempt > 1 时必读）==
 
@@ -45,6 +46,7 @@
 1. {{devRoot}}/work/{{slugDir}}/context-pack.md — 工单基础 + 前置工单已交付能力 + RUNBOOK 章节摘要
 2. {{devRoot}}/{{specsDir}}/{{slugDir}}.md — 当前 stub，你要填满
 3. {{devRoot}}/AGENT_RUNBOOK.md §2 / §6 — 核心规则 + 红线
+4. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON 以及其中 `mockups[].path` 指向的文件；这些是本工单 UI 实现目标。
 
 按 context-pack §1 列出的依赖工单，快速扫一眼 dep 的 spec §4/§5（它们交付了什么）。具体路径从 `{{devRoot}}/state/queue.md` 中 dep 行的 Spec 列读（形如 `../{{specsDir}}/<dep-id>_<dep-slug>.md`），但不要全文扫读。
 
@@ -72,6 +74,7 @@ brainstorming 会引导你 explore：
 7. **§8 失败预案具体到**"哪一步失败 → 怎么收"（不写"如果失败就停下"这种废话）
 8. **§11 剩余风险**：仅允许 **非**安全 / **非**密钥 / **非**审计 / **非**客户数据 类风险
 9. **§10 验收 checkbox** 保留 stub 里的清单，必要时增补
+10. **UI 工单额外**：如果存在 `2.0-ui-design.json`，§4 必须增加 “UI mockups” 小节，逐条引用 `mockups[].path`；§7 至少补一条可自动化或人工可核的 UI 对齐断言。不要把 mockup 路径藏在散文里。
 
 == 自检 ==
 
@@ -81,6 +84,7 @@ brainstorming 会引导你 explore：
 3. §4 列出的文件路径在仓库中能定位
 4. §7 targeted 至少 1 条可被自动化验证
 5. **删除 / 退役类工单**：§4 删除清单条数 == 实际 `git ls-files <目录>` 枚举数；叙述里所有文件计数（§4 / §8 / 估时表）与该条数一致——不一致**先改对再返回**，别留给 reviewer 当 nit（残留数字会触发整轮重跑）
+6. UI 工单：`2.0-ui-design.json.mockups[].path` 全部出现在 spec §4；漏 1 条都先补齐。
 
 == 返回 ==
 
@@ -103,10 +107,13 @@ brainstorming 会引导你 explore：
   "sections_filled": "11/11",
   "tbd_grep": 0,
   "file_whitelist_ls": "pass",
+  "ui_mockups_referenced": true,
   "level_check": "matches_triage",
   "skills_used": ["brainstorming"]
 }
 ```
+
+非 UI 工单可填 `"ui_mockups_referenced": null`；UI 工单必须为 `true`。
 
 精简报告（≤200 字）：
 - spec.md 已填，关键决策 3-5 条
