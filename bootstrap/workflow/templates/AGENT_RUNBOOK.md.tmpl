@@ -39,8 +39,9 @@
 ```text
 promote one work item to Ready          (promote.mjs 自动 render BOARD)
   -> fresh context / delegated sub-agent
-  -> 翻 state/active.md 为 In Progress + queue.md 该行 Ready → In Progress
-     + npm run render:board    ← 持有该工单的契约；missed 会让 BOARD 永远 Idle
+  -> npm run start <id>    ← 原子翻 state/active.md 为 In Progress + queue.md 该行
+                             Ready → In Progress + validate:state 兜底 + 自动 render BOARD
+                             （持有该工单的契约；不要手工分别改两文件，漏一个就 cross-file 脱钩）
   -> spec
   -> spec review
   -> implementation plan
@@ -67,7 +68,7 @@ promote one work item to Ready          (promote.mjs 自动 render BOARD)
 3. 新工单已在 `state/queue.md` 中以 Ready 状态登记，有 {{workIdPrefix}}-{{workIdNumberMask}} 编号、名称、对应里程碑、spec 路径、plan 路径。
 4. spec 与 plan 已经 review；spec 无 TBD、无矛盾、无隐含大迁移；plan 每一步都有测试或可复现检查。
 5. 从 fresh thread 或 delegated sub-agent 启动。
-6. **启动后第一动作**：翻 `state/active.md` 为 In Progress（写入 ID / Name / Started / Spec / Plan / Last commit 字段）+ 同步把 `state/queue.md` 该行 Status 从 `Ready` 改为 `In Progress` + 跑 `npm run render:board`。
+6. **启动后第一动作**：跑 `npm run start <id>`——它原子地翻 `state/active.md` 为 In Progress（写入 ID / Name / Started / Spec / Plan 字段、保留 Last commit）+ 同步把 `state/queue.md` 该行 Status 从 `Ready` 改为 `In Progress` + validate:state 兜底 + 自动 render BOARD。**不要手工分别编辑两份文件**——漏改一个会触发 validate:state 的 cross-file 脱钩报错。
 
 未达成以上任一条，**不得执行实现**。
 
