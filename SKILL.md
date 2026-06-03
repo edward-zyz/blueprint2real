@@ -18,7 +18,7 @@ description: Multi-agent 工作流编排器。把路线图 / roadmap / 设计文
 1. **exactly one active item**：`state/active.md` 同时只能持有一条 In Progress / Blocked。新工单启动前 active 必须 Idle。
 2. **事实源单一**：`state/*.md` 是唯一权威；`BOARD.html` 只能由 `npm run render:board` 生成。冲突时以 state/* 为准，先停下修正状态。
 3. **TDD 强制顺序**：failing test 必须先出现并跑红，才能写最小实现。"先写实现再补测试"是退化模式，禁止。
-4. **commit 物理分离**：implementation commit 不含 `state/*` / `BOARD.html`；handoff commit 唯一，且仅含 `state/*` + `BOARD.html`，位于所有 impl commit 之后。
+4. **commit 物理分离 + 工作目录隔离**：implementation commit 不含 `state/*` / `BOARD.html`；handoff commit 唯一，且仅含 `state/*` + `BOARD.html`，位于所有 impl commit 之后。派 implementor / handoff-committer 时，prompt 首条强制 `cd <仓根绝对路径>`（worktree 派工则为该 worktree 路径），commit 前断言 `git rev-parse --show-toplevel` == 仓根、且 `git add` 只列白名单具体文件（禁 `git add -A`）——防 cwd 泄漏到父仓（IS-035）与并发改动卷入混合 commit（IS-001）。**sub-agent 跑长任务期间，不要在同一 working tree 并发跑外部 `git add -A` / commit**，否则会污染该工单的 commit 边界。
 5. **前置 Done 后才能 promote**：Planned → Ready 的前提是依赖工单全部 Done，否则 spec/plan 基于"规划想象"，必失真。
 6. **架构红线触发即停**：`workflow/scripts/lint-redlines.mjs::RULES` 数组中任一规则命中，当前轮不带病往下走。
 7. **sub-agent 自报阻塞必须带证据**：sub-agent 在 prompt 中被允许"自报搞不动了"短路直进 Manager Override，但 return payload 必须含非空 `blocked_evidence`（具体 grep / 测试输出 / 引用条款）。空证据的自报视为偷懒早退，主线打回原 stage 重试。
@@ -190,6 +190,8 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
    ▼
 ```
 
+> **Promote → Implement 之间的状态翻档用脚本，不手工双改**：`promote.mjs` 只把工单 Planned → Ready（生成 spec/plan stub）。spec/plan review 通过、要真正"开始做"时，主线**亲跑 `cd {{devRoot}} && npm run start <id>`**——它原子地把 `active.md` 翻 In Progress 持有该工单 + `queue.md` 对应行 Ready → In Progress + 跑 validate-state 兜底 + 重 render BOARD。脚本内建 exactly-one-active 校验（active 非 Idle 拒绝）与"只有 Ready 能启动"前置。**不要手工分别编辑 active.md 与 queue.md**——漏改一个就触发 validate-state 的 cross-file 脱钩报错（"active 持有但 queue Status=Ready" / "active Idle 但 queue In Progress"，历史复发点）。
+
 Stage 1 的真实工单号由主线脚本化分配：`roadmap-planner` 只返回带 `temp_key` 的 backlog proposal（标题、范围、依赖、triage），主线读取当前 `queue.md` 的 existing IDs，逐条调用 `workflow/scripts/config.mjs::mintWorkId(config, existingIds, new Date())`，再把 `temp_key` 替换成真实 workId 并写入 `queue.md` / `0-triage.json`。不要让 sub-agent 手算 `max+1` 或凭自然语言生成 timestamp。
 
 > 若 `config.e2e.unit∈{group,both}`：这批工单号全部回填后，主线再调 `config.mjs::mintGroupId(new Date())` 生成 group id，把这批工单写进 `state/e2e-groups.md` 一行（Status=Open）。详见上文「批次级 E2E 验收线」。
@@ -254,7 +256,9 @@ Stage 1 的真实工单号由主线脚本化分配：`roadmap-planner` 只返回
 
 E2E acceptance 是蓝图级 gate，不占用单工单 stage attempt；失败时仍要遵守"不静默循环"：
 
-1. e2e-verifier 返回 `overall_verdict="FAIL"` 或固化回归测试未绿时，主线先读 `<reportsDir>/e2e-<milestone>.json` 的 `journeys[]`。
+1. e2e-verifier 返回 `overall_verdict="FAIL"` 或固化回归测试未绿时，主线先读 `<reportsDir>/e2e-<milestone>.json` 的 `journeys[]` **与 `e2e_regression_reason_category`**：
+   - `env-blocked`（缺浏览器 / dev 种子 / Node 版本错配等环境性失败）→ **不当质量 FAIL**，不自动发修复工单；surface 环境前置缺口给用户（接项目 E2E runbook），按 attended/unattended 决定是否阻断翻档。这避免预存环境 flake 把真回归信号淹没、也不再依赖 Manager 人肉 `git diff` 区分。
+   - `quality-fail` / `coverage-gap` → 走下面的 FAIL 闭环（发/复用修复工单 / 补配置）。
 2. 对每条失败旅程，先查 `state/queue.md` 是否已有未 Done 修复工单带同一组溯源字段：`source: e2e-fail` / `milestone` / `journey_id`。已有则复用，不重复发单。
 3. attended 模式升 Manager Override，由验收报告作 escalation 证据；unattended 模式自动落 Planned 修复工单，并把失败链写入 `state/retro.md`。
 4. 修复工单走正常 per-ticket pipeline；全部 Done 后，下一次 `milestone:status` 仍到边界时重跑 E2E。

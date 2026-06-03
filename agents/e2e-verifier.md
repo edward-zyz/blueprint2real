@@ -75,14 +75,26 @@ group 模式下**不读 `acceptance.md`**；若某成员工单 spec 无 §验收
 
 ### 3. 固化段：沉淀旅程级回归测试
 
-把探索段确认稳定的旅程固化成项目 e2e 回归测试：
-- 测试路径由项目约定决定，优先落在已有 e2e/smoke 测试目录。
-- 本轮跑一次绿即固化；不要为了确认 flaky 连跑 N 次。
-- 固化测试必须能被 `e2e.e2eCommands` 覆盖。若当前配置命令无法覆盖你写的测试，设置 `e2e_regression_green=false`，在报告里说明需要补配置，不要擅自改 `workflow.config.mjs`。
+把探索段确认稳定的旅程固化成项目 e2e 回归测试。**先按蓝图性质选固化主力**——别默认 playwright 就是回归主力：
+
+- **重前端蓝图**：固化主力是**组件级测试**（项目已有的 vitest / jest / RTL 等快测），它们不依赖浏览器/secrets、能在 CI 与本地稳定复绿。整合级 playwright spec 即便写了也标注 **CI-only**：缺浏览器或 dev 种子的本地环境会恒部分 skip、整套 exit 1，把它当"绿回归"会高估覆盖（历史坑：playwright 恒 `2 passed + 3 skipped`、`e2e_regression_green=false` 被误读成"回归没做完"，真正耐久绿的是组件测试）。
+- **重后端 / CLI 蓝图**：固化主力是集成测试 / API 级 supertest / CLI 黑盒，按项目约定落在已有目录。
+- 通用：本轮跑一次绿即固化，不要为确认 flaky 连跑 N 次；固化测试必须能被 `e2e.e2eCommands` 覆盖，覆盖不到就 `e2e_regression_green=false` + 报告说明补配置，**不擅改 `workflow.config.mjs`**。
+
+**`e2e_regression_green` 必须配套 `e2e_regression_reason_category`**（枚举），让主线 / Manager 不靠人肉 `git diff` 去判"这次红是环境还是质量"：
+
+- `green`：固化测试全绿，真回归通过（此时且仅此时 `e2e_regression_green=true`）。
+- `env-blocked`：失败纯属环境性——缺 `playwright install` 的浏览器、缺 dev 登录种子 / secrets、Node 版本错配等，**非被验代码的质量问题**；`blocked_evidence` 式的具体缺失项要写进报告。
+- `quality-fail`：固化测试真红，是被验代码的质量缺陷。
+- `coverage-gap`：测试写了但 `e2e.e2eCommands` 覆盖不到，需补配置。
+
+后三类一律 `e2e_regression_green=false`，并在报告里把**环境失败与质量失败分开陈述**——这正是让 Manager 无需人判、也不被预存 flake 噪声淹没真回归信号的关键。
 
 ### 4. 写验收报告与 receipt
 
-创建目录 `{{devRoot}}/{{reportsDir}}/`，写两份文件：
+**先落结构化 evidence（强制，每个验收单元至少一份）**：创建 `{{devRoot}}/{{reportsDir}}/evidence/{{milestone}}/`（`mode=group` 时用 `{{scopeId}}`，目录名必须与本次验收单元 id 对齐），把本轮取证落进去——截图 / 网络日志 / 命令输出。**即使无浏览器、无可视面，也至少落一份命令输出 JSON**（如 e2eCommands 的 stdout 摘要、健康检查响应、CLI 黑盒输出）。这道约束是为了治历史坑：`evidence/` 里全是上一组残留、目录名被误读成"本组有取证"实则空——**不要复用也不要误读上一组的 evidence**，本组取证落在以本单元 id 命名的子目录下。report §4 与 receipt 里 `journeys[].evidence[]` 的路径都应指向此目录。
+
+然后在 `{{devRoot}}/{{reportsDir}}/` 写两份文件：
 
 1. `{{devRoot}}/{{reportsDir}}/{{milestone}}-acceptance.md`
    - 人类可读，业务语言汇报，不要把 receipt JSON 字段原样转储成 markdown。
@@ -141,8 +153,10 @@ group 模式下**不读 `acceptance.md`**；若某成员工单 spec 无 §验收
   "overall_verdict": "PASS",
   "captured_test_paths": ["tests/e2e/<file>"],
   "e2e_regression_green": true,
+  "e2e_regression_reason_category": "green",
   "e2e_command_results": [{ "cmd": "npm run test:e2e", "exit": 0 }],
   "report_path": "{{reportsDir}}/{{milestone}}-acceptance.md",
+  "evidence_dir": "{{reportsDir}}/evidence/{{milestone}}",
   "fix_ticket_proposals": [
     {
       "source": "e2e-fail",
@@ -156,6 +170,10 @@ group 模式下**不读 `acceptance.md`**；若某成员工单 spec 无 §验收
   "escalated_to_human": false
 }
 ```
+
+字段约定（新增项）：
+- `e2e_regression_reason_category`：枚举 `green` | `env-blocked` | `quality-fail` | `coverage-gap`（见 §3）。`e2e_regression_green=true` ⇔ 此字段 = `green`。
+- `evidence_dir`：本验收单元结构化 evidence 子目录（§4 强制至少一份，`mode=group` 时为 `{{reportsDir}}/evidence/{{scopeId}}`）。
 
 == 自报阻塞 ==
 

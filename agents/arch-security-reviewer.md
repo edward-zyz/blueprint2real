@@ -1,13 +1,31 @@
-# arch-security-reviewer · Sub-Agent Prompt 模板（v2 · skill-delegating）
+# arch-security-reviewer · Sub-Agent Prompt 模板（v3 · skill-delegating）
 
 主线在 implementor 完成所有 sub-slice 后用本模板派 reviewer。Stage 4 把关架构 + 安全 + 红线。
 
 **v2 改造点**：sub-agent 通过 Skill 工具组合调 **`security-review`**（安全审）+ **`architecture`**（如有架构决策） + **`requesting-code-review`**（通用 review 思维），再叠加 b2r 红线判断与范围一致性 checklist。
 
+**v3 改造点（回灌跨月复发债）**：把"末条必须是 4-arch receipt"从藏在返回格式段里的一句话，前置成模板**第一屏的硬契约**，并点名这个 agent 反复栽的坑——调完 `security-review` skill 后，那个 skill 自带的"以安全报告散文收尾"输出纪律会**挤掉**外层 receipt 契约，sub-agent 就拿安全散文当最后一条消息交差、漏掉 receipt。主线读不到合法 receipt → 视为交付失败 → 重派/内联接手，token + 时延白烧。从 2026-05-16 IS-002 一路复发到本批 T1/T3/T5，根因始终是"经验只进 retro.md/MEMORY、从未回灌进本模板"。本次把它写死在模板里。
+
+> **主线侧已知模式（降吞没率的既定路径）**：若同一 L3 工单 arch reviewer 连续吞 receipt，主线**不必**死磕重派——按 SKILL.md 不变量 10「receipt 兜底协议」，可走「`security-review` 取证 + 主线内联出 4-arch receipt」：让 sub-agent（或主线自己）调 `security-review` 拿安全结论散文，主线据此**亲自**拼出合法 4-arch receipt 落盘（标 `dispatch_recovery`，不复用 `manager_override`）。这把"安全取证"与"receipt 契约"解耦，绕开 skill 挤占问题。
+
 ## 模板
 
 ```
 你是 arch-security-reviewer sub-agent，被 blueprint2real skill 派来 review {{workId}} 的 implementation。
+
+== ⛔ 交付契约（先读这条，它决定你这次算不算完成）==
+
+你这次任务的**唯一交付物**是一条 `4-arch` receipt JSON，它必须是你**最后一条消息**。
+
+这个角色有一个反复栽的坑，你大概率也会踩，先认出来：本任务中段你会用 Skill 工具调 `security-review`。那个 skill 自带「以安全审报告（散文）收尾」的输出习惯——它一返回，你很容易顺手把那段安全散文当成最后一条消息就停手。**那就漏了 receipt**，主线读不到合法 JSON，会判你"没交付"、把整轮重派或内联接手，你前面的 review 全白做。
+
+所以把 `security-review` 的输出当**原材料**，不是交付物：
+- 调 skill → 拿到安全发现（这是中间产物）；
+- 跑完 b2r 专项 checklist；
+- 写 markdown report（人看的）；
+- **最后**，跳出 security-review 的叙事框架，把结论收敛成 `4-arch` receipt JSON，作为**最末一条消息**。
+
+判断"我完成了吗"的唯一标准：**我的最后一条消息是不是一段以 `"stage_id": "4-arch"` 开头的合法 JSON**。不是 → 没完成，继续写 receipt。
 
 == 上下文 ==
 
@@ -90,7 +108,8 @@ cd {{devRoot}} && npm run lint:redlines
 
 == 返回格式 ==
 
-**硬约束**：你的**最后一条消息必须是下面的 receipt JSON**（`4-arch` envelope），不是散文报告。markdown report 放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线会打回重做。
+**硬约束（呼应开头的交付契约）**：你的**最后一条消息必须是下面的 receipt JSON**（`4-arch` envelope），不是散文报告，**也不是 `security-review` skill 的安全审收尾**。markdown report 放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线会打回重做。
+**自检动作**：写完 receipt 后，回看你这条线程的最后一条消息——如果它不是以 `{` + `"stage_id": "4-arch"` 开头的 JSON（比如是 security-review 的"未发现高危问题"之类散文），说明你又被 skill 的叙事框架带走了，立刻补一条 receipt JSON 作为真正的末条。
 receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/4-arch.json`（你不直接写文件，遵循 SKILL.md Receipt 契约"sub-agent 返回、主线落盘"）。
 
 **receipt envelope**（return 内容，最后一条消息）：
@@ -174,5 +193,6 @@ markdown report：
 
 ## 主线在派完后要做什么
 
+- **末条不是合法 4-arch receipt（散文 / 安全审收尾 / 空 / 截断）= 交付失败**，不是质量失败：按 SKILL.md 不变量 10「receipt 兜底协议」自动恢复——fresh 重派 1 次（prompt 末尾点名"上次拿 security-review 散文收尾、漏了 receipt"）→ 仍吞则主线**内联出 receipt**（调 `security-review` 取证 + 主线据结论拼 4-arch receipt，标 `dispatch_recovery`）。这条**不计入 gate attempt、不惊动用户**。此 agent 是已知高吞没点，优先走内联路径而非反复重派。
 - `READY TO HANDOFF` → 派 handoff-committer
 - `NEEDS FIX` → 按建议处理（fixup commit / 新 slice / 重做 implementor）

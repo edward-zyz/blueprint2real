@@ -109,6 +109,14 @@ cd {{devRoot}} && npm run render:board
 
 ### Step 7 · 暂存 handoff commit 文件
 
+**先按工作目录纪律断言仓根**（防 cwd 泄漏到父仓 / 主仓，历史坑 IS-035）：
+
+```
+git rev-parse --show-toplevel   # 必须 == {{projectRoot}}（或派工 worktree 绝对路径）；不等立刻停下回报
+```
+
+再**只暂存这 5 个具体文件**（禁止 `git add -A` / `git add .`——会把外部并发改动卷进 handoff commit，破坏 commit 物理分离）：
+
 ```
 git add {{devRoot}}/state/active.md \
         {{devRoot}}/state/queue.md \

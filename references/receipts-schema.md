@@ -233,8 +233,10 @@ L0 路径 `verify_handoff_checks` 写 `6/6 pass (skip Check 4 spec/plan)`。
   "overall_verdict": "PASS | FAIL",
   "captured_test_paths": ["<project e2e test path>"],
   "e2e_regression_green": true,
+  "e2e_regression_reason_category": "green | env-blocked | quality-fail | coverage-gap",
   "e2e_command_results": [{ "cmd": "npm run test:e2e", "exit": 0 }],
   "report_path": "e2e/M1-acceptance.md",
+  "evidence_dir": "e2e/evidence/M1",
   "fix_ticket_proposals": [
     {
       "source": "e2e-fail",
@@ -253,6 +255,8 @@ L0 路径 `verify_handoff_checks` 写 `6/6 pass (skip Check 4 spec/plan)`。
 
 - `journeys[]` 来自 `state/acceptance.md` 的里程碑段，并由 `customer-visible.md` 收敛到实际交付范围
 - `overall_verdict=PASS` 还不够；必须同时 `e2e_regression_green=true` 才能作为 `Contract Done → Demo Ready` 翻档证据
+- `e2e_regression_reason_category`：`green` ⇔ `e2e_regression_green=true`；其余三类（`env-blocked` 环境性 / `quality-fail` 质量性 / `coverage-gap` 命令未覆盖）都为 false。主线据此分流——`env-blocked` 不当质量 FAIL（surface 环境前置，见项目 runbook），`quality-fail` 才走 FAIL 闭环发修复工单
+- `evidence_dir`：本验收单元结构化 evidence 子目录（每单元强制至少一份，与 milestone/group id 对齐，避免误读上一组残留）
 - `fix_ticket_proposals[]` 只是提案；主线查重 `(milestone, journey_id)` 后才写 `queue.md`
 - `e2e_rerun_count > workflow.config.e2e.maxRerun` 时，主线强制 Manager Override
 
