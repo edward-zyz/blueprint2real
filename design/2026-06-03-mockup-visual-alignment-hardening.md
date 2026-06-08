@@ -7,7 +7,7 @@
 
 #1（UI 设计阶段）与 #2（E2E 验收阶段）已实现并 wire 进 `SKILL.md`：`ui-designer` 产 mockup → 写进 spec §4 → implementor 当实现目标 → `e2e-verifier` 逐屏对照 → receipt 落 `mockup_refs`/`mockup_match`。链路完整。
 
-但一次真实组级验收（insight-subs `EG-260602-234337`，Milkdown 编辑器）暴露两层缺口：
+但一次真实组级验收（客户站点 `EG-260602-234337`，Milkdown 编辑器）暴露两层缺口：
 
 1. **触发缺口（项目侧）**：该仓 `workflow.config.mjs` 只配了 `e2e` 块、**无 `ui` 块** → Stage 1.5/2.0 整条 UI 线静默跳过 → 没产任何 mockup → E2E receipt `mockup_refs:[]`、`mockup_match:null`。一个明显的纯 UI 工单全程没有可对齐的视觉目标。
 
@@ -83,10 +83,10 @@
 
 ### B4 · designRefs 接项目 design-system，对齐可机检
 
-- 项目 `ui.designRefs` 指向其设计系统事实源（如 insight-subs 的 `../docs/design-system/`）。
+- 项目 `ui.designRefs` 指向其设计系统事实源（如 客户站点 的 `../docs/design-system/`）。
 - `design-reviewer` 的 `ref_grep_hits`（#1 §5.3 已有）对 mockup 引用的 token/组件名在 designRefs 文件 grep 命中，命不中 `NEEDS_FIX`；命中证据落 `1.5-ui-anchor.json`/`2.0-ui-design.json` 的 `ref_grep_hits`。
 - 落点：纯**项目配置**（`workflow.config.mjs` 的 `ui.designRefs`）+ `agents/design-reviewer.md` 已具备机制，无需引擎改动。
-- ⚠️ **栈适配核实点**：`docs/design-system/` 现规范主要面向 front-end/pc（React + AntD5），insight-subs 是 Vue3 + AntD Vue。需确认该 design-system 的 token（食亨红 `#c81c2f`、金额色、关停色、禁渐变/emoji 等）对 Vue 站点同样适用；若不适用，为 insight-subs 单列一份栈对齐的 designRefs，否则 `ref_grep_hits` 会对 Vue 组件名持续命不中。
+- ⚠️ **栈适配核实点**：`docs/design-system/` 现规范主要面向 front-end/pc（React + AntD5），客户站点 是 Vue3 + AntD Vue。需确认该 design-system 的 token（品牌红 `#c81c2f`、金额色、关停色、禁渐变/emoji 等）对 Vue 站点同样适用；若不适用，为 客户站点 单列一份栈对齐的 designRefs，否则 `ref_grep_hits` 会对 Vue 组件名持续命不中。
 
 ## 5. 不变量 #9 落点映射（底盘 vs prompt）
 
@@ -112,7 +112,7 @@
 6. **designRefs 命中**：mockup 引用 token 在 designRefs grep 命中，`ref_grep_hits` 非空；命不中 `NEEDS_FIX`。
 7. **不变量保持**：不新增顶层 stage、不破 exactly-one-active、receipt 主线单写、底盘改动经 bootstrap 分发；PASS 不打扰。
 
-## 7. 本仓（insight-subs）落地清单（项目侧，独立于引擎改动）
+## 7. 本仓（客户站点）落地清单（项目侧，独立于引擎改动）
 
 给 `b2r-process/workflow.config.mjs` 增 `ui` 块即可让下个 UI 工单进入本链：
 
