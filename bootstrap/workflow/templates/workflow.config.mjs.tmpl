@@ -23,6 +23,11 @@ export default {
   // promote 生成的 spec/plan stub 中嵌入的 regression 命令
   regressionCommands: {{regressionCommandsJson}},
 
+  // 可选:项目真架构/分层/安全红线,Stage 4 主线亲跑 lint:redlines 时逐条执行,任一非 0 退出即红线命中。
+  // 缺省 = 无项目红线(lint:redlines 占位态输出 WARN,不阻断)。
+  // redlineCommands: ['npm run lint:packages-architecture'],
+  // projectRoot: '..',  // 可选,redlineCommands 的执行根;缺省 = devRoot
+
   // 可选 UI 设计线。缺省即关闭；纯后端 / CLI 项目不要配置本段。
   // ui: {
   //   designSkill: 'ui-ux-pro-max',            // 推荐；提供 UI/UX 推理与质检清单
