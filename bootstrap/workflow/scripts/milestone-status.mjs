@@ -138,15 +138,23 @@ export function buildMilestoneStatus({ stateDir, config, milestone = null }) {
 }
 
 function parseArgs(argv) {
-  const opts = { json: false, quiet: false, milestone: null };
-  for (const arg of argv) {
+  const opts = { json: false, quiet: false, milestone: null, field: null };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
     if (arg === '--json') opts.json = true;
     else if (arg === '--quiet') opts.quiet = true;
+    else if (arg === '--field') opts.field = argv[++i];
     else if (arg.startsWith('--')) throw new Error(`未知参数: ${arg}`);
     else if (!opts.milestone) opts.milestone = arg;
     else throw new Error(`只能指定一个 milestone（多余参数: ${arg}）`);
   }
   return opts;
+}
+
+// 取顶层字段裸值单行(主线窄查询 --field 用,免即兴 grep/python)。
+export function extractField(result, key) {
+  const v = result?.[key];
+  return v === undefined || v === null ? '' : String(v);
 }
 
 function formatHuman(result) {
@@ -176,6 +184,10 @@ if (isMainModule(import.meta.url)) {
     const config = await loadConfig({ devRoot });
     const result = buildMilestoneStatus({ stateDir, config, milestone: opts.milestone });
     const selected = opts.milestone ? result.milestones[0] : null;
+    if (opts.field) {
+      process.stdout.write(extractField(selected || result, opts.field) + '\n');
+      process.exit(0);
+    }
     if (opts.json) {
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     } else if (!opts.quiet) {
@@ -184,11 +196,8 @@ if (isMainModule(import.meta.url)) {
     if (opts.quiet) process.exit(selected && selected.boundary_reached ? 0 : 1);
     process.exit(0);
   } catch (e) {
-    if (opts?.json) {
-      process.stdout.write(JSON.stringify({ ok: false, error: e.message }, null, 2) + '\n');
-    } else {
-      console.error(`[milestone-status] ${e.message}`);
-    }
+    // 错误一律走 stderr,保持 stdout 纯净(O23)。
+    console.error(`[milestone-status] ${e.message}`);
     process.exit(2);
   }
 }

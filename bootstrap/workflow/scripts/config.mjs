@@ -285,20 +285,27 @@ export function mintGroupId(now = new Date(), existingIds = [], random = Math.ra
 // v5.2+: 把工单标题转成文件名安全的 slug
 // 规则：
 //   - 非法字符 / : ? * < > | " \ → 去掉
-//   - 空白（含中文空格）→ -
+//   - 其余非「字母 / 数字 / _」一律归一为分隔符 -（含空白、括号、标点、运算符，ASCII + 全角）
 //   - 连续 - → 单个 -
 //   - 首尾 - 去掉
-//   - 保留中文 / ASCII 字母数字
+//   - 保留所有 Unicode 字母（中文 / 带变音符拉丁 / 假名 / 谚文…）+ 数字 + _
 //   - 长度上限 80 字符（防 filesystem name too long）
+//
+// 为什么是白名单而非逐个列黑名单（v5.3 回灌 IS-003/033/035 复发债）：
+//   历史上标题含 ` + ` 或中文括号（）时 slug 不稳定——promote 与 verify-handoff 各自重算，
+//   产出不一致（一个吞 +、一个留 -+-），导致 verify「spec/plan 文件存在」FAIL，需手工 git mv。
+//   二者现已共用本函数（promote.mjs / verify-handoff.mjs 同 import workItemSlug），一处治本；
+//   但若仍按黑名单逐个补特殊字符，总会漏。关键坑：`+` 是 regex 元字符，一旦漏进 slug，
+//   下游任何拿 slug 拼 regex / grep 的地方都会炸。改用 `\p{L}\p{N}_` 白名单后，slug 只可能含
+//   [字母 数字 _ -]，既文件名安全、又 regex 安全，标题用什么标点都稳定。
 export function slugifyTitle(title) {
   if (typeof title !== 'string') return '';
   let s = title.trim();
-  // 去掉 filesystem 非法字符
+  // 去掉 filesystem 非法字符（这些直接消失，不留分隔符，如 "C:" → "C"）
   s = s.replace(/[\/:?*<>|"\\]/g, '');
-  // 空白（含中文空格 　）→ -
-  s = s.replace(/[\s　]+/g, '-');
-  // 标点 . , ; ! ? 等替换为 - （保留可读性，避免文件名歧义）
-  s = s.replace(/[，。；、！？]/g, '-');
+  // 其余一切非「Unicode 字母 / 数字 / 下划线」归一为分隔符 -
+  // （空白含全角空格、() （） [] 【】、+ & . , ; ! ? 等标点运算符、emoji 等都落这）
+  s = s.replace(/[^\p{L}\p{N}_]+/gu, '-');
   // 连续 - → 单个 -
   s = s.replace(/-+/g, '-');
   // 首尾 - 去掉

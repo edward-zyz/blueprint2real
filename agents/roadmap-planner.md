@@ -106,6 +106,10 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
 
 **硬约束**：最后一条消息必须是 receipt JSON（散文报告放 JSON 之前）。只给散文、返回报错或空 = **交付失败**，主线按「receipt 兜底协议」自动处理（fresh 重派 1 次 → 仍不可用则主线内联接手），**不计入 gate attempt**。
 
+**先落盘再返回（v5.4 O13）**：把这份 receipt JSON 先用 `Write` 写到 `{{receiptPath}}`（主线给定的绝对路径），再附冗余副本作末条。`skills_used` 只填真实调用成功的 skill。
+
+**UI 意图探测（v5.4 O15）**：若某工单标题/范围命中前端关键词（view/页面/工作台/reader/pill/总览/dashboard 等）或 `files_estimated` 落在 `ui.uiPaths` glob，但 `workflow.config.mjs` **无** `ui` 块 → 在 backlog proposal 顶层标 `ui_intent_detected: true`（供主线 `AskUserQuestion` 决定是否开 UI 线，杜绝前端静默 defer）。
+
 **receipt envelope**（必填）：
 
 ```json

@@ -60,6 +60,7 @@ function parseArgs(argv) {
     else if (a === '--force') opts.force = true;
     else if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--bootstrap') opts.bootstrap = true;
+    else if (a === '--upgrade') opts.upgrade = true;
     else if (a.startsWith('--')) {
       const key = a.slice(2);
       const val = argv[i + 1];
@@ -271,6 +272,80 @@ export function planInit({ config, targetDir, bootstrap = false }) {
   });
 }
 
+// === v5.4 --upgrade(thin 架构:不复制脚本,只修 alias + version 标记 + 回填 state) ===
+
+// 用与 dev-package.json.tmpl 同款的 thin 调用串构造 alias 命令。
+function aliasCmd(scriptFile, skillRoot) {
+  if (scriptFile === 'init.mjs') return `node "\${B2R_HOME:-${skillRoot}}/bootstrap/workflow/scripts/init.mjs"`;
+  return `DEV_ROOT="$PWD" node "\${B2R_HOME:-${skillRoot}}/bootstrap/workflow/scripts/${scriptFile}"`;
+}
+
+// alias 名 → 脚本文件名。值在运行时由 aliasCmd 构造(依赖 skillRoot)。
+export const REQUIRED_ALIASES = {
+  'validate:state': 'validate-state.mjs',
+  'validate:config': 'validate-config.mjs',
+  'validate:pipeline': 'validate-pipeline-status.mjs',
+  'promote': 'promote.mjs',
+  'start': 'start.mjs',
+  'deps:graph': 'render-dependencies.mjs',
+  'lint:redlines': 'lint-redlines.mjs',
+  'verify:handoff': 'verify-handoff.mjs',
+  'milestone:status': 'milestone-status.mjs',
+  'e2e-group:status': 'e2e-group-status.mjs',
+  'render:board': 'render-board.mjs',
+  'regression:diff': 'regression-diff.mjs',
+};
+
+// 只补缺失 alias,不覆盖已有(用户可能定制过)。返回 { scripts, added }。
+export function mergeAliases(existing = {}, skillRoot, required = REQUIRED_ALIASES) {
+  const out = { ...existing };
+  let added = 0;
+  for (const [name, file] of Object.entries(required)) {
+    if (!(name in out)) { out[name] = aliasCmd(file, skillRoot); added++; }
+  }
+  return { scripts: out, added };
+}
+
+export function extractDoneIds(queueMd) {
+  const ids = [];
+  const re = /^\|\s*([A-Z][A-Z0-9]*-[\w-]+)\s*\|([^\n]*)$/gm;
+  let m;
+  while ((m = re.exec(queueMd)) !== null) if (/\bDone\b/.test(m[2])) ids.push(m[1]);
+  return ids;
+}
+
+export function runUpgrade({ targetDir, skillRoot = resolve(WORKFLOW_DIR, '..', '..') }) {
+  if (!existsSync(resolve(targetDir, 'workflow.config.mjs'))) {
+    throw new InitError(`--upgrade 目标不是 b2r devRoot(无 workflow.config.mjs): ${targetDir}`);
+  }
+  const versionSrc = resolve(WORKFLOW_DIR, 'VERSION');
+  const version = existsSync(versionSrc) ? readFileSync(versionSrc, 'utf8').trim() : '';
+  // ① 补 package.json alias(thin:指向 bundle,不复制脚本)
+  const pkgPath = resolve(targetDir, 'package.json');
+  let added = 0;
+  if (existsSync(pkgPath)) {
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    const r = mergeAliases(pkg.scripts || {}, skillRoot);
+    added = r.added; pkg.scripts = r.scripts;
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  }
+  // ② 写漂移标记
+  if (version) writeFileSync(resolve(targetDir, '.b2r-version'), version + '\n');
+  // ③ 首次回填 state 文件(grandfather Done ids + 空 flaky 基线)
+  const gfPath = resolve(targetDir, 'state', 'receipt-grandfather.json');
+  let gfCount = 0;
+  if (!existsSync(gfPath) && existsSync(resolve(targetDir, 'state', 'queue.md'))) {
+    const ids = extractDoneIds(readFileSync(resolve(targetDir, 'state', 'queue.md'), 'utf8'));
+    writeFileSync(gfPath, JSON.stringify({ ids }, null, 2) + '\n');
+    gfCount = ids.length;
+  }
+  const flakyPath = resolve(targetDir, 'state', 'flaky-baseline.json');
+  if (!existsSync(flakyPath) && existsSync(resolve(targetDir, 'state'))) {
+    writeFileSync(flakyPath, JSON.stringify({ suites: [] }, null, 2) + '\n');
+  }
+  return { version, added, gfCount };
+}
+
 export async function runInit({ argv = process.argv.slice(2) } = {}) {
   let opts;
   try {
@@ -285,6 +360,20 @@ export async function runInit({ argv = process.argv.slice(2) } = {}) {
   if (opts.help) {
     printHelp();
     process.exit(0);
+  }
+
+  // --upgrade:thin 升级,不走 buildConfigFromOpts(不需要 --prefix)
+  if (opts.upgrade) {
+    const targetDir = opts.target ? resolve(opts.target) : resolve(WORKFLOW_DIR, '..', '..');
+    let r;
+    try {
+      r = runUpgrade({ targetDir });
+    } catch (e) {
+      if (e instanceof InitError) { console.error(`[init] ${e.message}`); process.exit(1); }
+      throw e;
+    }
+    console.log(`[upgrade] thin · .b2r-version ${r.version} · 新增 ${r.added} alias · 祖父豁免回填 ${r.gfCount} 条 · scripts 走 bundle 未复制`);
+    return r;
   }
 
   let config;

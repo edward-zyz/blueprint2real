@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildGroupStatus, parseGroupRows } from './e2e-group-status.mjs';
+import { buildGroupStatus, parseGroupRows, extractField } from './e2e-group-status.mjs';
 import { loadConfigSync } from './config.mjs';
 
 function cfg(e2e) {
@@ -166,4 +166,9 @@ test('group id with base36 suffix (collision-resolved) is accepted by parser', (
   const rows = parseGroupRows(GROUPS(`| EG-260602-190312-7a | IS-001 | Open | — | 2026-06-02 |`));
   assert.equal(rows.length, 1);
   assert.equal(rows[0].group, 'EG-260602-190312-7a');
+});
+
+test('extractField: 取顶层字段裸值', () => {
+  assert.equal(extractField({ next_action: 'run_group_e2e' }, 'next_action'), 'run_group_e2e');
+  assert.equal(extractField({ a: 1 }, 'missing'), '');
 });

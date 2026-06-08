@@ -548,7 +548,7 @@ if (isMainModule(import.meta.url)) {
       console.log(`  plan: ${r.summary.willWrite[1].path}`);
       console.log('\n下一步：');
       console.log('  1. 起草 spec/plan（fresh thread 或 sub-agent 完成 §1-11 填空）');
-      console.log('  2. spec/plan review 通过后，把 active.md 翻为 In Progress 持有此工单');
+      console.log(`  2. spec/plan review 通过后，跑 npm run start ${workId} 同步 active+queue 翻 In Progress`);
       console.log('  3. 按 RUNBOOK §3 链路推进');
     }
     process.exit(0);

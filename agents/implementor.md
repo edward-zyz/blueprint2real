@@ -37,27 +37,27 @@
 
 按 spec §1 上游引用 + §4 文件白名单读项目代码——白名单外的文件不要扫读。
 
+== 工作目录纪律（先于一切动作）==
+
+你的代码仓根 = `{{projectRoot}}`（若主线派你进了独立 git worktree，则是上下文给出的该 worktree 绝对路径）。两条历史坑要在这里堵死：
+
+1. **第一个动作就 `cd` 进该绝对路径**，后续所有 git / 测试 / 编辑都在此根下，别让 cwd 相对漂移。
+2. **任何 `git add` / `git commit` 前先断言** `git rev-parse --show-toplevel` 的输出 == 上面的仓根绝对路径。不相等 → **立刻停下回报**：你大概率 cwd 泄漏到了父仓 / 主仓（历史坑 IS-035：implementor 在主仓误提交，污染工单 commit 边界）。
+3. `git add` **只列 spec §4 白名单内的具体文件路径**，禁止 `git add -A` / `git add .` / `git add <目录>`——它们会把外部并发产生的无关改动卷进本工单 commit（历史坑 IS-001：混合 commit，切片无法独立 revert）。
+
 == Stage 3 启动动作（必须最先做，先于任何 skill 调用）==
 
-在写任何代码、调用任何 skill 之前：
+在写任何代码、调用任何 skill 之前，让 active/queue 翻 In Progress 持有本工单。**用脚本，不手工双改**：
 
-1. 翻 {{devRoot}}/state/active.md：
-   ```
-   - ID: {{workId}}
-   - Name: <spec 第 1 行的工单名>
-   - Status: In Progress
-   - Started: <今天 YYYY-MM-DD>
-   - Spec: ../{{specsDir}}/{{slugDir}}.md
-   - Plan: ../work/{{slugDir}}/plan.md
-   - Last commit: —
-   - Blockers: —
-   - Next checkpoint: <plan §1 Step 1 的失败测试名>
-   ```
-2. 把 {{devRoot}}/state/queue.md 中 {{workId}} 行 Status `Ready` → `In Progress`
-3. 跑 `cd {{devRoot}} && npm run render:board`
-4. 跑 `cd {{devRoot}} && npm run validate:state`，必须 0 error 才能继续
+```
+cd {{devRoot}} && npm run start {{workId}}
+```
 
-未做这步**不得调任何 skill / 写任何代码**——否则 BOARD 一直显示 Idle，与"项目当前在做 {{workId}}"的事实不符。
+`start.mjs` 原子地把 `active.md` 翻 In Progress（ID/Name/Started/Spec/Plan）+ `queue.md` 该行 Ready→In Progress + validate:state 兜底 + 自动 render BOARD，并内建 exactly-one-active 校验。**主线在派你之前可能已跑过它**——本命令对"active 已持有本工单"幂等，重跑安全。
+
+跑完核对：active.md `ID == {{workId}}` 且 `Status == In Progress`。不满足（如脚本报 active 非 Idle、或工单非 Ready）→ 停下回报，**不要手工改 active.md / queue.md 绕过**——漏改一个会触发 validate:state 的 cross-file 脱钩报错。
+
+未完成这步**不得调任何 skill / 写任何代码**——否则 BOARD 一直显示 Idle，与"项目当前在做 {{workId}}"的事实不符。
 
 == 调 skill ==
 
@@ -99,10 +99,11 @@ targeted 红 → **停下**，不进 commit，改实现让它过（或 systemati
 - 没有 state/* / BOARD.html 在暂存区 ✓
 - UI 工单：已核对实现与 `2.0-ui-design.json.mockups[]`，差异已解释或修正 ✓
 
-通过后再 commit：
+通过后再 commit（**先按「工作目录纪律」断言 `git rev-parse --show-toplevel` == 仓根**，再只 add 白名单文件）：
 
 ```
-git add <spec §4 范围内的文件>
+git rev-parse --show-toplevel   # 必须 == {{projectRoot}}（或派工 worktree 绝对路径）
+git add <spec §4 范围内的具体文件路径>   # 禁止 git add -A / .
 git commit -m "feat(<scope>): <一句概括>（{{workId}}{{sliceLabel}}）
 
 <2-3 行说明：为什么做、本轮交付什么、什么不做>
@@ -117,8 +118,9 @@ plan: {{devRoot}}/work/{{slugDir}}/plan.md"
 == 返回 ==
 
 **硬约束**：你的**最后一条消息必须是下面的 receipt JSON**（`3-impl` envelope），不是散文。精简报告放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线打回。
-receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/3-impl.json`（遵循 SKILL.md Receipt 契约）。
-**`failing_test_first` 字段 + Step 1 红色输出证据是主线核 Stage 3 红 gate 的唯一依据，必须如实填、不得省**。
+receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给定的绝对路径），再附冗余副本作末条消息；主线 `test -f {{receiptPath}}` 校验存在性（遵循 SKILL.md Receipt 契约）。
+**`failing_test_first` + `failing_test_output`（红阶段测试输出关键行或 artifact 路径）是主线核 Stage 3 红 gate 的唯一依据，必须如实填、不得省**——主线凭 `failing_test_output` 证据判红 gate，**不凭** `failing_test_first` 布尔（布尔可被自报伪造）。
+`test-driven-development` / `verification-before-completion` skill **若本环境未注册（报 Unknown skill），按其纪律手动核三项**：① targeted 测试绿 ② `git diff` ⊆ spec §4 文件清单 ③ 暂存区无 `state/*`。手动执行的**不**写进 `skills_used`。
 
 **receipt envelope**（return 内容，最后一条消息）：
 
@@ -134,6 +136,7 @@ receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{
   "sub_slice": "{{sliceLabel}}",
   "impl_commit": "<7-hex>",
   "failing_test_first": "pass",
+  "failing_test_output": "<红阶段测试输出关键行，或 artifact 路径>",
   "targeted_test": "pass",
   "regression_results": [
     { "cmd": "<...>", "exit": 0 },

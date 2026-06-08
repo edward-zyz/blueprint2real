@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { validateState } from './validate-state.mjs';
+import { validateState, expectedReceipts, checkDoneReceipts, checkOrphanWorkDirs } from './validate-state.mjs';
 import { loadConfigSync } from './config.mjs';
 
 const testConfig = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3 } });
@@ -522,4 +522,31 @@ test('D3: unit=both 时组级硬卡激活', () => {
   assert.equal(ok, false);
   assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /未完成组级 E2E 验收/.test(i.msg)));
   rmSync(dir, { recursive: true, force: true });
+});
+
+// === D4/D5 · receipt 完整性 + 孤儿目录(v5.4 O13/O7) ===
+
+test('expectedReceipts: level→文件清单', () => {
+  assert.deepEqual(expectedReceipts('L0'), ['5-handoff.json']);
+  assert.deepEqual(expectedReceipts('L1'), ['2a-spec.json', '3-impl.json', '5-handoff.json']);
+  assert.ok(expectedReceipts('L3').includes('4-arch.json'));
+});
+
+test('D4: Done 工单缺 receipt → error;祖父豁免则跳过', () => {
+  const rows = [{ id: 'IS-001', status: 'Done', level: 'L0' }];
+  const errsNoGf = checkDoneReceipts({ rows, workDir: '/nonexistent', receiptsDir: 'receipts', grandfatherIds: [], slugOf: () => 'IS-001_x' });
+  assert.equal(errsNoGf.length, 1);
+  assert.equal(errsNoGf[0].severity, 'error');
+
+  const errsGf = checkDoneReceipts({ rows, workDir: '/nonexistent', receiptsDir: 'receipts', grandfatherIds: ['IS-001'], slugOf: () => 'IS-001_x' });
+  assert.equal(errsGf.length, 0);
+});
+
+test('D5: work 目录无法匹配任何工单 → 孤儿 warn', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'b2r-work-'));
+  mkdirSync(join(tmp, 'ZZ-999_orphan'));
+  const warns = checkOrphanWorkDirs({ workDir: tmp, rows: [{ id: 'IS-001' }], slugOf: (r) => `${r.id}_x`, loosePattern: /\b([A-Z]{2,4}-\d+)/ });
+  assert.equal(warns.length, 1);
+  assert.equal(warns[0].severity, 'warn');
+  rmSync(tmp, { recursive: true, force: true });
 });

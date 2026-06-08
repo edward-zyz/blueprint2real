@@ -80,7 +80,12 @@ brainstorming 会引导你 explore：
 
 写完后：
 1. §1-§11 每段都有实际内容（占位语句被替换）
-2. grep `TBD\|待定\|TODO` {{specsDir}}/{{slugDir}}.md 应该 0 命中（除 §11 中明示）
+2. **stub 占位必须清零（不止 TBD）**：`promote.mjs` 生成的 stub 用「待 fresh thread 起草」「（占位）」这类本仓特有标记，旧自检只 grep `TBD/待定/TODO` **会漏过它们、谎报 sections_filled 已满**（IS-037 假绿教训）。跑：
+   ```
+   grep -nE 'TBD|待定|TODO|待 fresh thread 起草|（占位）|占位|（待' {{devRoot}}/{{specsDir}}/{{slugDir}}.md
+   ```
+   除 §11 中明示的剩余风险外应 **0 命中**；任一命中说明该段还是 stub，**先填实再返回**。`tbd_grep` receipt 字段填这条 broadened 命中数（不是旧窄 pattern）。
+   再核行数（`wc -l`）：填实后应明显大于纯 stub 初始行数；行数没涨多半意味着只动了零星几段。
 3. §4 列出的文件路径在仓库中能定位
 4. §7 targeted 至少 1 条可被自动化验证
 5. **删除 / 退役类工单**：§4 删除清单条数 == 实际 `git ls-files <目录>` 枚举数；叙述里所有文件计数（§4 / §8 / 估时表）与该条数一致——不一致**先改对再返回**，别留给 reviewer 当 nit（残留数字会触发整轮重跑）
@@ -91,6 +96,10 @@ brainstorming 会引导你 explore：
 返回 **receipt envelope** + 精简报告（≤200 字）。
 
 **硬约束**：最后一条消息必须是本 stage 的 receipt JSON（散文报告放 JSON 之前）。只给散文、返回报错或空 = **交付失败**，主线按「receipt 兜底协议」自动处理（fresh 重派 1 次 → 仍不可用则主线内联接手），**不计入 gate attempt**。
+
+**先落盘再返回（v5.4 O13）**：把这份 receipt JSON 先用 `Write` 写到 `{{receiptPath}}`（主线在本 prompt 给定的绝对路径），再把同一份作为最后一条消息附冗余副本。主线 `test -f {{receiptPath}}` 校验——没写成功即判交付失败、重派你。`skills_used` **只填真实调用成功**的 skill；建议的 skill 若本环境未注册（报 Unknown skill），按其纪律手动执行，且**不**写进 skills_used。
+
+**边产出边落盘（v5.4 O10/O16，防中断蒸发）**：产出 spec.md 后**立刻 `Write` spec.md + 立刻 `Write` specReceipt**，再续写 plan（merge_2b 时同 context 续 plan.md + planReceipt）。绝不把产物攒到最后一起写——API 中断会让前面的工作全废。`tbd_grep` 自检除 `TBD/待定`，还须查 `待起草 / 占位 / 待 fresh thread`；命中即 sections_filled 不得报满（主线还会亲跑同款 grep 复核）。
 
 **receipt envelope**（写到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/2a-spec.json`，并把 JSON 内容包含在 return payload 里）：
 
@@ -114,6 +123,7 @@ brainstorming 会引导你 explore：
 ```
 
 非 UI 工单可填 `"ui_mockups_referenced": null`；UI 工单必须为 `true`。
+`tbd_grep` 填**自检 step 2 broadened pattern** 的命中数（含「待 fresh thread 起草」「占位」「（待」等 stub 标记，不是旧窄 `TBD/待定/TODO`），除 §11 明示外应为 0。
 
 精简报告（≤200 字）：
 - spec.md 已填，关键决策 3-5 条
@@ -157,3 +167,5 @@ return payload：
 ## 主线在派完后要做什么
 
 派出 plan-drafter 前**等本 stage 返回**——plan 必须看完整 spec 才能起草。
+
+**别只信 receipt 的 `tbd_grep=0` / `sections_filled=11/11`**：IS-037 教训是 sub-agent 用旧窄 grep 自检、漏过「待 fresh thread 起草」类 stub，receipt 报绿但 spec 实际还是 stub。主线收到 receipt 后**亲跑一遍** broadened grep（`grep -nE 'TBD|待定|TODO|待 fresh thread 起草|（占位）|占位|（待' <spec 路径>`，除 §11 明示外应 0 命中）+ 扫一眼 §2/§4 是否真有实质内容，再进 plan-drafter / reviewer。受 §9「质检让脚本说话、不信 sub-agent 自报」一脉相承。

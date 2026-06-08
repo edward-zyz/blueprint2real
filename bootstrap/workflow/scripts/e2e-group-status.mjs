@@ -121,15 +121,23 @@ export function buildGroupStatus({ stateDir, config, group = null }) {
 }
 
 function parseArgs(argv) {
-  const opts = { json: false, quiet: false, group: null };
-  for (const arg of argv) {
+  const opts = { json: false, quiet: false, group: null, field: null };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
     if (arg === '--json') opts.json = true;
     else if (arg === '--quiet') opts.quiet = true;
+    else if (arg === '--field') opts.field = argv[++i];
     else if (arg.startsWith('--')) throw new Error(`未知参数: ${arg}`);
     else if (!opts.group) opts.group = arg;
     else throw new Error(`只能指定一个 group（多余参数: ${arg}）`);
   }
   return opts;
+}
+
+// 取顶层字段裸值单行(主线窄查询 --field next_action 用,免即兴 grep/python)。
+export function extractField(result, key) {
+  const v = result?.[key];
+  return v === undefined || v === null ? '' : String(v);
 }
 
 function formatHuman(result) {
@@ -164,6 +172,11 @@ if (isMain) {
     const config = await loadConfig({ devRoot });
     const result = buildGroupStatus({ stateDir, config, group: opts.group });
     const selected = opts.group ? result.groups[0] : null;
+    if (opts.field) {
+      // 窄查询:有 --group 时取该组字段,否则取顶层 result 字段。
+      process.stdout.write(extractField(selected || result, opts.field) + '\n');
+      process.exit(0);
+    }
     if (opts.json) {
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
     } else if (!opts.quiet) {
@@ -172,11 +185,8 @@ if (isMain) {
     if (opts.quiet) process.exit(selected && selected.boundary_reached ? 0 : 1);
     process.exit(0);
   } catch (e) {
-    if (opts?.json) {
-      process.stdout.write(JSON.stringify({ ok: false, error: e.message }, null, 2) + '\n');
-    } else {
-      console.error(`[e2e-group-status] ${e.message}`);
-    }
+    // 错误一律走 stderr,保持 stdout 纯净(O23:--json/--field 可直接管道给 JSON.parse)。
+    console.error(`[e2e-group-status] ${e.message}`);
     process.exit(2);
   }
 }
