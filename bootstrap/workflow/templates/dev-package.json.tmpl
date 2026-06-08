@@ -16,6 +16,7 @@
     "deps:graph": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/render-dependencies.mjs\"",
     "verify:handoff": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/verify-handoff.mjs\"",
     "lint:redlines": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/lint-redlines.mjs\"",
+    "regression:diff": "DEV_ROOT=\"$PWD\" node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/regression-diff.mjs\"",
     "init": "node \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow/scripts/init.mjs\"",
     "test": "cd \"${B2R_HOME:-{{skillRoot}}}/bootstrap/workflow\" && npm test"
   }
