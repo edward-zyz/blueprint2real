@@ -56,10 +56,22 @@
   ...envelope (stage_id: "1-planner", level: null),
   "workIds": ["<workId>"],
   "levels": { "<workId>": "<level>" },
+  "ui_intent_detected": false,
+  "ui_paths_stale_suspected": false,
+  "ui_paths_stale_evidence": {
+    "uiPaths_current": ["web/src/views/foo/**"],
+    "intent_temp_keys": ["T1", "T2"],
+    "intent_files": ["web/src/views/agent/Workbench.tsx", "web/src/views/agent/Mobile.tsx"]
+  },
   "validate_state": "pass",
   "deps_graph": { "cycles": 0, "leaves": [...], "orphans": 0 }
 }
 ```
+
+UI 路由两路探测（顶层布尔，互斥）：
+
+- `ui_intent_detected`（O15）— 本批有前端意图工单、但 config **无** `ui` 块。主线据此 `AskUserQuestion` 是否开 UI 线。
+- `ui_paths_stale_suspected`（O27）— config **有** `ui` 块、但本批有前端意图的工单**无一命中** `ui.uiPaths`（疑似 uiPaths 陈旧）。为 `true` 时 `ui_paths_stale_evidence` 必须非空（携 `uiPaths_current` / `intent_temp_keys` / `intent_files`）；为 `false` 时 evidence 为 `null`。触发条件是「有前端意图 AND 该批 0 命中」的合取，纯后端批次不报。
 
 ### 1.5-ui-anchor.json（仅配置 ui 且首个 UI 工单触发）
 

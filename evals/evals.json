@@ -570,6 +570,18 @@
           "expected": ">=1"
         },
         {
+          "text": "P2·O27: SKILL.md 含 ui_paths_stale_suspected 触发 AskUserQuestion",
+          "type": "shell",
+          "command": "grep -c 'ui_paths_stale_suspected' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O27: SKILL.md 播报追加 UI 工单命中 uiPaths 比例",
+          "type": "shell",
+          "command": "grep -c '命中 uiPaths' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
           "text": "P2·dist: SKILL.md 启动协议含 init.mjs --upgrade 自检",
           "type": "shell",
           "command": "grep -c 'init.mjs --upgrade' \"$SKILL_ROOT\"/SKILL.md",
@@ -621,6 +633,18 @@
           "text": "P3·O15: roadmap-planner 含 ui_intent_detected",
           "type": "shell",
           "command": "grep -c 'ui_intent_detected' \"$SKILL_ROOT\"/agents/roadmap-planner.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O27: roadmap-planner 含 ui_paths_stale_suspected",
+          "type": "shell",
+          "command": "grep -c 'ui_paths_stale_suspected' \"$SKILL_ROOT\"/agents/roadmap-planner.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O27: receipts-schema 含 ui_paths_stale_suspected",
+          "type": "shell",
+          "command": "grep -c 'ui_paths_stale_suspected' \"$SKILL_ROOT\"/references/receipts-schema.md",
           "expected": ">=1"
         },
         {
