@@ -108,7 +108,12 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
 
 **先落盘再返回（v5.4 O13）**：把这份 receipt JSON 先用 `Write` 写到 `{{receiptPath}}`（主线给定的绝对路径），再附冗余副本作末条。`skills_used` 只填真实调用成功的 skill。
 
-**UI 意图探测（v5.4 O15）**：若某工单标题/范围命中前端关键词（view/页面/工作台/reader/pill/总览/dashboard 等）或 `files_estimated` 落在 `ui.uiPaths` glob，但 `workflow.config.mjs` **无** `ui` 块 → 在 backlog proposal 顶层标 `ui_intent_detected: true`（供主线 `AskUserQuestion` 决定是否开 UI 线，杜绝前端静默 defer）。
+**UI 意图探测（v5.4 O15 + O27 对称两路）**：先用同一套**前端意图探测**逻辑给每条工单打一个布尔——标题/范围命中前端关键词（view/页面/工作台/reader/pill/总览/dashboard 等）**或** `files_estimated` 命中前端路径形态（`web/`、`src/views/`、`*.tsx/*.vue/*.jsx` 等）即视为「有前端意图」。再按 `workflow.config.mjs` 的 `ui` 块状态分流，堵两个对称盲区：
+
+- **决策 A 盲区（无 `ui` 块）**：本批存在「有前端意图」的工单，但 config **无** `ui` 块 → 顶层标 `ui_intent_detected: true`（供主线 `AskUserQuestion` 决定是否开 UI 线，杜绝前端静默 defer）。这是 O15 原行为。
+- **决策 B 盲区（有 `ui` 块但 uiPaths 失配）**：config **有** `ui` 块，但本批「有前端意图」的工单里**没有任何一条**的 `files_estimated` 命中 `ui.uiPaths` glob（即该批 0 命中）→ 顶层标 `ui_paths_stale_suspected: true`，并附 `ui_paths_stale_evidence`：`uiPaths_current`（当前 `ui.uiPaths` 值）、`intent_temp_keys`（有前端意图的工单 temp_key）、`intent_files`（它们的 `files_estimated` 并集）。这是 O27——uiPaths 陈旧/未覆盖本批设计目标时，把静默失配变成一次显式提问（主线据此 `AskUserQuestion`）。
+
+判定要谨慎、可证伪：`ui_paths_stale_suspected` 的触发是**「有前端意图信号」AND「该批 0 命中 uiPaths」**的合取——纯后端批次（前端意图信号为空）即使 0 命中也**不**标，避免对真后端误报。两个标互斥：有 ui 块只可能出 `ui_paths_stale_suspected`，无 ui 块只可能出 `ui_intent_detected`。
 
 **receipt envelope**（必填）：
 
@@ -134,6 +139,9 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
   ],
   "levels": { "T1": "L2" },
   "ui_flags": { "T1": true },
+  "ui_intent_detected": false,
+  "ui_paths_stale_suspected": false,
+  "ui_paths_stale_evidence": null,
   "acceptance": [
     {
       "milestone": "M0",
