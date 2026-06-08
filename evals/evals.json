@@ -369,6 +369,279 @@
           "expected": ">=1"
         }
       ]
+    },
+    {
+      "id": "v5.4-hardening-static-check",
+      "weight": "light",
+      "prompt": "(static check, no subagent) 验证 v5.4 硬化三包（底盘/契约/模板）落地：O12 E2E 两段式抗中断、O13 receipt 落盘契约、O14 lint-redlines 修根、O15 UI 线播报、O16 主线亲核、O17 flake 基线、O18 infra 指纹、O20 e2e 可读字段、O21 skill 引用降级、thin --upgrade 分发。",
+      "fixture_dir": null,
+      "expected_output": "三包全部落地：底盘脚本导出新函数且单测绿、SKILL.md/references 含新契约锚点、agents 模板含 receipt 落盘与各项改动；--upgrade 端到端在 thin 架构下补 alias 不造 workflow/。",
+      "assertions": [
+        {
+          "text": "P1·O14: lint-redlines 导出 evaluateRedlines",
+          "type": "shell",
+          "command": "grep -c 'export function evaluateRedlines' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/lint-redlines.mjs",
+          "expected": "1"
+        },
+        {
+          "text": "P1·O14: lint-redlines 按 devRoot 解析(import inferDevRoot,不 fallback 脚本仓)",
+          "type": "shell",
+          "command": "grep -c inferDevRoot \"$SKILL_ROOT\"/bootstrap/workflow/scripts/lint-redlines.mjs",
+          "expected": ">=1"
+        },
+        {
+          "text": "P1·O14: 占位态输出 WARN『红线未配置』非『OK 0 规则』",
+          "type": "shell",
+          "command": "grep -c 'WARN · 红线未配置' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/lint-redlines.mjs",
+          "expected": ">=1"
+        },
+        {
+          "text": "P1·O14: lint-redlines 单测通过",
+          "type": "shell",
+          "command": "cd \"$SKILL_ROOT\"/bootstrap/workflow && node --test scripts/lint-redlines.test.mjs >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "P1·O14: config 模板含 redlineCommands 占位",
+          "type": "shell",
+          "command": "grep -c 'redlineCommands' \"$SKILL_ROOT\"/bootstrap/workflow/templates/workflow.config.mjs.tmpl",
+          "expected": ">=1"
+        },
+        {
+          "text": "P1·O13: validate-state 导出 expectedReceipts/checkDoneReceipts/checkOrphanWorkDirs",
+          "type": "shell",
+          "command": "grep -cE 'export function (expectedReceipts|checkDoneReceipts|checkOrphanWorkDirs)' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/validate-state.mjs",
+          "expected": "3"
+        },
+        {
+          "text": "P1·O13: validate-state 单测通过(含 D4/D5)",
+          "type": "shell",
+          "command": "cd \"$SKILL_ROOT\"/bootstrap/workflow && node --test scripts/validate-state.test.mjs >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "P1·O17: regression-diff 导出 diffFailures",
+          "type": "shell",
+          "command": "grep -c 'export function diffFailures' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/regression-diff.mjs",
+          "expected": "1"
+        },
+        {
+          "text": "P1·O17: regression-diff 单测通过",
+          "type": "shell",
+          "command": "cd \"$SKILL_ROOT\"/bootstrap/workflow && node --test scripts/regression-diff.test.mjs >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "P1·O17: flaky-baseline 模板存在",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/templates/state/flaky-baseline.json.tmpl && echo ok",
+          "expected": "ok"
+        },
+        {
+          "text": "P1·O17: dev-package 模板含 regression-diff alias",
+          "type": "shell",
+          "command": "grep -c 'regression-diff.mjs' \"$SKILL_ROOT\"/bootstrap/workflow/templates/dev-package.json.tmpl",
+          "expected": ">=1"
+        },
+        {
+          "text": "P1·O23: e2e-group-status 导出 extractField",
+          "type": "shell",
+          "command": "grep -c 'export function extractField' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/e2e-group-status.mjs",
+          "expected": "1"
+        },
+        {
+          "text": "P1·O23: milestone-status 含 extractField",
+          "type": "shell",
+          "command": "grep -c extractField \"$SKILL_ROOT\"/bootstrap/workflow/scripts/milestone-status.mjs",
+          "expected": ">=1"
+        },
+        {
+          "text": "P1·dist: bundle VERSION = 5.4.0",
+          "type": "shell",
+          "command": "grep -c '5.4.0' \"$SKILL_ROOT\"/bootstrap/workflow/VERSION",
+          "expected": "1"
+        },
+        {
+          "text": "P1·dist: init 导出 REQUIRED_ALIASES + mergeAliases + runUpgrade",
+          "type": "shell",
+          "command": "grep -cE 'export (const REQUIRED_ALIASES|function mergeAliases|function runUpgrade)' \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs",
+          "expected": "3"
+        },
+        {
+          "text": "P1·dist: init 单测通过",
+          "type": "shell",
+          "command": "cd \"$SKILL_ROOT\"/bootstrap/workflow && node --test scripts/init.test.mjs >/dev/null 2>&1 && echo PASS || echo FAIL",
+          "expected": "PASS"
+        },
+        {
+          "text": "P1·dist: receipt-grandfather 模板存在",
+          "type": "shell",
+          "command": "test -f \"$SKILL_ROOT\"/bootstrap/workflow/templates/state/receipt-grandfather.json.tmpl && echo ok",
+          "expected": "ok"
+        },
+        {
+          "text": "P1·dist: --upgrade 端到端(thin:.b2r-version=5.4.0 + 无 workflow/ + 补 regression:diff alias)",
+          "type": "shell",
+          "command": "rm -rf /tmp/b2r-up && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --bootstrap --prefix UP --milestones M0 --project uptest --target /tmp/b2r-up >/dev/null 2>&1 && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --upgrade --target /tmp/b2r-up >/dev/null 2>&1 && ver=$(tr -d '[:space:]' < /tmp/b2r-up/.b2r-version 2>/dev/null) && wf=$(test -d /tmp/b2r-up/workflow && echo FAT || echo THIN) && al=$(grep -c 'regression:diff' /tmp/b2r-up/package.json) && echo \"$ver-$wf-$al\"",
+          "expected": "5.4.0-THIN-1"
+        },
+        {
+          "text": "P2·O13: SKILL.md 含 test -f {{receiptPath}} 主线校验",
+          "type": "shell",
+          "command": "grep -c 'test -f {{receiptPath}}' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O13: SKILL.md 含『最后一个合法 JSON 块』解析放宽",
+          "type": "shell",
+          "command": "grep -c '最后一个合法 JSON 块' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O13: SKILL.md 不变量8 含『stage receipt 由 sub-agent』落盘",
+          "type": "shell",
+          "command": "grep -c 'stage receipt 由 sub-agent' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O1: SKILL.md Stage4 arch findings-only",
+          "type": "shell",
+          "command": "grep -c 'findings-only' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O1: SKILL.md 4-arch 由主线拼装",
+          "type": "shell",
+          "command": "grep -cE '4-arch.*主线|主线.*4-arch' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O12: SKILL.md 含 mode=journey 两段式",
+          "type": "shell",
+          "command": "grep -c 'mode=journey' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O12: SKILL.md 含『截图落盘即弃』",
+          "type": "shell",
+          "command": "grep -c '截图落盘即弃' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O20: SKILL.md 含 acceptance_legible_status",
+          "type": "shell",
+          "command": "grep -c 'acceptance_legible_status' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O18: SKILL.md infra 指纹含 Usage Policy",
+          "type": "shell",
+          "command": "grep -c 'Usage Policy' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O18: SKILL.md infra 指纹含 Please run /login",
+          "type": "shell",
+          "command": "grep -c 'Please run /login' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O16: SKILL.md Stage3 含 failing_test_output 证据 gate",
+          "type": "shell",
+          "command": "grep -c 'failing_test_output' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O16: SKILL.md Stage2 含主线占位 grep gate",
+          "type": "shell",
+          "command": "grep -cE \"grep -nE 'TBD\" \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O15: SKILL.md 含 ui_intent_detected 触发 AskUserQuestion",
+          "type": "shell",
+          "command": "grep -c 'ui_intent_detected' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·O15: SKILL.md 含 UI/E2E 线开关播报",
+          "type": "shell",
+          "command": "grep -cE 'UI 线:开/关|UI 线.{0,6}E2E 线' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·dist: SKILL.md 启动协议含 init.mjs --upgrade 自检",
+          "type": "shell",
+          "command": "grep -c 'init.mjs --upgrade' \"$SKILL_ROOT\"/SKILL.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·refs: receipts-schema 含 acceptance_legible_status",
+          "type": "shell",
+          "command": "grep -c 'acceptance_legible_status' \"$SKILL_ROOT\"/references/receipts-schema.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·refs: receipts-schema 含 failing_test_output",
+          "type": "shell",
+          "command": "grep -c 'failing_test_output' \"$SKILL_ROOT\"/references/receipts-schema.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·refs: quality-gates 含 redlineCommands",
+          "type": "shell",
+          "command": "grep -c 'redlineCommands' \"$SKILL_ROOT\"/references/quality-gates.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P2·refs: workflow-contract 含 receipt-grandfather",
+          "type": "shell",
+          "command": "grep -c 'receipt-grandfather' \"$SKILL_ROOT\"/references/workflow-contract.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O13: 8 个执行 agent 引用 {{receiptPath}} 落盘",
+          "type": "shell",
+          "command": "grep -l '{{receiptPath}}' \"$SKILL_ROOT\"/agents/spec-drafter.md \"$SKILL_ROOT\"/agents/plan-drafter.md \"$SKILL_ROOT\"/agents/spec-plan-reviewer.md \"$SKILL_ROOT\"/agents/implementor.md \"$SKILL_ROOT\"/agents/handoff-committer.md \"$SKILL_ROOT\"/agents/direct-fix.md \"$SKILL_ROOT\"/agents/e2e-verifier.md \"$SKILL_ROOT\"/agents/roadmap-planner.md | wc -l | tr -d ' '",
+          "expected": "8"
+        },
+        {
+          "text": "P3·O1: arch-security-reviewer 改 findings-only(含 verdict_suggestion)",
+          "type": "shell",
+          "command": "grep -c 'verdict_suggestion' \"$SKILL_ROOT\"/agents/arch-security-reviewer.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O12: e2e-verifier 含 mode=journey",
+          "type": "shell",
+          "command": "grep -c 'mode=journey' \"$SKILL_ROOT\"/agents/e2e-verifier.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O15: roadmap-planner 含 ui_intent_detected",
+          "type": "shell",
+          "command": "grep -c 'ui_intent_detected' \"$SKILL_ROOT\"/agents/roadmap-planner.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O10/O16: spec+plan-drafter 含『边产出边落盘』",
+          "type": "shell",
+          "command": "grep -l '边产出边落盘' \"$SKILL_ROOT\"/agents/spec-drafter.md \"$SKILL_ROOT\"/agents/plan-drafter.md | wc -l | tr -d ' '",
+          "expected": "2"
+        },
+        {
+          "text": "P3·O16: implementor receipt 含 failing_test_output",
+          "type": "shell",
+          "command": "grep -c 'failing_test_output' \"$SKILL_ROOT\"/agents/implementor.md",
+          "expected": ">=1"
+        },
+        {
+          "text": "P3·O21: implementor/handoff/direct-fix 含『未注册则手动核』降级",
+          "type": "shell",
+          "command": "grep -lE '未注册.*手动|按其纪律手动核' \"$SKILL_ROOT\"/agents/implementor.md \"$SKILL_ROOT\"/agents/handoff-committer.md \"$SKILL_ROOT\"/agents/direct-fix.md | wc -l | tr -d ' '",
+          "expected": "3"
+        }
+      ]
     }
   ]
 }
