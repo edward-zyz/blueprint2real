@@ -118,8 +118,9 @@ plan: {{devRoot}}/work/{{slugDir}}/plan.md"
 == 返回 ==
 
 **硬约束**：你的**最后一条消息必须是下面的 receipt JSON**（`3-impl` envelope），不是散文。精简报告放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线打回。
-receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/3-impl.json`（遵循 SKILL.md Receipt 契约）。
-**`failing_test_first` 字段 + Step 1 红色输出证据是主线核 Stage 3 红 gate 的唯一依据，必须如实填、不得省**。
+receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给定的绝对路径），再附冗余副本作末条消息；主线 `test -f {{receiptPath}}` 校验存在性（遵循 SKILL.md Receipt 契约）。
+**`failing_test_first` + `failing_test_output`（红阶段测试输出关键行或 artifact 路径）是主线核 Stage 3 红 gate 的唯一依据，必须如实填、不得省**——主线凭 `failing_test_output` 证据判红 gate，**不凭** `failing_test_first` 布尔（布尔可被自报伪造）。
+`test-driven-development` / `verification-before-completion` skill **若本环境未注册（报 Unknown skill），按其纪律手动核三项**：① targeted 测试绿 ② `git diff` ⊆ spec §4 文件清单 ③ 暂存区无 `state/*`。手动执行的**不**写进 `skills_used`。
 
 **receipt envelope**（return 内容，最后一条消息）：
 
@@ -135,6 +136,7 @@ receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{
   "sub_slice": "{{sliceLabel}}",
   "impl_commit": "<7-hex>",
   "failing_test_first": "pass",
+  "failing_test_output": "<红阶段测试输出关键行，或 artifact 路径>",
   "targeted_test": "pass",
   "regression_results": [
     { "cmd": "<...>", "exit": 0 },

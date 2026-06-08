@@ -124,7 +124,13 @@ group 模式下**不读 `acceptance.md`**；若某成员工单 spec 无 §验收
 
 == 返回主线 thread ==
 
-返回精简报告（≤250 字）+ 最后一条消息必须是 receipt JSON。只给散文、返回报错或空 = 交付失败，主线按 receipt 兜底协议处理。
+返回精简报告（≤250 字）+ 最后一条消息必须是 receipt JSON。只给散文、返回报错或空 = 交付失败，主线按 receipt 兜底协议处理。**先把 receipt `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给定的绝对路径），再附冗余副本作末条。
+
+**mode=journey（v5.4 O12 两段式段二，单旅程抗中断/抗 AUP）**：主线给你 `{{journey_id}}` + 该旅程 `steps`，你只验**这一条**旅程：
+- **截图落盘即弃 base64**：每张截图存到 `evidence/{{scopeId}}/{{journey_id}}/`，**thread 内只保留文件路径，绝不把 base64 图内容留在上下文**（防上下文膨胀触发 Usage Policy 硬阻断）。evidence 优先用命令输出 JSON；浏览器截图须用 seed/fixture 数据，不得含真实 brand_id/customer_id/审计行。
+- 单旅程 receipt 落 `evidence/{{scopeId}}/{{journey_id}}.json`：`{ journey_id, verdict:"PASS|FAIL", evidence_paths:[...], regression_result, reason_category }`。
+
+**mode=group / mode=milestone（段一：展开 journeys 清单）**：不再自己跑全部旅程，而是把验收标准展开成 `<reportsDir>/journeys-{{scopeId}}.json`（每条 `{journey_id, desc, steps, status:"pending"}`），主线据此逐旅程派 mode=journey。
 
 **receipt envelope + payload**：
 

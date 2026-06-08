@@ -102,6 +102,10 @@ Self-review 失败任一项 → return 自报阻塞，让主线打回 spec/plan 
 
 **硬约束**：最后一条消息必须是本 stage 的 receipt JSON（散文报告放 JSON 之前）。只给散文、返回报错或空 = **交付失败**，主线按「receipt 兜底协议」自动处理（fresh 重派 1 次 → 仍不可用则主线内联接手），**不计入 gate attempt**。
 
+**先落盘再返回（v5.4 O13）**：把这份 receipt JSON 先用 `Write` 写到 `{{receiptPath}}`（主线给定的绝对路径），再把同一份作为最后一条消息附冗余副本。主线 `test -f {{receiptPath}}` 校验——没写成功即判交付失败、重派你。`skills_used` **只填真实调用成功**的 skill；建议的 skill 若本环境未注册，按其纪律手动执行，且**不**写进 skills_used。
+
+**边产出边落盘（v5.4 O10，防中断蒸发）**：产出 plan.md 后**立刻 `Write` plan.md + 立刻 `Write` planReceipt 到 `{{receiptPath}}`**，不攒到最后——API 中断会让前面的工作全废。
+
 **receipt envelope**（写到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/2b-plan.json`）：
 
 ```json

@@ -84,7 +84,7 @@
 == 返回格式 ==
 
 **硬约束**：你的**最后一条消息必须是下面的 receipt JSON**（`2c-review` envelope），不是散文。markdown report 放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线打回。
-receipt 由你 **return**、**主线落盘**到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/2c-review.json`（遵循 SKILL.md Receipt 契约）。
+receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给定的绝对路径），再附冗余副本作末条消息；主线 `test -f {{receiptPath}}` 校验存在性（遵循 SKILL.md Receipt 契约）。`skills_used` 只填真实调用成功的 skill。
 
 **receipt envelope**（return 内容，最后一条消息）：
 

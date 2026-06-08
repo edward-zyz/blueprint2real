@@ -145,6 +145,8 @@ git commit -m "chore(state): {{workId}} Done · 翻档"
 
 **硬约束**：最后一条消息必须是本 stage 的 receipt JSON（散文报告放 JSON 之前）。只给散文、返回报错或空 = **交付失败**，主线按「receipt 兜底协议」自动处理（fresh 重派 1 次 → 仍不可用则主线内联接手），**不计入 gate attempt**。
 
+**先落盘再返回（v5.4 O13）**：把这份 receipt JSON 先用 `Write` 写到 `{{receiptPath}}`（主线给定的绝对路径），再附冗余副本作末条。主线 `test -f {{receiptPath}}` 校验。`verification-before-completion` skill **若本环境未注册（报 Unknown skill），按其纪律手动核三项**：① verify:handoff 全过 ② handoff commit 仅含 `state/*` + `BOARD.html` ③ 无悬空 commit。手动执行的**不**写进 `skills_used`。
+
 **receipt envelope**（写到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/5-handoff.json`）：
 
 ```json

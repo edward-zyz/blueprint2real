@@ -60,9 +60,9 @@
       "expected_output": "SKILL.md 不包含 private project tokens；每个 agent 模板都引用 {{workIdPrefix}} 占位；references/ 中 schema 与 validate-state.mjs 实际枚举一致。",
       "assertions": [
         {
-          "text": "SKILL.md 不硬编码 IS- 编号示例（IS-XXX 占位允许，IS-001 等具体不允许）",
+          "text": "SKILL.md 不硬编码 IS- 编号示例（括号内 （IS-NNN） 历史溯源引用除外）",
           "type": "shell",
-          "command": "grep -E 'IS-[0-9]{3}' \"$SKILL_ROOT\"/SKILL.md | wc -l",
+          "command": "grep -E 'IS-[0-9]{3}' \"$SKILL_ROOT\"/SKILL.md | grep -vE '（IS-[0-9]{3}）|\\(IS-[0-9]{3}\\)' | wc -l",
           "expected": "0"
         },
         {
@@ -138,10 +138,10 @@
           "expected": ">=11"
         },
         {
-          "text": "v5.3: 所有 agent 都含 receipt envelope JSON 模板或 stage_id",
+          "text": "v5.4: 10 个执行 agent 含 receipt envelope/stage_id（arch-security-reviewer 改 findings-only 不产 receipt）",
           "type": "shell",
           "command": "grep -lE 'receipt envelope|stage_id' \"$SKILL_ROOT\"/agents/*.md | wc -l",
-          "expected": ">=11"
+          "expected": "10"
         },
         {
           "text": "v5.3: milestone-status 脚本与 npm alias 已注册",

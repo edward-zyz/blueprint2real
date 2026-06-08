@@ -97,6 +97,10 @@ brainstorming 会引导你 explore：
 
 **硬约束**：最后一条消息必须是本 stage 的 receipt JSON（散文报告放 JSON 之前）。只给散文、返回报错或空 = **交付失败**，主线按「receipt 兜底协议」自动处理（fresh 重派 1 次 → 仍不可用则主线内联接手），**不计入 gate attempt**。
 
+**先落盘再返回（v5.4 O13）**：把这份 receipt JSON 先用 `Write` 写到 `{{receiptPath}}`（主线在本 prompt 给定的绝对路径），再把同一份作为最后一条消息附冗余副本。主线 `test -f {{receiptPath}}` 校验——没写成功即判交付失败、重派你。`skills_used` **只填真实调用成功**的 skill；建议的 skill 若本环境未注册（报 Unknown skill），按其纪律手动执行，且**不**写进 skills_used。
+
+**边产出边落盘（v5.4 O10/O16，防中断蒸发）**：产出 spec.md 后**立刻 `Write` spec.md + 立刻 `Write` specReceipt**，再续写 plan（merge_2b 时同 context 续 plan.md + planReceipt）。绝不把产物攒到最后一起写——API 中断会让前面的工作全废。`tbd_grep` 自检除 `TBD/待定`，还须查 `待起草 / 占位 / 待 fresh thread`；命中即 sections_filled 不得报满（主线还会亲跑同款 grep 复核）。
+
 **receipt envelope**（写到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/2a-spec.json`，并把 JSON 内容包含在 return payload 里）：
 
 ```json
