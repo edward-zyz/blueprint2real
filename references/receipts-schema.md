@@ -166,6 +166,7 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
   "sub_slice": "<label or '整工单单切片'>",
   "impl_commit": "<7-hex>",
   "failing_test_first": "pass",
+  "failing_test_output": "<红阶段测试输出关键行，或 artifact 路径>",
   "targeted_test": "pass",
   "regression_results": [{ "cmd": "<...>", "exit": 0 }],
   "files_changed": ["<...>"],
@@ -175,6 +176,10 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
 ```
 
 非 UI 工单可填 `ui_mockups_checked: null`；UI 工单必须为 `true`。
+
+> **`failing_test_output`（v5.4 O16）必填**：红阶段（TDD 第一步）测试失败输出关键行或 artifact 路径。主线核红 gate 凭此证据，**不凭** `failing_test_first:"pass"` 布尔——布尔可被 sub-agent 自报伪造，证据不能。
+
+> **Receipt 落盘者（v5.4 O13）**：stage receipt 文件由该 stage 的 **sub-agent 自己 `Write`**（路径主线以 `{{receiptPath}}` 钉死），主线派工返回后 `test -f {{receiptPath}}` 校验存在性，不存在即判交付失败。例外见下：4-arch 由主线确定性拼装。
 
 ### 4-arch.json（L3 完整 / L2 轻量；L1 不出）
 
@@ -194,6 +199,8 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
 ```
 
 L2 轻量路径 `skills_used` 仅含 `security-review`，不含 `architecture`。
+
+> **4-arch 由主线拼装（v5.4 O1/O13）**：arch-security-reviewer **不自产此 receipt**，只返回结构化 findings（`red_line_hits` / `security_findings` / `verdict_suggestion` / `scope_check`）。主线亲跑 `lint:redlines` + 读 findings 后**确定性拼装并 `Write` 4-arch.json**——根治 security-review skill 散文收尾挤掉 receipt 的复发坑。
 
 ### 5-handoff.json
 
@@ -234,6 +241,8 @@ L0 路径 `verify_handoff_checks` 写 `6/6 pass (skip Check 4 spec/plan)`。
   "captured_test_paths": ["<project e2e test path>"],
   "e2e_regression_green": true,
   "e2e_regression_reason_category": "green | env-blocked | quality-fail | coverage-gap",
+  "acceptance_legible_status": "ACCEPTED | ACCEPTED_WITH_ENV_BLOCKED | FAILED",
+  "env_blocked_reason": "<null 或环境受阻原因，如 'playwright webServer 需 MySQL+Infisical，本机 ECONNREFUSED'>",
   "e2e_command_results": [{ "cmd": "npm run test:e2e", "exit": 0 }],
   "report_path": "e2e/M1-acceptance.md",
   "evidence_dir": "e2e/evidence/M1",
@@ -259,6 +268,24 @@ L0 路径 `verify_handoff_checks` 写 `6/6 pass (skip Check 4 spec/plan)`。
 - `evidence_dir`：本验收单元结构化 evidence 子目录（每单元强制至少一份，与 milestone/group id 对齐，避免误读上一组残留）
 - `fix_ticket_proposals[]` 只是提案；主线查重 `(milestone, journey_id)` 后才写 `queue.md`
 - `e2e_rerun_count > workflow.config.e2e.maxRerun` 时，主线强制 Manager Override
+- `acceptance_legible_status`（v5.4 O20）：面向下游静态读者（人 / CI）的单一可信结论字段——`ACCEPTED`（真绿）/ `ACCEPTED_WITH_ENV_BLOCKED`（业务旅程过、回归因环境受阻未全绿，配 `env_blocked_reason`）/ `FAILED`。让不懂 b2r 内部协议者无需理解 `PASS`+`green:false` 共存语义即可判非绕过门禁
+
+### 单旅程 receipt（v5.4 O12 两段式段二，`mode=journey`）
+
+存储位置：`<devRoot>/<reportsDir>/evidence/<scopeId>/<journey_id>.json`。e2e-verifier 验完单条旅程即落盘；主线汇总各旅程 receipt 拼上面的组级 receipt。
+
+```json
+{
+  "journey_id": "J1",
+  "verdict": "PASS | FAIL",
+  "evidence_paths": ["evidence/<scopeId>/J1/<screen>.png", "..."],
+  "regression_result": { "cmd": "<...>", "exit": 0 },
+  "reason_category": "green | env-blocked",
+  "escalated_to_human": false
+}
+```
+
+> 截图**落盘即弃 base64**：图存 `evidence/<scopeId>/<journey_id>/`，receipt 与 thread 只留路径，绝不把图内容留在上下文（防 AUP 硬阻断）。verifier 被 policy/transport 硬杀时，主线据已落 evidence 内联补 `reason_category="env-blocked"` 或 `escalated_to_human=true` 的旅程 receipt，让组有尾。
 
 ## pipeline-status.json（工单维度状态）
 

@@ -118,6 +118,16 @@ Status 枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
 3. `customer-visible.md` 引用的 work-id 必在 `queue.md` Status=Done
 4. `queue.md` Planned 集合 ⇔ §Planned 摘要段 ID 集合
 5. impl commit 不含 state/* / BOARD.html；handoff commit 仅含 state/* + BOARD.html
+6. **D4（v5.4 O13）**：`queue.md` Status=Done 的工单，`work/<slug>/<receiptsDir>/` 必有其 level 对应的全套 stage receipt（L0:5-handoff；L1:2a/3/5；L2/L3:全套）。**祖父豁免**：ID 在 `state/receipt-grandfather.json.ids[]` 内则跳过（升级前已 Done 的存量工单不被追溯）
+7. **D5（v5.4 O7）**：`work/` 下目录名无法被任一工单 `workItemSlug()` 命中 → warn。能按 workId 前缀模糊匹配但 slug 不一致 → 提示 `git mv`（底盘 slugify 升级遗留）；完全匹配不到 → 孤儿目录 warn
+
+## v5.4 新增 state 文件
+
+| 文件 | 写者 | 用途 |
+|---|---|---|
+| `state/receipt-grandfather.json` | `init.mjs --upgrade` 首次回填 / 人工 | `{ ids: [] }`——D4 祖父豁免清单，升级时枚举当时 Done 工单，使新规则不追溯存量 |
+| `state/flaky-baseline.json` | `regression:diff --add` / 人工 | `{ suites: [{name, reason, recorded_at}] }`——已知预存 flake 清单，收敛回归只看相对基线新增失败 |
+| `<devRoot>/.b2r-version` | `init.mjs --upgrade` | 底盘版本漂移标记，启动协议自检比对 bundle `VERSION` |
 
 ## 工具脚本一览（`<devRoot>/workflow/scripts/`）
 

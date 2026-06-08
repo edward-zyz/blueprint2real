@@ -25,8 +25,8 @@
 | 3 | implementor 每切片完成后 | 本切片 targeted（plan §1 Step1 + spec §7） | 测试绿 | 红 → 回 implementor 改实现 |
 | 3 | **末切片完成后**（收敛 regression，主线亲跑一次） | `config.regressionCommands` 每一条 | 全部退出码 0 | 任一非 0 → **按切片二分定位**（各切片 targeted + 报告耦合线索），定位切片回 implementor；不裸面对全量红海。多切片工单全量 regression 从 N× 降到 1× |
 | 3 | implementation commit 后 | `git show --stat <hash>` + `git diff --name-only <hash>^ <hash>` | 文件列表 ⊆ spec §4 范围；无 state/* / BOARD.html | 超范围 → 把 commit reset 后回 implementor |
-| 4 | arch-security-reviewer 返回前 | `cd {{devRoot}} && npm run lint:redlines` | 0 命中 | 命中 → 把命中清单作为输入打回 implementor |
-| 4 | arch-security-reviewer 返回后 | reviewer 报告"总判定" | `READY TO HANDOFF` | `NEEDS FIX` → 按建议处理（fixup / 新 slice / 重做） |
+| 4 | arch-security-reviewer 返回前 | `cd {{devRoot}} && npm run lint:redlines`（含 `config.redlineCommands` 项目真 arch/layer/security lint，主线亲跑；占位态输出 WARN 而非假绿） | 0 命中 | 命中 → 把命中清单作为输入打回 implementor |
+| 4 | arch-security-reviewer 返回后 | reviewer 只产 **findings**（不自产 receipt）；主线据 findings + lint:redlines 确定性拼装并 `Write` `4-arch.json` | `verdict_suggestion=READY_TO_HANDOFF` | `NEEDS_FIX` → 按建议处理（fixup / 新 slice / 重做）。根治 O1 散文吞 receipt |
 | 5 | handoff-committer 第 5 步 | `cd {{devRoot}} && npm run validate:state` | 0 error | committer 翻档时漏了字段，回 committer 修 |
 | 5 | handoff-committer 第 6 步 | `cd {{devRoot}} && npm run render:board` | 0 退出码 | 渲染异常通常是 state schema 错位，回 validate:state 看 |
 | 5 | handoff-committer 第 8 步 commit 后 | `git show --stat <hash>` | 仅 state/* + BOARD.html | 超范围 → 把 handoff commit reset，重新做 |
