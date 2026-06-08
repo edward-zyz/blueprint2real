@@ -5,220 +5,294 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>blueprint2real · 用户手册</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
   :root{
-    --blueprint:#0b3d91;        /* 蓝图蓝 */
-    --blueprint-2:#1f5fd6;
-    --ink:#0f172a;              /* 正文墨色 */
-    --ink-soft:#334155;
-    --muted:#64748b;
-    --line:#e2e8f0;
-    --bg:#f6f8fc;
+    --blueprint:#13325f;        /* 深蓝图 */
+    --blue:#2456c7;             /* 强调蓝 */
+    --blue-soft:#eaf0fb;
+    --ink:#16202e;
+    --ink-soft:#41506a;
+    --muted:#6b7a90;
+    --line:#e4e8ee;
+    --line-strong:#d3dae4;
+    --bg:#f6f7f9;
     --card:#ffffff;
-    --accent:#f59e0b;          /* 强调橙 */
-    --green:#16a34a;
-    --red:#dc2626;
-    --purple:#7c3aed;
-    --code-bg:#0d1b2a;
-    --radius:14px;
-    --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.06);
-    --maxw:880px;
+    --run:#15803d;             /* 通过绿（呼应 Code dark + run green） */
+    --run-soft:#e9f4ec;
+    --red:#c0362c;
+    --red-soft:#f7e6e4;
+    --amber:#9a6700;
+    --amber-soft:#f7efdc;
+    --code-bg:#0e1c30;
+    --radius:10px;
+    --radius-sm:7px;
+    --shadow:0 1px 2px rgba(16,32,46,.05);
+    --shadow-md:0 2px 4px rgba(16,32,46,.05),0 8px 24px rgba(16,32,46,.05);
+    --maxw:860px;
     --sb:280px;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:'IBM Plex Sans','IBM Plex Sans SC',-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth;scroll-padding-top:24px}
   body{
-    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    color:var(--ink);background:var(--bg);line-height:1.75;font-size:16px;
-    -webkit-font-smoothing:antialiased;
+    margin:0;font-family:var(--sans);color:var(--ink);background:var(--bg);
+    line-height:1.78;font-size:16px;-webkit-font-smoothing:antialiased;
   }
-  code,pre,.mono{font-family:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace}
+  code,pre,.mono{font-family:var(--mono)}
+
+  /* ===== icon system ===== */
+  .ico{width:24px;height:24px;display:inline-block;vertical-align:middle;color:inherit;flex:none}
+  .ico use{pointer-events:none}
 
   /* ===== layout ===== */
   .layout{display:flex;align-items:flex-start}
   .sidebar{
     width:var(--sb);position:sticky;top:0;height:100vh;overflow-y:auto;flex:0 0 var(--sb);
-    background:#0a1628;color:#cbd5e1;padding:28px 20px 60px;
+    background:#0c1a2e;color:#aeb9c9;padding:30px 22px 60px;border-right:1px solid #16263d;
   }
   .content{flex:1;min-width:0;padding:0 0 120px}
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 32px}
 
   /* ===== sidebar ===== */
-  .brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:4px}
   .brand .logo{
-    width:34px;height:34px;border-radius:9px;flex:0 0 34px;
-    background:linear-gradient(135deg,var(--blueprint-2),#3b82f6);
-    display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;
-    box-shadow:0 4px 12px rgba(59,130,246,.4);
+    width:36px;height:36px;border-radius:8px;flex:0 0 36px;
+    display:grid;place-items:center;color:#cfe0ff;
+    font-family:var(--mono);font-weight:700;font-size:12px;letter-spacing:.5px;
+    border:1px solid #29456f;background:linear-gradient(180deg,#15355f,#102a4c);
   }
-  .brand b{color:#fff;font-size:17px;letter-spacing:.3px}
-  .brand small{display:block;color:#64748b;font-size:11px;font-weight:500}
-  .nav{margin-top:22px;font-size:14px}
-  .nav a{display:block;color:#94a3b8;text-decoration:none;padding:7px 12px;border-radius:8px;margin:1px 0;transition:.15s;border-left:2px solid transparent}
-  .nav a:hover{color:#fff;background:rgba(255,255,255,.05)}
-  .nav a.active{color:#fff;background:rgba(59,130,246,.16);border-left-color:#3b82f6}
-  .nav .grp{color:#475569;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin:18px 0 6px 12px}
+  .brand b{color:#f3f6fb;font-size:16px;letter-spacing:.2px;font-weight:600}
+  .brand small{display:block;color:#5d6f87;font-size:11px;font-weight:500;font-family:var(--mono)}
+  .nav{margin-top:24px;font-size:14px}
+  .nav a{display:flex;align-items:center;gap:9px;color:#8696ab;text-decoration:none;padding:7px 11px;border-radius:7px;margin:1px 0;transition:.14s;border-left:2px solid transparent}
+  .nav a:hover{color:#eef3f9;background:rgba(255,255,255,.04)}
+  .nav a.active{color:#fff;background:rgba(36,86,199,.18);border-left-color:#4f8be0}
+  .nav a .ico{width:15px;height:15px;opacity:.65}
+  .nav a.active .ico{opacity:1}
+  .nav .grp{color:#4a5f7e;font-size:10.5px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin:20px 0 7px 11px;font-family:var(--mono)}
 
   /* ===== hero ===== */
   .hero{
-    position:relative;overflow:hidden;color:#eaf2ff;
+    position:relative;overflow:hidden;color:#e7eefa;
     background:
-      linear-gradient(180deg,rgba(8,28,70,.0),rgba(8,28,70,.35)),
-      radial-gradient(1200px 500px at 80% -10%,rgba(59,130,246,.45),transparent 60%),
+      linear-gradient(180deg,rgba(8,22,48,0),rgba(8,22,48,.45)),
+      radial-gradient(900px 420px at 82% -12%,rgba(46,98,196,.32),transparent 62%),
       var(--blueprint);
-    padding:64px 0 56px;
+    padding:66px 0 56px;border-bottom:1px solid #0a1f3d;
   }
-  .hero::before{ /* 蓝图网格 */
-    content:"";position:absolute;inset:0;opacity:.4;
-    background-image:linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px);
-    background-size:32px 32px;mask-image:radial-gradient(700px 380px at 30% 30%,#000,transparent 80%);
+  .hero::before{
+    content:"";position:absolute;inset:0;opacity:.5;
+    background-image:linear-gradient(rgba(150,185,235,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(150,185,235,.10) 1px,transparent 1px);
+    background-size:28px 28px;mask-image:radial-gradient(640px 360px at 28% 32%,#000,transparent 82%);
   }
   .hero .wrap{position:relative}
-  .tagpill{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#dbeafe;
-    padding:5px 14px;border-radius:999px;font-size:13px;font-weight:600;backdrop-filter:blur(4px)}
-  .hero h1{font-size:42px;line-height:1.15;margin:18px 0 14px;color:#fff;letter-spacing:-.5px}
-  .hero h1 .accent{color:#fbbf24}
-  .hero p.lead{font-size:18px;color:#cfe0ff;max-width:680px;margin:0 0 26px}
-  .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
-  .btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:600;font-size:14px;padding:11px 20px;border-radius:10px;transition:.15s}
-  .btn-primary{background:#fbbf24;color:#3b2606}
-  .btn-primary:hover{background:#fcd34d;transform:translateY(-1px)}
-  .btn-ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.25)}
-  .btn-ghost:hover{background:rgba(255,255,255,.18)}
-  .hero-meta{display:flex;gap:26px;margin-top:34px;flex-wrap:wrap;font-size:13px;color:#9fc0ff}
-  .hero-meta b{color:#fff;font-size:22px;display:block;font-weight:800}
+  .tagpill{display:inline-flex;align-items:center;gap:8px;background:rgba(207,224,255,.08);border:1px solid rgba(159,192,255,.22);color:#c6d8f6;
+    padding:5px 13px 5px 11px;border-radius:6px;font-size:12.5px;font-weight:500;font-family:var(--mono);letter-spacing:.2px}
+  .tagpill .ico{width:15px;height:15px;color:#8fb3ee}
+  .hero h1{font-size:41px;line-height:1.18;margin:20px 0 16px;color:#fff;letter-spacing:-.4px;font-weight:600}
+  .hero h1 .accent{color:#dfeaff;border-bottom:2px solid #4f8be0;padding-bottom:1px}
+  .hero p.lead{font-size:17.5px;color:#bcd0ef;max-width:670px;margin:0 0 28px;line-height:1.7}
+  .hero .cta{display:flex;gap:11px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;gap:8px;text-decoration:none;font-weight:600;font-size:14px;padding:11px 19px;border-radius:7px;transition:.15s;cursor:pointer}
+  .btn .ico{width:16px;height:16px}
+  .btn-primary{background:#eaf1fc;color:#13325f}
+  .btn-primary:hover{background:#fff;transform:translateY(-1px)}
+  .btn-ghost{background:rgba(255,255,255,.06);color:#eaf1fc;border:1px solid rgba(159,192,255,.28)}
+  .btn-ghost:hover{background:rgba(255,255,255,.12)}
+  .hero-meta{display:flex;gap:30px;margin-top:38px;flex-wrap:wrap;font-size:12px;color:#88a4cf;font-family:var(--mono)}
+  .hero-meta b{color:#fff;font-size:24px;display:block;font-weight:600;letter-spacing:-.5px}
 
   /* ===== sections ===== */
-  section{padding:54px 0 8px}
+  section{padding:56px 0 8px}
   section:nth-of-type(even){background:#fff}
-  .eyebrow{color:var(--blueprint-2);font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase}
-  h2{font-size:30px;margin:8px 0 8px;letter-spacing:-.4px;line-height:1.25}
-  h3{font-size:20px;margin:34px 0 10px}
-  h4{font-size:16px;margin:22px 0 6px;color:var(--ink)}
+  .eyebrow{color:var(--blue);font-weight:600;font-size:11.5px;letter-spacing:2px;text-transform:uppercase;font-family:var(--mono)}
+  h2{font-size:29px;margin:10px 0 8px;letter-spacing:-.3px;line-height:1.28;font-weight:600}
+  h3{font-size:19px;margin:36px 0 10px;font-weight:600}
+  h4{font-size:16px;margin:22px 0 6px;color:var(--ink);font-weight:600}
   p{margin:12px 0;color:var(--ink-soft)}
   .sub{color:var(--muted);font-size:16px;max-width:680px}
-  a.inline{color:var(--blueprint-2);text-decoration:none;border-bottom:1px solid #bcd0f5}
+  a.inline{color:var(--blue);text-decoration:none;border-bottom:1px solid #b9ccef}
   ul,ol{color:var(--ink-soft);padding-left:22px}
   li{margin:6px 0}
-  strong{color:var(--ink)}
+  strong{color:var(--ink);font-weight:600}
+  em{font-style:normal;color:var(--blue);font-weight:500}
 
   /* ===== cards ===== */
-  .grid{display:grid;gap:16px;margin-top:26px}
+  .grid{display:grid;gap:14px;margin-top:26px}
   .g2{grid-template-columns:repeat(2,1fr)}
   .g3{grid-template-columns:repeat(3,1fr)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
-  .card .ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;font-size:20px;margin-bottom:12px;
-    background:linear-gradient(135deg,#eef4ff,#dbe8ff);color:var(--blueprint)}
+  .card .ic{width:40px;height:40px;border-radius:var(--radius-sm);display:grid;place-items:center;margin-bottom:13px;
+    background:var(--blue-soft);color:var(--blue);border:1px solid #dce6f8}
+  .card .ic .ico{width:21px;height:21px}
   .card h4{margin:0 0 6px}
   .card p{margin:0;font-size:14.5px;color:var(--muted)}
 
   /* pain vs gain */
-  .vs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px}
+  .vs{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:26px}
   .vs .col{border-radius:var(--radius);padding:22px;border:1px solid var(--line)}
-  .vs .bad{background:#fef2f2;border-color:#fecaca}
-  .vs .good{background:#f0fdf4;border-color:#bbf7d0}
-  .vs h4{margin-top:0;display:flex;align-items:center;gap:8px}
-  .vs .bad h4{color:#b91c1c}
-  .vs .good h4{color:#15803d}
-  .vs ul{padding-left:20px;margin:8px 0 0}
+  .vs .bad{background:#fcfafa;border-color:#ead7d4}
+  .vs .good{background:#fafdfb;border-color:#cfe6d7}
+  .vs h4{margin-top:0;display:flex;align-items:center;gap:9px;font-size:15.5px}
+  .vs h4 .ico{width:19px;height:19px}
+  .vs .bad h4{color:#a23a30}
+  .vs .good h4{color:#157f3d}
+  .vs ul{padding-left:19px;margin:10px 0 0}
   .vs li{font-size:14.5px}
 
   /* callout */
-  .note{border-radius:12px;padding:16px 18px;margin:20px 0;font-size:14.5px;border:1px solid;display:flex;gap:12px}
-  .note .b{font-size:18px;line-height:1.5}
-  .note-tip{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
-  .note-warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
-  .note-key{background:#f5f3ff;border-color:#ddd6fe;color:#5b21b6}
+  .note{border-radius:var(--radius-sm);padding:15px 17px;margin:20px 0;font-size:14.5px;border:1px solid;border-left-width:3px;display:flex;gap:12px;align-items:flex-start}
+  .note .b{flex:none;margin-top:1px}
+  .note .b .ico{width:19px;height:19px}
+  .note-tip{background:#f4f8fd;border-color:#cfe0f6;border-left-color:var(--blue);color:#1e3a6b}
+  .note-tip .b{color:var(--blue)}
+  .note-warn{background:var(--amber-soft);border-color:#ecdcb4;border-left-color:var(--amber);color:#76520a}
+  .note-warn .b{color:var(--amber)}
+  .note-key{background:#f3f6fb;border-color:#d6dfec;border-left-color:var(--blueprint);color:#1f3458}
+  .note-key .b{color:var(--blueprint)}
   .note p{margin:0;color:inherit}
 
   /* code */
-  pre{background:var(--code-bg);color:#e2e8f0;padding:18px 20px;border-radius:12px;overflow-x:auto;font-size:13.5px;line-height:1.7;margin:16px 0;border:1px solid #1e293b}
-  pre .c{color:#64748b}
-  pre .k{color:#7dd3fc}
-  pre .s{color:#86efac}
-  pre .v{color:#fbbf24}
-  :not(pre)>code{background:#eef2f8;color:#334155;padding:2px 7px;border-radius:6px;font-size:13.5px;border:1px solid #e2e8f0}
-  .filename{background:#1e293b;color:#94a3b8;font-size:12px;padding:7px 16px;border-radius:10px 10px 0 0;margin:16px 0 -16px;display:inline-block;font-family:var(--mono)}
+  pre{background:var(--code-bg);color:#dbe4ef;padding:17px 19px;border-radius:var(--radius-sm);overflow-x:auto;font-size:13px;line-height:1.7;margin:16px 0;border:1px solid #1b3050}
+  pre .c{color:#5d7a9e}
+  pre .k{color:#7cc1f2}
+  pre .s{color:#86d6a0}
+  pre .v{color:#e8c07a}
+  :not(pre)>code{background:#eef1f6;color:#2c3a4f;padding:2px 6px;border-radius:5px;font-size:13px;border:1px solid #e1e6ee}
 
   /* table */
-  .tbl{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
-  .tbl th{background:#0a1628;color:#cbd5e1;text-align:left;padding:11px 14px;font-weight:600;font-size:13px}
+  .tbl{width:100%;border-collapse:collapse;margin:18px 0;font-size:14px;background:#fff;border-radius:var(--radius);overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow)}
+  .tbl th{background:#0e1c30;color:#c2cfe0;text-align:left;padding:11px 14px;font-weight:500;font-size:12px;font-family:var(--mono);letter-spacing:.3px}
   .tbl td{padding:11px 14px;border-top:1px solid var(--line);color:var(--ink-soft);vertical-align:top}
-  .tbl tr:nth-child(even) td{background:#fafbfe}
-  .badge{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:700;font-family:var(--mono)}
-  .b-l0{background:#dcfce7;color:#15803d}
-  .b-l1{background:#dbeafe;color:#1e40af}
-  .b-l2{background:#fef3c7;color:#92400e}
-  .b-l3{background:#fee2e2;color:#b91c1c}
+  .tbl tr:nth-child(even) td{background:#fafbfc}
+  .badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11.5px;font-weight:600;font-family:var(--mono)}
+  .b-l0{background:#eef1f5;color:#5a6b82}
+  .b-l1{background:#e7eefb;color:#2456c7}
+  .b-l2{background:#dde7f7;color:#173a6b}
+  .b-l3{background:var(--red-soft);color:#a23a30}
 
   /* pipeline diagram */
-  .pipe{margin:30px 0;display:flex;flex-direction:column;gap:0}
-  .stage{display:flex;gap:0;align-items:stretch;position:relative}
-  .stage .num{flex:0 0 56px;display:flex;flex-direction:column;align-items:center}
-  .stage .dot{width:38px;height:38px;border-radius:50%;background:var(--blueprint);color:#fff;display:grid;place-items:center;font-weight:800;font-size:15px;z-index:2;box-shadow:0 0 0 4px #eaf1ff}
-  .stage .line{width:2px;flex:1;background:linear-gradient(#c7d7f5,#c7d7f5);margin:2px 0}
+  .pipe{margin:30px 0;display:flex;flex-direction:column}
+  .stage{display:flex;align-items:stretch;position:relative}
+  .stage .num{flex:0 0 52px;display:flex;flex-direction:column;align-items:center}
+  .stage .dot{width:34px;height:34px;border-radius:7px;background:var(--blueprint);color:#fff;display:grid;place-items:center;font-weight:600;font-size:14px;font-family:var(--mono);z-index:2;border:3px solid #eaf0fb}
+  .stage .line{width:2px;flex:1;background:#cdd9ec;margin:2px 0}
   .stage:last-child .line{display:none}
-  .stage .body{flex:1;background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:0 0 16px;box-shadow:var(--shadow)}
-  .stage .body h4{margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .stage .body .role{font-size:11.5px;font-family:var(--mono);background:#eef4ff;color:var(--blueprint);padding:2px 8px;border-radius:5px;font-weight:600}
-  .stage .body .gate{font-size:11.5px;font-family:var(--mono);background:#ecfdf5;color:#15803d;padding:2px 8px;border-radius:5px;font-weight:600}
+  .stage .body{flex:1;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px 17px;margin:0 0 14px;box-shadow:var(--shadow)}
+  .stage .body h4{margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:15px}
+  .stage .body .role{font-size:11px;font-family:var(--mono);background:var(--blue-soft);color:var(--blue);padding:2px 7px;border-radius:4px;font-weight:500}
+  .stage .body .gate{font-size:11px;font-family:var(--mono);background:var(--run-soft);color:var(--run);padding:2px 7px;border-radius:4px;font-weight:500}
   .stage .body p{margin:4px 0 0;font-size:14px;color:var(--muted)}
 
   /* three pillars */
   .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:28px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-  .pillar{padding:24px 20px;background:#fff;border-right:1px solid var(--line)}
+  .pillar{padding:24px 22px;background:#fff;border-right:1px solid var(--line)}
   .pillar:last-child{border-right:none}
-  .pillar .tag{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
-  .pillar h4{margin:6px 0 8px;font-size:17px}
+  .pillar .ic{width:36px;height:36px;border-radius:var(--radius-sm);display:grid;place-items:center;background:var(--blue-soft);color:var(--blue);border:1px solid #dce6f8;margin-bottom:11px}
+  .pillar .ic .ico{width:20px;height:20px}
+  .pillar .tag{font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;font-family:var(--mono)}
+  .pillar h4{margin:5px 0 8px;font-size:16.5px}
   .pillar p{font-size:13.5px;margin:0;color:var(--muted)}
-  .pillar .ic{font-size:26px;margin-bottom:6px}
 
   /* steps */
   .steps{counter-reset:s;margin:24px 0}
-  .step{position:relative;padding:0 0 4px 56px;margin-bottom:24px}
-  .step::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:0;width:38px;height:38px;border-radius:10px;
-    background:linear-gradient(135deg,var(--blueprint),var(--blueprint-2));color:#fff;display:grid;place-items:center;font-weight:800;font-size:16px}
+  .step{position:relative;padding:0 0 4px 54px;margin-bottom:24px}
+  .step::before{counter-increment:s;content:"0" counter(s);position:absolute;left:0;top:1px;width:38px;height:38px;border-radius:var(--radius-sm);
+    background:var(--blueprint);color:#fff;display:grid;place-items:center;font-weight:600;font-size:14px;font-family:var(--mono)}
   .step h4{margin:4px 0 6px}
 
   /* roles */
-  .roles{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:22px}
-  .role-c{display:flex;gap:14px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
-  .role-c .av{flex:0 0 44px;width:44px;height:44px;border-radius:11px;display:grid;place-items:center;font-size:20px;color:#fff}
-  .role-c h4{margin:0 0 2px;font-size:15px}
+  .roles{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-top:22px}
+  .role-c{display:flex;gap:13px;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:15px;box-shadow:var(--shadow)}
+  .role-c .av{flex:0 0 40px;width:40px;height:40px;border-radius:var(--radius-sm);display:grid;place-items:center;background:#f1f5fa;border:1px solid #e2e9f2;color:var(--blueprint)}
+  .role-c .av .ico{width:20px;height:20px}
+  .role-c h4{margin:0 0 2px;font-size:14.5px}
   .role-c code{font-size:11px}
-  .role-c p{margin:4px 0 0;font-size:13px;color:var(--muted)}
+  .role-c p{margin:5px 0 0;font-size:13px;color:var(--muted)}
 
   /* footer */
-  footer{background:#0a1628;color:#94a3b8;padding:40px 0;font-size:14px}
+  footer{background:#0c1a2e;color:#8696ab;padding:42px 0;font-size:14px;border-top:1px solid #16263d}
   footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;align-items:center}
-  footer a{color:#cbd5e1;text-decoration:none}
-  footer b{color:#fff}
+  footer a{color:#bccadb;text-decoration:none}
+  footer a:hover{color:#fff}
+  footer b{color:#e8eef6;font-weight:600}
 
   /* misc */
   .anchor-h{scroll-margin-top:20px}
-  .lead-tip{background:linear-gradient(135deg,#eef4ff,#fff);border:1px solid #d6e4ff;border-radius:var(--radius);padding:20px 22px;margin:24px 0}
-  .lead-tip p{margin:0;color:var(--ink-soft)}
-  .kbd{font-family:var(--mono);background:#1e293b;color:#e2e8f0;padding:1px 7px;border-radius:5px;font-size:12.5px}
   .mobile-top{display:none}
 
   @media(max-width:1024px){
     :root{--sb:0px}
     .sidebar{display:none}
-    .mobile-top{display:flex;align-items:center;gap:10px;padding:14px 20px;background:#0a1628;color:#fff;position:sticky;top:0;z-index:50}
-    .mobile-top .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--blueprint-2),#3b82f6);display:grid;place-items:center;font-weight:800}
+    .mobile-top{display:flex;align-items:center;gap:10px;padding:13px 20px;background:#0c1a2e;color:#fff;position:sticky;top:0;z-index:50;border-bottom:1px solid #16263d}
+    .mobile-top .logo{width:28px;height:28px;border-radius:7px;background:linear-gradient(180deg,#15355f,#102a4c);border:1px solid #29456f;display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:10px;color:#cfe0ff}
+    .mobile-top b{font-weight:600;font-size:15px}
   }
   @media(max-width:760px){
-    .hero h1{font-size:32px}
+    .hero h1{font-size:31px}
     .g2,.g3,.vs,.pillars,.roles{grid-template-columns:1fr}
     .pillar{border-right:none;border-bottom:1px solid var(--line)}
     .wrap{padding:0 20px}
-    h2{font-size:24px}
+    h2{font-size:23px}
   }
 </style>
 </head>
 <body>
 
+<!-- ===== SVG ICON SPRITE (Lucide) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs></defs>
+  <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <symbol id="i-cog" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></symbol>
+    <symbol id="i-loader" viewBox="0 0 24 24"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M10 2v6.27a2 2 0 0 1-.34 1.11l-4.32 6.48A2 2 0 0 0 7 19h10a2 2 0 0 0 1.66-3.14l-4.32-6.48a2 2 0 0 1-.34-1.11V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></symbol>
+    <symbol id="i-clipboard-check" viewBox="0 0 24 24"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="m9 11 2 2 4-4"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></symbol>
+    <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v5h5"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-file-pen" viewBox="0 0 24 24"><path d="M12.5 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8.5L20 7.5V12"/><path d="M14 2v6h6"/><path d="M21.4 15.6a1 1 0 0 0-3-3l-4 4a2 2 0 0 0-.5.86l-.84 2.87a.5.5 0 0 0 .62.62l2.87-.84a2 2 0 0 0 .85-.5z"/></symbol>
+    <symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+    <symbol id="i-git-commit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".8"/><circle cx="17.5" cy="10.5" r=".8"/><circle cx="8.5" cy="7.5" r=".8"/><circle cx="6.5" cy="12.5" r=".8"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.43-.18-.83-.44-1.12-.29-.29-.44-.65-.44-1.12a1.64 1.64 0 0 1 1.67-1.67H16c3.05 0 5.55-2.5 5.55-5.55C21.96 6.01 17.46 2 12 2z"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
+    <symbol id="i-blocks" viewBox="0 0 24 24"><rect x="7" y="7" width="14" height="14" rx="1"/><path d="M3 12V5a2 2 0 0 1 2-2h7"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+    <symbol id="i-user-check" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+    <symbol id="i-files" viewBox="0 0 24 24"><path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol>
+  </g>
+</svg>
+
 <div class="mobile-top">
-  <div class="logo">B</div>
+  <div class="logo">B2R</div>
   <b>blueprint2real · 用户手册</b>
 </div>
 
@@ -231,24 +305,24 @@
     </div>
     <nav class="nav">
       <div class="grp">入门</div>
-      <a href="#intro">这是什么</a>
-      <a href="#scene">使用场景</a>
-      <a href="#features">优势与特色</a>
+      <a href="#intro"><svg class="ico"><use href="#i-bulb"/></svg>这是什么</a>
+      <a href="#scene"><svg class="ico"><use href="#i-loader"/></svg>使用场景</a>
+      <a href="#features"><svg class="ico"><use href="#i-grid"/></svg>优势与特色</a>
       <div class="grp">读懂原理</div>
-      <a href="#idea">核心思想</a>
-      <a href="#pillars">三大支柱</a>
-      <a href="#roles">Agent 角色团</a>
-      <a href="#pipeline">六阶段流水线</a>
-      <a href="#levels">四档复杂度</a>
-      <a href="#gates">质检与失败处理</a>
-      <a href="#invariants">十条铁律</a>
+      <a href="#idea"><svg class="ico"><use href="#i-layers"/></svg>核心思想</a>
+      <a href="#pillars"><svg class="ico"><use href="#i-cpu"/></svg>三大支柱</a>
+      <a href="#roles"><svg class="ico"><use href="#i-users"/></svg>Agent 角色团</a>
+      <a href="#pipeline"><svg class="ico"><use href="#i-route"/></svg>六阶段流水线</a>
+      <a href="#levels"><svg class="ico"><use href="#i-target"/></svg>四档复杂度</a>
+      <a href="#gates"><svg class="ico"><use href="#i-shield-check"/></svg>质检与失败处理</a>
+      <a href="#invariants"><svg class="ico"><use href="#i-alert"/></svg>十条铁律</a>
+      <a href="#optional"><svg class="ico"><use href="#i-palette"/></svg>UI / E2E 可选线</a>
+      <a href="#skills"><svg class="ico"><use href="#i-blocks"/></svg>会用到的其他 skill</a>
       <div class="grp">动手使用</div>
-      <a href="#install">1 · 安装</a>
-      <a href="#bootstrap">2 · 初始化</a>
-      <a href="#run">3 · 跑工单</a>
-      <a href="#tour">一条工单的旅程</a>
-      <a href="#structure">目录结构</a>
-      <a href="#faq">常见问题</a>
+      <a href="#usage"><svg class="ico"><use href="#i-play"/></svg>三步上手</a>
+      <a href="#tour"><svg class="ico"><use href="#i-compass"/></svg>一条工单的旅程</a>
+      <a href="#structure"><svg class="ico"><use href="#i-folder"/></svg>目录结构</a>
+      <a href="#faq"><svg class="ico"><use href="#i-help"/></svg>常见问题</a>
     </nav>
   </aside>
 
@@ -258,12 +332,12 @@
     <!-- HERO -->
     <div class="hero">
       <div class="wrap">
-        <span class="tagpill">⚙️ Multi-Agent 交付编排器 · Agent Skill</span>
-        <h1>把<span class="accent">蓝图</span>变成真正 Done 的<br>可审计工单流水线</h1>
-        <p class="lead">blueprint2real 让一群 AI sub-agent 像工厂流水线一样协作：把路线图和设计文档拆成工单，逐工位起草、实现、评审、交付——每一步都有脚本质检兜底，每一步都留下证据，做完的工单可回滚、可审计。</p>
+        <span class="tagpill"><svg class="ico"><use href="#i-cog"/></svg>Multi-Agent 交付编排器 · Agent Skill</span>
+        <h1>把<span class="accent">蓝图 (blueprint)</span> 变成真正<span class="accent">可用 (real)</span> 的<br>产品 · AI 全栈研发团队</h1>
+        <p class="lead">blueprint2real 让一群 AI sub-agent 像工厂流水线一样协作:把路线图和设计文档拆成工单——逐工位起草、实现、评审、交付。每一步都有脚本质检兜底,每一步都留下证据,做完的工单可回滚、可审计。</p>
         <div class="cta">
-          <a class="btn btn-primary" href="#install">▶ 立即上手</a>
-          <a class="btn btn-ghost" href="#idea">了解原理</a>
+          <a class="btn btn-primary" href="#usage"><svg class="ico"><use href="#i-play"/></svg>三步上手</a>
+          <a class="btn btn-ghost" href="#idea"><svg class="ico"><use href="#i-book"/></svg>了解原理</a>
         </div>
         <div class="hero-meta">
           <div><b>10</b>条硬不变量</div>
@@ -278,16 +352,17 @@
     <section id="intro">
       <div class="wrap">
         <span class="eyebrow">这是什么</span>
-        <h2 class="anchor-h">一句话：会自我把关的"AI 开发团队调度器"</h2>
-        <p class="sub">blueprint2real（简称 <strong>b2r</strong>）是一个 <strong>agent skill</strong>——装进你的 AI 编程助手（如 Claude Code）后，它不亲自闷头写代码，而是<strong>当一个项目经理</strong>：把你的路线图接进来，按固定流程调度一批各司其职的 sub-agent，并在每个环节用脚本强制检查，最后交给你一条状态清晰、提交干净、可被事后审计的"Done 工单"。</p>
-
-        <div class="lead-tip">
-          <p>📐 <strong>名字的含义</strong>：blueprint（蓝图：你的 roadmap / 设计文档） → real（现实：真正合并、可演示、可审计的代码）。它专门解决"想法很多、落地很慢、过程说不清"这件事。</p>
-        </div>
+        <h2 class="anchor-h">一句话:会自我把关的"AI 开发团队调度器"</h2>
+        <p class="sub">blueprint2real(简称 <strong>b2r</strong>)是一个 <strong>agent skill</strong>——装进你的 AI 编程助手(如 Claude Code)后,它不亲自闷头写代码,而是<strong>当一个项目经理</strong>:把你的路线图接进来,按固定流程调度一批各司其职的 sub-agent,并在每个环节用脚本强制检查,最后交给你一条状态清晰、提交干净、可被事后审计的"Done 工单"。</p>
 
         <div class="note note-key">
-          <span class="b">🔑</span>
-          <p><strong>它不是一个跑代码的服务，而是一套约定 + 脚本 + prompt。</strong> 全部基于本地的 Markdown、JSON、Shell 和 Node.js 文件运行，不依赖任何托管服务或专有 API。你可以完全看懂、完全掌控、随时回滚。</p>
+          <span class="b"><svg class="ico"><use href="#i-target"/></svg></span>
+          <p><strong>名字的含义</strong>:blueprint(蓝图:你的 roadmap / 设计文档)→ real(现实:真正合并、可演示、可审计的代码)。它专门解决"想法很多、落地很慢、过程说不清"这件事。</p>
+        </div>
+
+        <div class="note note-tip">
+          <span class="b"><svg class="ico"><use href="#i-key"/></svg></span>
+          <p><strong>它不是一个跑代码的服务,而是一套约定 + 脚本 + prompt。</strong>全部基于本地的 Markdown、JSON、Shell 和 Node.js 文件运行,不依赖任何托管服务或专有 API。你可以完全看懂、完全掌控、随时回滚。</p>
         </div>
       </div>
     </section>
@@ -297,38 +372,41 @@
       <div class="wrap">
         <span class="eyebrow">使用场景</span>
         <h2 class="anchor-h">你是不是也遇到过这些</h2>
-        <p class="sub">当你用 AI 助手做真实项目、而不只是写个小脚本时，"对话式开发"的问题就会冒出来。</p>
+        <p class="sub">同样是用 AI 做产品,你是"陪着 AI 写代码的人",还是"给 AI 派活的老板"?差别就在这里。</p>
 
         <div class="vs">
           <div class="col bad">
-            <h4>😖 没有 b2r 时</h4>
+            <h4><svg class="ico"><use href="#i-loader"/></svg>以前:跟 AI 结对编程</h4>
             <ul>
-              <li>roadmap 写了一堆，spec 起草拖好几天</li>
-              <li>开发跟 spec 渐渐漂移，做出来跟说好的不一样</li>
-              <li>QA 永远在追赶，没人说得清"这周到底交付了什么"</li>
-              <li>AI 改动散落在一次次临时对话里，过程无法复盘</li>
-              <li>一次 commit 把代码、状态、看板混在一起，想回滚都不知道滚哪段</li>
-              <li>AI"假装"做完了多件事，其实状态自相矛盾</li>
+              <li>你既是产品又是开发——AI 写一行、你盯一行,<strong>人一刻都离不开</strong></li>
+              <li>手里项目一多,你在好几个 AI 会话之间反复横跳、来回纠偏</li>
+              <li>越用越累:不是 AI 在帮你干活,是<strong>你在疲于伺候 AI</strong></li>
+              <li>一天下来精疲力尽,感觉自己<strong>被 AI "榨干"</strong>,而不是被解放</li>
+              <li>过程散落在一次次临时对话里,交付了什么、能不能回滚,谁也说不清</li>
             </ul>
           </div>
           <div class="col good">
-            <h4>✅ 用了 b2r 后</h4>
+            <h4><svg class="ico"><use href="#i-rocket"/></svg>现在:把蓝图交给 AI 团队</h4>
             <ul>
-              <li>roadmap 一进来就被拆成带依赖、带复杂度标签的工单序列</li>
-              <li>spec / plan / 实现严格对齐，越界会被脚本拦下</li>
-              <li>每条工单有完整证据链（receipt），随时可审计</li>
-              <li>看板（BOARD.html）由脚本生成，永远反映真实状态</li>
-              <li>实现提交与状态提交物理分离，任意一段可独立回滚</li>
-              <li>"同时只能有一条工单在做"由脚本强制，杜绝幻觉</li>
+              <li>你是<strong>老板</strong>:把想要的产品讲清楚,输出一份蓝图</li>
+              <li>剩下的交给 AI 团队——拆活、实现、自检、交付,<strong>全程自走</strong></li>
+              <li><strong>半小时</strong>把产品设计清楚,AI <strong>跑一整晚</strong></li>
+              <li>早上回来,拿到一个<strong>可运行的产品</strong>,你只做验收</li>
+              <li>每条工单都有完整证据链,做了什么、怎么回滚,一清二楚</li>
             </ul>
           </div>
         </div>
 
+        <div class="note note-key">
+          <span class="b"><svg class="ico"><use href="#i-sliders"/></svg></span>
+          <p>本质是一次<strong>角色升级</strong>:从"陪 AI 写代码的开发者",变成"给 AI 研发团队派活的老板"。你负责<em>想清楚要什么</em>,b2r 负责<em>把它真正做出来</em>。</p>
+        </div>
+
         <h3>适合谁</h3>
         <div class="grid g3">
-          <div class="card"><div class="ic">🧑‍💻</div><h4>用 AI 做真实项目的开发者</h4><p>希望 AI 的产出可控、可追溯，而不是一团乱麻的对话历史。</p></div>
-          <div class="card"><div class="ic">👥</div><h4>需要交付证据链的团队</h4><p>规划、实现、评审、交付都要留痕，方便审计与协作交接。</p></div>
-          <div class="card"><div class="ic">🏗️</div><h4>把 roadmap 系统化落地的项目</h4><p>有明确里程碑、希望按工单一条条稳扎稳打推进的工程。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-user"/></svg></div><h4>用 AI 做真实项目的开发者</h4><p>希望 AI 的产出可控、可追溯,而不是一团乱麻的对话历史。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-users"/></svg></div><h4>需要交付证据链的团队</h4><p>规划、实现、评审、交付都要留痕,方便审计与协作交接。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-route"/></svg></div><h4>把 roadmap 系统化落地的项目</h4><p>有明确里程碑、希望按工单一条条稳扎稳打推进的工程。</p></div>
         </div>
       </div>
     </section>
@@ -339,12 +417,12 @@
         <span class="eyebrow">优势与特色</span>
         <h2 class="anchor-h">六个让它与众不同的设计</h2>
         <div class="grid g2">
-          <div class="card"><div class="ic">🗺️</div><h4>Roadmap → 工单流水线</h4><p>把路线图自动拆成 Planned / Ready / In Progress / Done / Blocked / Superseded 等状态明确的工单，附带依赖关系。</p></div>
-          <div class="card"><div class="ic">🎭</div><h4>分阶段 Agent 角色</h4><p>规划、起草 spec、起草 plan、实现、架构/安全评审、直接修复、交付提交——每个角色都有专门的 prompt 模板。</p></div>
-          <div class="card"><div class="ic">🛡️</div><h4>默认开启的质量门禁</h4><p>校验状态、依赖、架构红线、receipt、看板与交付边界。不靠 agent 自觉，靠脚本说话。</p></div>
-          <div class="card"><div class="ic">🧪</div><h4>TDD 与提交纪律</h4><p>强制"先写跑红的测试，再写最小实现"，并把实现提交与状态/看板提交物理分离。</p></div>
-          <div class="card"><div class="ic">📋</div><h4>里程碑 E2E 验收（可选）</h4><p>里程碑全部完成后，可按验收标准跑蓝图级端到端旅程，产出人类可读的验收报告。</p></div>
-          <div class="card"><div class="ic">🔌</div><h4>任意 repo 可初始化</h4><p>一条命令生成 <code>b2r-process/</code> 工作区；纯 Markdown/JSON/Node 实现，Agent 中立、本地优先。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-route"/></svg></div><h4>Roadmap → 工单流水线</h4><p>把路线图自动拆成 Planned / Ready / In Progress / Done / Blocked / Superseded 等状态明确的工单,附带依赖关系。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-users"/></svg></div><h4>分阶段 Agent 角色</h4><p>规划、起草 spec、起草 plan、实现、架构/安全评审、直接修复、交付提交——每个角色都有专门的 prompt 模板。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-shield-check"/></svg></div><h4>默认开启的质量门禁</h4><p>校验状态、依赖、架构红线、receipt、看板与交付边界。不靠 agent 自觉,靠脚本说话。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-flask"/></svg></div><h4>TDD 与提交纪律</h4><p>强制"先写跑红的测试,再写最小实现",并把实现提交与状态/看板提交物理分离。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-clipboard-check"/></svg></div><h4>里程碑 E2E 验收(可选)</h4><p>里程碑全部完成后,可按验收标准跑蓝图级端到端旅程,产出人类可读的验收报告。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-package"/></svg></div><h4>任意 repo 可初始化</h4><p>一条命令生成 <code>b2r-process/</code> 工作区;纯 Markdown/JSON/Node 实现,Agent 中立、本地优先。</p></div>
         </div>
       </div>
     </section>
@@ -353,19 +431,19 @@
     <section id="idea">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 1</span>
-        <h2 class="anchor-h">核心思想：把"聊着写代码"变成"流水线工厂"</h2>
-        <p class="sub">理解 b2r 最好的比喻，是一座<strong>汽车装配工厂</strong>。这个比喻能一次性讲清它所有的设计。</p>
+        <h2 class="anchor-h">核心思想:把"聊着写代码"变成"流水线工厂"</h2>
+        <p class="sub">理解 b2r 最好的比喻,是一座<strong>汽车装配工厂</strong>。这个比喻能一次性讲清它所有的设计。</p>
 
         <div class="grid g2" style="margin-top:24px">
-          <div class="card"><div class="ic">🏭</div><h4>工位 = Stage（阶段）</h4><p>整车不是一个人从头造到尾，而是分成若干工位：起草设计 → 实现 → 检查 → 交付。每个工位职责单一。</p></div>
-          <div class="card"><div class="ic">👷</div><h4>专职工人 = sub-agent</h4><p>每个工位站着一个专门的 AI 工人，只看自己需要的图纸（spec/plan），干完活就交一张工单回执，不和别人闲聊。</p></div>
-          <div class="card"><div class="ic">🔍</div><h4>质检员 = 脚本门禁（Gate）</h4><p>每个工位下线前必须过质检。质检不是工人自己说"我觉得行"，而是跑一段脚本，<strong>不通过就不放行</strong>。</p></div>
-          <div class="card"><div class="ic">🧾</div><h4>质检单 = receipt</h4><p>每个工位都留下一张结构化回执（JSON）。所有回执串起来，就是这条工单完整、可审计的证据链。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-layers"/></svg></div><h4>工位 = Stage(阶段)</h4><p>整车不是一个人从头造到尾,而是分成若干工位:起草设计 → 实现 → 检查 → 交付。每个工位职责单一。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-user"/></svg></div><h4>专职工人 = sub-agent</h4><p>每个工位站着一个专门的 AI 工人,只看自己需要的图纸(spec/plan),干完活就交一张工单回执,不和别人闲聊。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-scan"/></svg></div><h4>质检员 = 脚本门禁(Gate)</h4><p>每个工位下线前必须过质检。质检不是工人自己说"我觉得行",而是跑一段脚本,<strong>不通过就不放行</strong>。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-receipt"/></svg></div><h4>质检单 = receipt</h4><p>每个工位都留下一张结构化回执(JSON)。所有回执串起来,就是这条工单完整、可审计的证据链。</p></div>
         </div>
 
         <div class="note note-tip">
-          <span class="b">💡</span>
-          <p><strong>关键洞察</strong>：单个 AI 容易"幻觉自己做完了"。b2r 的破解之道是——<strong>不相信任何 agent 的口头汇报，只相信脚本的退出码和文件里的证据。</strong>所有"是否通过"的判断，都由确定性的脚本做，而不是由 LLM 自评。这就是它能把"差不多得了"变成"真正 Done"的根本原因。</p>
+          <span class="b"><svg class="ico"><use href="#i-bulb"/></svg></span>
+          <p><strong>关键洞察</strong>:单个 AI 容易"幻觉自己做完了"。b2r 的破解之道是——<strong>不相信任何 agent 的口头汇报,只相信脚本的退出码和文件里的证据。</strong>所有"是否通过"的判断,都由确定性的脚本做,而不是由 LLM 自评。这就是它能把"差不多得了"变成"真正 Done"的根本原因。</p>
         </div>
       </div>
     </section>
@@ -374,33 +452,33 @@
     <section id="pillars">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 2</span>
-        <h2 class="anchor-h">三大支柱：事实源、底盘、调度者</h2>
-        <p class="sub">b2r 的整个系统建立在三个分工明确的层上。看懂这三层，就看懂了它的架构。</p>
+        <h2 class="anchor-h">三大支柱:事实源、底盘、调度者</h2>
+        <p class="sub">b2r 的整个系统建立在三个分工明确的层上。看懂这三层,就看懂了它的架构。</p>
 
         <div class="pillars">
           <div class="pillar">
-            <div class="ic">📄</div>
+            <div class="ic"><svg class="ico"><use href="#i-file-text"/></svg></div>
             <div class="tag">支柱一 · 唯一权威</div>
             <h4>事实源 state/*.md</h4>
-            <p><code>state/</code> 里的 Markdown 文件是唯一权威：当前在做什么、队列里有哪些工单、路线图、客户可见变化……看板 <code>BOARD.html</code> 只是渲染产物，<strong>从不手改</strong>。冲突时一切以 state/* 为准。</p>
+            <p><code>state/</code> 里的 Markdown 文件是唯一权威:当前在做什么、队列里有哪些工单、路线图、客户可见变化……看板 <code>BOARD.html</code> 只是渲染产物,<strong>从不手改</strong>。冲突时一切以 state/* 为准。</p>
           </div>
           <div class="pillar">
-            <div class="ic">⚙️</div>
+            <div class="ic"><svg class="ico"><use href="#i-cog"/></svg></div>
             <div class="tag">支柱二 · 物理实现</div>
             <h4>底盘 workflow/scripts</h4>
-            <p>一组 Node.js 脚本：校验状态、生成看板、推进工单、核验交付、检查红线……它们把"规则"变成可执行的代码。底盘只能由初始化命令一次性生成，<strong>不允许 agent 临时重造</strong>，避免版本漂移。</p>
+            <p>一组 Node.js 脚本:校验状态、生成看板、推进工单、核验交付、检查红线……它们把"规则"变成可执行的代码。底盘只能由初始化命令一次性生成,<strong>不允许 agent 临时重造</strong>,避免版本漂移。</p>
           </div>
           <div class="pillar">
-            <div class="ic">🧠</div>
+            <div class="ic"><svg class="ico"><use href="#i-cpu"/></svg></div>
             <div class="tag">支柱三 · 编排大脑</div>
             <h4>调度者 the skill</h4>
-            <p>就是 b2r skill 本身。它读取配置，按固定执行链路调度 sub-agent，在每步之间亲自跑脚本兜底，处理失败与升级。它是把"底盘"真正驱动起来的那个大脑。</p>
+            <p>就是 b2r skill 本身。它读取配置,按固定执行链路调度 sub-agent,在每步之间亲自跑脚本兜底,处理失败与升级。它是把"底盘"真正驱动起来的那个大脑。</p>
           </div>
         </div>
 
         <div class="note note-warn">
-          <span class="b">⚠️</span>
-          <p><strong>为什么要分这三层？</strong> 因为"规则"如果只写在 prompt 里，LLM 会慢慢忘、慢慢飘。把规则下沉成<strong>脚本（底盘）</strong>，把状态固化成<strong>文件（事实源）</strong>，LLM 只负责<strong>调度与创作（调度者）</strong>——这样即使换一个 AI 模型来跑，约束依然成立。这就是它"Agent 中立"的底气。</p>
+          <span class="b"><svg class="ico"><use href="#i-alert"/></svg></span>
+          <p><strong>为什么要分这三层?</strong>因为"规则"如果只写在 prompt 里,LLM 会慢慢忘、慢慢飘。把规则下沉成<strong>脚本(底盘)</strong>,把状态固化成<strong>文件(事实源)</strong>,LLM 只负责<strong>调度与创作(调度者)</strong>——这样即使换一个 AI 模型来跑,约束依然成立。这就是它"Agent 中立"的底气。</p>
         </div>
       </div>
     </section>
@@ -409,26 +487,26 @@
     <section id="roles">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 3</span>
-        <h2 class="anchor-h">Agent 角色团：11 个各司其职的工人</h2>
-        <p class="sub">每个角色都是一份 <code>agents/&lt;role&gt;.md</code> prompt 模板。调度者派工时把工单的具体信息填进占位符，启动一个全新上下文的 sub-agent。<strong>角色之间互不读对方的内部推理</strong>——比如评审员看不到起草者的思考过程，这样评审才是真正独立的"第二双眼睛"。</p>
+        <h2 class="anchor-h">Agent 角色团:11 个各司其职的工人</h2>
+        <p class="sub">每个角色都是一份 <code>agents/&lt;role&gt;.md</code> prompt 模板。调度者派工时把工单的具体信息填进占位符,启动一个全新上下文的 sub-agent。<strong>角色之间互不读对方的内部推理</strong>——比如评审员看不到起草者的思考过程,这样评审才是真正独立的"第二双眼睛"。</p>
 
         <div class="roles">
-          <div class="role-c"><div class="av" style="background:#0b3d91">🗺️</div><div><h4>roadmap-planner</h4><code>agents/roadmap-planner.md</code><p>把 roadmap 拆成带依赖的 Planned 工单，并给每条打复杂度标签（Stage 0/1）。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#1f5fd6">📝</div><div><h4>spec-drafter</h4><code>agents/spec-drafter.md</code><p>把一条工单写成结构化 spec：做什么、不做什么、涉及哪些文件、验收命令。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#1f5fd6">📐</div><div><h4>plan-drafter</h4><code>agents/plan-drafter.md</code><p>把 spec 拆成可执行的实施计划，按 TDD 步骤分切片。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#7c3aed">🔎</div><div><h4>spec-plan-reviewer</h4><code>agents/spec-plan-reviewer.md</code><p>独立审 spec/plan：范围裁剪、不做项、文件清单是否合理（L2/L3 必跑）。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#16a34a">🧑‍🔧</div><div><h4>implementor</h4><code>agents/implementor.md</code><p>先写跑红的测试，再写最小实现，让测试变绿。Stage 3 主力。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#7c3aed">🛡️</div><div><h4>arch-security-reviewer</h4><code>agents/arch-security-reviewer.md</code><p>架构 + 安全评审，命中红线即停（L3 必跑）。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#dc2626">⚡</div><div><h4>direct-fix</h4><code>agents/direct-fix.md</code><p>极简工单（typo/注释）专用：一个 agent 编辑+翻档+提交一气呵成。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#0b3d91">📦</div><div><h4>handoff-committer</h4><code>agents/handoff-committer.md</code><p>实现提交 + 状态翻档 + 交付提交，保证 commit 边界干净（Stage 5）。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#f59e0b">🎨</div><div><h4>ui-designer</h4><code>agents/ui-designer.md</code><p>可选 UI 线：产出设计锚点与每屏 mockup。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#7c3aed">🖌️</div><div><h4>design-reviewer</h4><code>agents/design-reviewer.md</code><p>可选 UI 线：审设计锚点 / delta，给 PASS / NEEDS_FIX。</p></div></div>
-          <div class="role-c"><div class="av" style="background:#16a34a">🧭</div><div><h4>e2e-verifier</h4><code>agents/e2e-verifier.md</code><p>可选 E2E 线：在里程碑/批次边界跑端到端验收旅程。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-route"/></svg></div><div><h4>roadmap-planner</h4><code>agents/roadmap-planner.md</code><p>把 roadmap 拆成带依赖的 Planned 工单,并给每条打复杂度标签(Stage 0/1)。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-file-pen"/></svg></div><div><h4>spec-drafter</h4><code>agents/spec-drafter.md</code><p>把一条工单写成结构化 spec:做什么、不做什么、涉及哪些文件、验收命令。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-list-checks"/></svg></div><div><h4>plan-drafter</h4><code>agents/plan-drafter.md</code><p>把 spec 拆成可执行的实施计划,按 TDD 步骤分切片。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-search"/></svg></div><div><h4>spec-plan-reviewer</h4><code>agents/spec-plan-reviewer.md</code><p>独立审 spec/plan:范围裁剪、不做项、文件清单是否合理(L2/L3 必跑)。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-code"/></svg></div><div><h4>implementor</h4><code>agents/implementor.md</code><p>先写跑红的测试,再写最小实现,让测试变绿。Stage 3 主力。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-shield"/></svg></div><div><h4>arch-security-reviewer</h4><code>agents/arch-security-reviewer.md</code><p>架构 + 安全评审,命中红线即停(L3 必跑)。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-zap"/></svg></div><div><h4>direct-fix</h4><code>agents/direct-fix.md</code><p>极简工单(typo/注释)专用:一个 agent 编辑+翻档+提交一气呵成。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-git-commit"/></svg></div><div><h4>handoff-committer</h4><code>agents/handoff-committer.md</code><p>实现提交 + 状态翻档 + 交付提交,保证 commit 边界干净(Stage 5)。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-palette"/></svg></div><div><h4>ui-designer</h4><code>agents/ui-designer.md</code><p>可选 UI 线:产出设计锚点与每屏 mockup。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-eye"/></svg></div><div><h4>design-reviewer</h4><code>agents/design-reviewer.md</code><p>可选 UI 线:审设计锚点 / delta,给 PASS / NEEDS_FIX。</p></div></div>
+          <div class="role-c"><div class="av"><svg class="ico"><use href="#i-compass"/></svg></div><div><h4>e2e-verifier</h4><code>agents/e2e-verifier.md</code><p>可选 E2E 线:在里程碑/批次边界跑端到端验收旅程。</p></div></div>
         </div>
 
         <div class="note note-tip" style="margin-top:24px">
-          <span class="b">🧩</span>
-          <p><strong>什么时候派 sub-agent，什么时候调度者亲自做？</strong> 需要全新上下文的创作（起草 spec、TDD 实现）、需要独立判断的评审 → 派 sub-agent。而跑脚本、读状态、和你对话、起草升级决策 → 调度者自己做。<strong>sub-agent 永远不会再启动 sub-agent</strong>，保持单层调度，责任链清晰。</p>
+          <span class="b"><svg class="ico"><use href="#i-blocks"/></svg></span>
+          <p><strong>什么时候派 sub-agent,什么时候调度者亲自做?</strong>需要全新上下文的创作(起草 spec、TDD 实现)、需要独立判断的评审 → 派 sub-agent。而跑脚本、读状态、和你对话、起草升级决策 → 调度者自己做。<strong>sub-agent 永远不会再启动 sub-agent</strong>,保持单层调度,责任链清晰。</p>
         </div>
       </div>
     </section>
@@ -437,38 +515,38 @@
     <section id="pipeline">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 4</span>
-        <h2 class="anchor-h">六阶段流水线：一条工单怎么走完</h2>
-        <p class="sub">这是 b2r 的固定执行链路。每个阶段都有专职执行者和必须通过的脚本门禁（绿色标签）。</p>
+        <h2 class="anchor-h">六阶段流水线:一条工单怎么走完</h2>
+        <p class="sub">这是 b2r 的固定执行链路。每个阶段都有专职执行者和必须通过的脚本门禁(绿色标签)。</p>
 
         <div class="pipe">
           <div class="stage"><div class="num"><div class="dot">0</div><div class="line"></div></div>
             <div class="body"><h4>Triage 复杂度分诊 <span class="role">roadmap-planner</span></h4>
-            <p>给每条工单打 L0–L3 标签，决定它走"完整 / 中等 / 简化 / 单工位"哪条路。判据写入 <code>0-triage.json</code>，<strong>只能升档不能降档</strong>。</p></div></div>
+            <p>给每条工单打 L0–L3 标签,决定它走"完整 / 中等 / 简化 / 单工位"哪条路。判据写入 <code>0-triage.json</code>,<strong>只能升档不能降档</strong>。</p></div></div>
 
           <div class="stage"><div class="num"><div class="dot">1</div><div class="line"></div></div>
             <div class="body"><h4>Roadmap → Backlog <span class="role">roadmap-planner</span> <span class="gate">validate:state</span></h4>
-            <p>把 roadmap 拆成 Planned 工单序列（含依赖）。真实工单号由调度者脚本化分配，不让 AI 手算。</p></div></div>
+            <p>把 roadmap 拆成 Planned 工单序列(含依赖)。真实工单号由调度者脚本化分配,不让 AI 手算。</p></div></div>
 
           <div class="stage"><div class="num"><div class="dot">2</div><div class="line"></div></div>
             <div class="body"><h4>Promote 推进为 Ready <span class="role">spec-drafter + plan-drafter + reviewer</span> <span class="gate">validate:state · deps:graph</span></h4>
-            <p>把一条 Planned 翻成 Ready：生成 spec、plan、context-pack，并经独立评审。<strong>前置依赖必须全部 Done</strong> 才能 promote。</p></div></div>
+            <p>把一条 Planned 翻成 Ready:生成 spec、plan、context-pack,并经独立评审。<strong>前置依赖必须全部 Done</strong> 才能 promote。</p></div></div>
 
           <div class="stage"><div class="num"><div class="dot">3</div><div class="line"></div></div>
             <div class="body"><h4>Implement 实现 <span class="role">implementor</span> <span class="gate">红 gate · targeted · regression</span></h4>
-            <p>工单翻 In Progress，<strong>TDD 红 → 绿</strong>：先有跑红的测试做证据，再写最小实现，最后定向测试 + 回归全过。</p></div></div>
+            <p>工单翻 In Progress,<strong>TDD 红 → 绿</strong>:先有跑红的测试做证据,再写最小实现,最后定向测试 + 回归全过。</p></div></div>
 
           <div class="stage"><div class="num"><div class="dot">4</div><div class="line"></div></div>
             <div class="body"><h4>Review 架构与安全评审 <span class="role">arch-security-reviewer</span> <span class="gate">lint:redlines</span></h4>
-            <p>L3 走完整评审，L2 走轻量内嵌，L1 跳过。红线 lint 命中即停，不带病往下走。</p></div></div>
+            <p>L3 走完整评审,L2 走轻量内嵌,L1 跳过。红线 lint 命中即停,不带病往下走。</p></div></div>
 
           <div class="stage"><div class="num"><div class="dot">5</div><div class="line"></div></div>
             <div class="body"><h4>Commit & Handoff 交付 <span class="role">handoff-committer</span> <span class="gate">verify:handoff</span></h4>
-            <p>实现提交（不含状态文件）+ 状态翻档 + 交付提交（只含状态文件）。两段物理分离，可独立回滚。最后核验交付完整性。</p></div></div>
+            <p>实现提交(不含状态文件)+ 状态翻档 + 交付提交(只含状态文件)。两段物理分离,可独立回滚。最后核验交付完整性。</p></div></div>
         </div>
 
         <div class="note note-key">
-          <span class="b">🔁</span>
-          <p>Stage 5 之后，工单回到 Idle，调度者亲跑 <code>milestone:status</code> 判断是否到了里程碑边界——没到就回 Stage 2 拿下一条；到了且配置了 E2E，就进入<strong>循环之外</strong>的里程碑端到端验收。整个过程不靠"感觉"，全靠脚本报到边界。</p>
+          <span class="b"><svg class="ico"><use href="#i-refresh"/></svg></span>
+          <p>Stage 5 之后,工单回到 Idle,调度者亲跑 <code>milestone:status</code> 判断是否到了里程碑边界——没到就回 Stage 2 拿下一条;到了且配置了 E2E,就进入<strong>循环之外</strong>的里程碑端到端验收。整个过程不靠"感觉",全靠脚本报到边界。</p>
         </div>
       </div>
     </section>
@@ -477,22 +555,22 @@
     <section id="levels">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 5</span>
-        <h2 class="anchor-h">四档复杂度：小事走快道，大事走全程</h2>
-        <p class="sub">不是每条工单都要走完整六阶段。Stage 0 给工单分诊到 L0–L3，越简单的工单跳过越多环节，把精力留给真正复杂的改动。</p>
+        <h2 class="anchor-h">四档复杂度:小事走快道,大事走全程</h2>
+        <p class="sub">不是每条工单都要走完整六阶段。Stage 0 给工单分诊到 L0–L3,越简单的工单跳过越多环节,把精力留给真正复杂的改动。</p>
 
         <table class="tbl">
-          <thead><tr><th>档位</th><th>判据（满足任一）</th><th>走的路径</th><th>跳过</th></tr></thead>
+          <thead><tr><th>档位</th><th>判据(满足任一)</th><th>走的路径</th><th>跳过</th></tr></thead>
           <tbody>
-            <tr><td><span class="badge b-l0">L0</span> 极简</td><td>typo / 注释 / 文档措辞 / 单行格式化</td><td>direct-fix 单 agent：改 + 翻档 + 提交</td><td>spec / plan / review / arch 全跳过</td></tr>
+            <tr><td><span class="badge b-l0">L0</span> 极简</td><td>typo / 注释 / 文档措辞 / 单行格式化</td><td>direct-fix 单 agent:改 + 翻档 + 提交</td><td>spec / plan / review / arch 全跳过</td></tr>
             <tr><td><span class="badge b-l1">L1</span> 简单</td><td>单文件 + 无新接口 + 无 schema + ≤30 行</td><td>spec/plan 合并 + 自评 → 实现 → 交付</td><td>独立 reviewer、arch-reviewer</td></tr>
-            <tr><td><span class="badge b-l2">L2</span> 标准</td><td>跨 2–3 文件 + 有新函数 + 无跨模块边界变化</td><td>spec → plan → 独立 review → 实现 → 轻量评审 → 交付</td><td>reviewer 走轻量清单，不调外部 skill</td></tr>
+            <tr><td><span class="badge b-l2">L2</span> 标准</td><td>跨 2–3 文件 + 有新函数 + 无跨模块边界变化</td><td>spec → plan → 独立 review → 实现 → 轻量评审 → 交付</td><td>reviewer 走轻量清单,不调外部 skill</td></tr>
             <tr><td><span class="badge b-l3">L3</span> 复杂</td><td>跨模块 / 新 schema / 新依赖 / 安全敏感 / 含 migration</td><td>完整七工位全程</td><td>—</td></tr>
           </tbody>
         </table>
 
         <div class="note note-warn">
-          <span class="b">⬆️</span>
-          <p><strong>只升不降</strong>：如果实现时发现改动其实比初判复杂（比如动了 schema），门禁会强制升档，重新走更严格的路径；但绝不允许把复杂工单偷偷降级成简单路径蒙混过关。</p>
+          <span class="b"><svg class="ico"><use href="#i-arrow-up"/></svg></span>
+          <p><strong>只升不降</strong>:如果实现时发现改动其实比初判复杂(比如动了 schema),门禁会强制升档,重新走更严格的路径;但绝不允许把复杂工单偷偷降级成简单路径蒙混过关。</p>
         </div>
       </div>
     </section>
@@ -501,16 +579,16 @@
     <section id="gates">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 6</span>
-        <h2 class="anchor-h">质检门禁与失败处理：出错了怎么办</h2>
-        <p class="sub">b2r 把失败分成两类，区别对待——这是它既"自动化"又"不失控"的关键。</p>
+        <h2 class="anchor-h">质检门禁与失败处理:出错了怎么办</h2>
+        <p class="sub">b2r 把失败分成两类,区别对待——这是它既"自动化"又"不失控"的关键。</p>
 
         <h3>每个阶段的脚本门禁</h3>
-        <p>调度者在每个 sub-agent 完成后，<strong>亲自跑脚本</strong>确认通过才进下一阶段。sub-agent 自己说"通过了"不算数。</p>
+        <p>调度者在每个 sub-agent 完成后,<strong>亲自跑脚本</strong>确认通过才进下一阶段。sub-agent 自己说"通过了"不算数。</p>
         <table class="tbl">
           <thead><tr><th>阶段</th><th>质检命令</th><th>通过判据</th></tr></thead>
           <tbody>
             <tr><td>Stage 1 Backlog</td><td><code>npm run validate:state</code></td><td>0 error</td></tr>
-            <tr><td>Stage 2 Promote</td><td><code>validate:state</code> + <code>deps:graph</code></td><td>0 error，依赖图无环无孤儿</td></tr>
+            <tr><td>Stage 2 Promote</td><td><code>validate:state</code> + <code>deps:graph</code></td><td>0 error,依赖图无环无孤儿</td></tr>
             <tr><td>Stage 3 红 gate</td><td>核 <code>3-impl.json</code></td><td>有"测试先跑红"的证据</td></tr>
             <tr><td>Stage 3 回归</td><td>config 里的 regressionCommands</td><td>全部退出码 0</td></tr>
             <tr><td>Stage 4 Review</td><td><code>npm run lint:redlines</code></td><td>0 命中</td></tr>
@@ -520,14 +598,14 @@
 
         <h3>失败的三级处理</h3>
         <div class="grid g3" style="margin-top:18px">
-          <div class="card"><div class="ic" style="background:#dcfce7;color:#15803d">🩹</div><h4>① 交付失败 → 自愈</h4><p>sub-agent 返回了但产物不可用（报错串/空/截断）。这是基础设施问题，<strong>不惊动你</strong>：自动重派一次 → 仍不行调度者亲自接手。</p></div>
-          <div class="card"><div class="ic" style="background:#dbeafe;color:#1e40af">🔁</div><h4>② 质量失败 → 自动重试 ×1</h4><p>产物合法但没过 gate。调度者把"哪条不通过 + 期望"打包，派一个全新 sub-agent 针对性修正，再过 gate。</p></div>
-          <div class="card"><div class="ic" style="background:#fee2e2;color:#b91c1c">🙋</div><h4>③ Manager Override → 你拍板</h4><p>重试仍失败，或 sub-agent 带证据自报阻塞。调度者渲染失败卷宗、起草建议，用选择题请<strong>你</strong>决策并留下决策记录。</p></div>
+          <div class="card"><div class="ic" style="background:var(--run-soft);color:var(--run);border-color:#cfe6d7"><svg class="ico"><use href="#i-activity"/></svg></div><h4>① 交付失败 → 自愈</h4><p>sub-agent 返回了但产物不可用(报错串/空/截断)。这是基础设施问题,<strong>不惊动你</strong>:自动重派一次 → 仍不行调度者亲自接手。</p></div>
+          <div class="card"><div class="ic"><svg class="ico"><use href="#i-refresh"/></svg></div><h4>② 质量失败 → 自动重试 ×1</h4><p>产物合法但没过 gate。调度者把"哪条不通过 + 期望"打包,派一个全新 sub-agent 针对性修正,再过 gate。</p></div>
+          <div class="card"><div class="ic" style="background:var(--red-soft);color:var(--red);border-color:#ead7d4"><svg class="ico"><use href="#i-user-check"/></svg></div><h4>③ Manager Override → 你拍板</h4><p>重试仍失败,或 sub-agent 带证据自报阻塞。调度者渲染失败卷宗、起草建议,用选择题请<strong>你</strong>决策并留下决策记录。</p></div>
         </div>
 
         <div class="note note-tip">
-          <span class="b">🚫</span>
-          <p><strong>绝不静默循环</strong>：重试失败必定升级到你面前，让你看到完整失败链——不会出现 AI "再试一次又一次"假装搞定的情况。Manager 的 5 个决策动作（接受 override / 降档 / 收缩范围 / 拆切片 / 放弃）各有明确回流点，全程留痕在 <code>retro.md</code>。</p>
+          <span class="b"><svg class="ico"><use href="#i-ban"/></svg></span>
+          <p><strong>绝不静默循环</strong>:重试失败必定升级到你面前,让你看到完整失败链——不会出现 AI "再试一次又一次"假装搞定的情况。Manager 的 5 个决策动作(接受 override / 降档 / 收缩范围 / 拆切片 / 放弃)各有明确回流点,全程留痕在 <code>retro.md</code>。</p>
         </div>
       </div>
     </section>
@@ -536,126 +614,146 @@
     <section id="invariants">
       <div class="wrap">
         <span class="eyebrow">读懂原理 · 7</span>
-        <h2 class="anchor-h">十条铁律：违反就当场停下</h2>
-        <p class="sub">这些是从大量实战踩坑沉淀下来的硬约束。任何 sub-agent 在任何阶段命中其中一条，必须立即停下并报告，不允许"先记下、下轮再说"。它们是 b2r 不退化成"看心情写代码"的护栏。</p>
+        <h2 class="anchor-h">十条铁律:违反就当场停下</h2>
+        <p class="sub">这些是从大量实战踩坑沉淀下来的硬约束。任何 sub-agent 在任何阶段命中其中一条,必须立即停下并报告,不允许"先记下、下轮再说"。它们是 b2r 不退化成"看心情写代码"的护栏。</p>
 
         <table class="tbl">
           <thead><tr><th>#</th><th>铁律</th><th>它在防什么</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td><strong>同时只有一条活跃工单</strong>（exactly one active）</td><td>防 AI "假装在同时做好几件事"的幻觉</td></tr>
-            <tr><td>2</td><td><strong>事实源单一</strong>：state/* 权威，BOARD.html 只能脚本生成</td><td>防状态与看板各说各话</td></tr>
-            <tr><td>3</td><td><strong>TDD 强制顺序</strong>：测试先跑红，才能写实现</td><td>防"先写实现再补测试"的退化</td></tr>
-            <tr><td>4</td><td><strong>commit 物理分离 + 工作目录隔离</strong></td><td>让任一切片可独立回滚，防 cwd 泄漏到父仓</td></tr>
+            <tr><td>1</td><td><strong>同时只有一条活跃工单</strong>(exactly one active)</td><td>防 AI "假装在同时做好几件事"的幻觉</td></tr>
+            <tr><td>2</td><td><strong>事实源单一</strong>:state/* 权威,BOARD.html 只能脚本生成</td><td>防状态与看板各说各话</td></tr>
+            <tr><td>3</td><td><strong>TDD 强制顺序</strong>:测试先跑红,才能写实现</td><td>防"先写实现再补测试"的退化</td></tr>
+            <tr><td>4</td><td><strong>commit 物理分离 + 工作目录隔离</strong></td><td>让任一切片可独立回滚,防 cwd 泄漏到父仓</td></tr>
             <tr><td>5</td><td><strong>前置 Done 才能 promote</strong></td><td>防把"想象的接口"当真接口去 spec</td></tr>
             <tr><td>6</td><td><strong>架构红线触发即停</strong></td><td>不带病往下走</td></tr>
-            <tr><td>7</td><td><strong>自报阻塞必须带证据</strong>（grep/测试输出/条款）</td><td>防空口"搞不动"式偷懒早退</td></tr>
+            <tr><td>7</td><td><strong>自报阻塞必须带证据</strong>(grep/测试输出/条款)</td><td>防空口"搞不动"式偷懒早退</td></tr>
             <tr><td>8</td><td><strong>pipeline-status.json 由主线单写</strong></td><td>防 sub-agent 与主线并发写文件冲突</td></tr>
-            <tr><td>9</td><td><strong>skill 不直接写底盘脚本</strong>，只能 bootstrap 分发</td><td>防 LLM 每次"贴心重造"导致版本漂移</td></tr>
-            <tr><td>10</td><td><strong>交付失败 ≠ 质量失败</strong>，前者自愈不惊动你</td><td>区分基础设施抖动与真正的质量问题</td></tr>
+            <tr><td>9</td><td><strong>skill 不直接写底盘脚本</strong>,只能 bootstrap 分发</td><td>防 LLM 每次"贴心重造"导致版本漂移</td></tr>
+            <tr><td>10</td><td><strong>交付失败 ≠ 质量失败</strong>,前者自愈不惊动你</td><td>区分基础设施抖动与真正的质量问题</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- INSTALL -->
-    <section id="install">
+    <!-- OPTIONAL -->
+    <section id="optional">
       <div class="wrap">
-        <span class="eyebrow">动手使用 · 第一步</span>
-        <h2 class="anchor-h">安装：把 skill 装进你的 agent</h2>
-        <p class="sub">b2r 是一个 agent skill，安装就是把仓库克隆到你的 agent runtime 的 skills 目录。</p>
+        <span class="eyebrow">读懂原理 · 8</span>
+        <h2 class="anchor-h">两条可选支线:UI 设计线 与 E2E 验收线</h2>
+        <p class="sub">这两条线<strong>默认关闭</strong>,只有在 <code>workflow.config.mjs</code> 里配置了 <code>ui</code> / <code>e2e</code> 块才启用。纯后端 / CLI / 库项目完全不受影响,也不会因为缺少 UI 或验收文件而报错。</p>
 
-        <div class="steps">
-          <div class="step">
-            <h4>克隆到 skills 目录</h4>
-            <pre><span class="c"># 把 SKILLS_DIR 换成你的 agent runtime 实际的 skills 目录</span>
-<span class="k">SKILLS_DIR</span>=/path/to/your/agent/skills
-<span class="k">mkdir</span> -p <span class="s">"$SKILLS_DIR"</span>
-<span class="k">git</span> clone https://github.com/edward-zyz/blueprint2real.git <span class="s">"$SKILLS_DIR/blueprint2real"</span></pre>
+        <div class="grid g2" style="margin-top:24px">
+          <div class="card">
+            <div class="ic"><svg class="ico"><use href="#i-palette"/></svg></div>
+            <h4>UI 设计线</h4>
+            <p style="margin-bottom:14px">为带界面的工单补上"先设计、再实现"的环节,让实现有 mockup 可对照,而不是 AI 随手发挥。</p>
+            <ul style="font-size:14px;margin:0;padding-left:18px;color:var(--ink-soft)">
+              <li><strong>谁需要</strong>:有前端 / 界面改动的项目(配置 <code>ui</code> 块开启)。</li>
+              <li><strong>怎么触发</strong>:Stage 0 时 roadmap-planner 按文件路径给工单打 <code>ui=true/false</code>。</li>
+              <li><strong>Stage 1.5 设计锚点</strong>:首个 UI 工单先由 <strong>ui-designer</strong> 生成 <code>state/ui-anchor.md</code>——项目级设计语言、共享外壳、导航与组件约定,经 <strong>design-reviewer</strong> 审过才作数。</li>
+              <li><strong>Stage 2.0 每屏 mockup</strong>:每个 UI 工单再生成 <code>work/&lt;id&gt;/ui/</code> 下的具体屏 mockup,同样过 reviewer。</li>
+              <li><strong>设计系统从哪来</strong>:优先用配置的 <code>designRefs</code> → 主动发现项目里的 theme/token/组件 → 都没有才用 <code>ui-ux-pro-max</code> 合成一套最小设计系统。</li>
+              <li><strong>怎么落地</strong>:mockup 写入 spec §4,implementor 把它们当成实现目标。</li>
+            </ul>
           </div>
-          <div class="step">
-            <h4>安装底盘脚本依赖并自测</h4>
-            <pre><span class="k">cd</span> <span class="s">"$SKILLS_DIR/blueprint2real/bootstrap/workflow"</span>
-<span class="k">npm</span> install
-<span class="k">npm</span> test     <span class="c"># 跑底盘脚本的单元测试，确认环境就绪</span></pre>
-          </div>
-          <div class="step">
-            <h4>重启 agent session</h4>
-            <p>开启一个新的 agent 会话，或在你的 runtime 支持时手动刷新 skills，让 b2r 被识别。</p>
+          <div class="card">
+            <div class="ic"><svg class="ico"><use href="#i-compass"/></svg></div>
+            <h4>E2E 验收线</h4>
+            <p style="margin-bottom:14px">在工单一条条做完之后,站在<strong>用户视角</strong>跑端到端旅程,确认"拼起来真的能用",而不只是单元测试绿。</p>
+            <ul style="font-size:14px;margin:0;padding-left:18px;color:var(--ink-soft)">
+              <li><strong>谁需要</strong>:有可启动应用、需要按客户旅程验收的项目(配置 <code>e2e</code> 块开启)。</li>
+              <li><strong>两种粒度</strong>:里程碑级(一个里程碑全 Done 后验收)与批次级(一次提交 mint 出的一批工单作为验收单位),可并存。</li>
+              <li><strong>边界靠脚本判定</strong>:每次交付后跑 <code>milestone:status</code> / <code>e2e-group:status</code>,脚本报到边界才进 E2E,<strong>不靠 AI 凭感觉</strong>。</li>
+              <li><strong>怎么验</strong>:<strong>e2e-verifier</strong> 把"客户旅程"展开成真实验证流——探索段启动真应用取证,固化段把验过的旅程写成回归测试。</li>
+              <li><strong>两份产物</strong>:<code>&lt;milestone&gt;-acceptance.md</code>(业务语言报告,给人看)+ <code>e2e-&lt;milestone&gt;.json</code>(receipt,判 gate 用)。</li>
+              <li><strong>收口</strong>:PASS 不打扰你,作为里程碑翻档(Contract Done → Demo Ready)的前置证据;FAIL 自动按旅程去重生成修复工单,绝不静默循环。</li>
+            </ul>
           </div>
         </div>
 
-        <div class="note note-tip"><span class="b">✅</span><p>装好后，当你说"开始 IS-001""promote 这条工单""从 roadmap 拆工单"等，或在含 <code>b2r-process/</code> 的仓库里要求"按工单走一遍"时，agent 会自动触发这个 skill——你不必每次都念出名字。</p></div>
+        <div class="note note-key">
+          <span class="b"><svg class="ico"><use href="#i-files"/></svg></span>
+          <p><strong>事前 vs 事后两本账</strong>:<code>acceptance.md</code> 是<em>事前</em>验收基准(每个里程碑要验哪些客户旅程、用什么业务标准判 PASS/FAIL);<code>customer-visible.md</code> 是<em>事后</em>交付事实(每条 Done 工单实际交付了什么)。E2E 线就是拿"事前基准"去核对"事后事实"。</p>
+        </div>
       </div>
     </section>
 
-    <!-- BOOTSTRAP -->
-    <section id="bootstrap">
+    <!-- SKILLS -->
+    <section id="skills">
       <div class="wrap">
-        <span class="eyebrow">动手使用 · 第二步</span>
-        <h2 class="anchor-h">初始化：在你的项目里生成工作区</h2>
-        <p class="sub">在你要管理的目标项目根目录下，运行一次 bootstrap，生成 <code>b2r-process/</code> 工作区。这一步是<strong>底盘的唯一权威分发途径</strong>。</p>
+        <span class="eyebrow">生态</span>
+        <h2 class="anchor-h">它会用到的其他 skill</h2>
+        <p class="sub">b2r 的<strong>核心流水线零外部 skill 依赖</strong>——这正是它"Agent 中立"的底气。只有当你开启可选线时,它才会把特定环节<strong>委派</strong>给下面这几个 skill,而且大多还是"可插拔"的。</p>
+
+        <table class="tbl">
+          <thead><tr><th>Skill</th><th>何时被调用</th><th>承担什么</th><th>必需性</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><code>ui-ux-pro-max</code></td>
+              <td>开启 <strong>UI 设计线</strong><br>(config 配 <code>ui</code> 块)</td>
+              <td><code>ui-designer</code> / <code>design-reviewer</code> 的默认 <code>designSkill</code>:提供 UI/UX 方法、可用性检查与风格推理;当项目<em>没有</em>现成设计系统时,用它合成一套最小可执行设计系统。</td>
+              <td>可选 · UI 线默认值</td>
+            </tr>
+            <tr>
+              <td><code>verifySkill</code><br><span style="font-size:11px;color:var(--muted);font-family:var(--mono)">由 config 指定</span></td>
+              <td>开启 <strong>E2E 验收线</strong><br>(config 配 <code>e2e</code> 块)</td>
+              <td><code>e2e-verifier</code> 用它启动应用、逐条跑客户旅程、截图/日志取证。<strong>值由 config 指定、完全可替换</strong>——任意浏览器/E2E 自动化能力(如 <code>webapp-testing</code>、<code>playwright</code> 系等)都行;并优先复用项目已有测试。</td>
+              <td>可选 · E2E 线需配置</td>
+            </tr>
+            <tr>
+              <td><code>/skill-review</code></td>
+              <td>复盘<strong>回灌</strong>时<br>(人工触发)</td>
+              <td>当 <code>retro.md</code> 的「待回灌清单」指出某个 <code>agents/*.md</code> 模板该改进时,在<strong>人监督下</strong>用它评审并修订模板。b2r 只负责让这笔"回灌债"可见,从不自动改模板。</td>
+              <td>可选 · 人工运维</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="note note-key">
+          <span class="b"><svg class="ico"><use href="#i-blocks"/></svg></span>
+          <p>一句话:<strong>纯后端 / CLI / 库项目跑完整流水线,一个外部 skill 都不用装</strong>。UI 与 E2E 是"按需挂载"的两条线;<code>verifySkill</code> 更是完全可换——你的项目用什么测试栈,就让它驱动什么。每个 stage 用了哪些 skill,都会记进该阶段 receipt 的 <code>skills_used</code> 字段,事后可审计。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- USAGE -->
+    <section id="usage">
+      <div class="wrap">
+        <span class="eyebrow">动手使用</span>
+        <h2 class="anchor-h">三步上手</h2>
+        <p class="sub">几乎不用记命令——把链接和文档丢给你的 AI 助手,它自己跑。</p>
 
         <div class="steps">
           <div class="step">
-            <h4>运行 bootstrap 命令</h4>
-            <pre><span class="k">node</span> /path/to/blueprint2real/bootstrap/workflow/scripts/init.mjs \
-  <span class="v">--bootstrap</span> \
-  <span class="v">--prefix</span> APP <span class="c"># 工单号前缀，2-4 个大写字母，如 IS/APP/WORK</span> \
-  <span class="v">--milestones</span> M0,M1,M2 <span class="c"># 里程碑，逗号分隔；不用则留空 ''</span> \
-  <span class="v">--project</span> myapp <span class="c"># 项目名（小写）</span> \
-  <span class="v">--target</span> ./b2r-process</pre>
-            <p>它会一次性生成 33 个文件：完整的 <code>workflow/</code> 子树、<code>workflow.config.mjs</code> 配置、<code>AGENT_RUNBOOK.md</code>、初始 <code>state/*.md</code> 文件，以及带 npm 别名的 <code>package.json</code>。</p>
+            <h4>安装 · 把 GitHub 链接丢给 agent</h4>
+            <p>直接对你的 AI 助手说:</p>
+            <pre>帮我安装这个 skill:https://github.com/edward-zyz/blueprint2real</pre>
+            <p>agent 会自动把仓库 clone 到 skills 目录、装好底盘依赖并自测。装完开一个新会话即可识别。</p>
           </div>
           <div class="step">
-            <h4>安装工作区依赖</h4>
-            <pre><span class="k">cd</span> ./b2r-process/workflow
-<span class="k">npm</span> install</pre>
+            <h4>初始化 · 第一次用自动建工作区</h4>
+            <pre>/blueprint2real</pre>
+            <p>在你的项目里第一次调用时,skill 发现还没有 <code>b2r-process/</code> 工作区,会引导并跑权威的 <strong>bootstrap</strong> 命令,一次性生成 state 文件、底盘脚本和配置。之后这一步不再重复。</p>
           </div>
           <div class="step">
-            <h4>验证工作区</h4>
-            <pre><span class="k">cd</span> ./b2r-process
-<span class="k">npm</span> run validate:state   <span class="c"># 校验 state/* 结构，应当 0 error</span>
-<span class="k">npm</span> run render:board     <span class="c"># 生成 BOARD.html 看板</span></pre>
+            <h4>接活 · 把产品文档 / 蓝图喂进去</h4>
+            <pre>/blueprint2real <span class="s">"你写好的产品文档 / 产品蓝图"</span></pre>
+            <p>agent 接管整条流水线:拆工单 → 起草 spec/plan → TDD 实现 → 评审 → 干净交付,每一步脚本兜底。你通常只在 <strong>Manager Override</strong> 需要拍板时才被请来。</p>
           </div>
         </div>
 
-        <div class="note note-warn"><span class="b">⛔</span><p><strong>不要手写底盘文件！</strong>（铁律 #9）如果 agent 发现 <code>workflow.config.mjs</code> 不存在，它的正确动作是停下来引导你跑上面的 bootstrap 命令——而不是"贴心地"自己创造脚本。底盘只能从 skill 自带的 <code>bootstrap/workflow/</code> 一次性分发，保证大家用的是同一个权威版本。</p></div>
-      </div>
-    </section>
+        <h3>过程中你可能会说的几句话</h3>
+        <table class="tbl">
+          <thead><tr><th>你说</th><th>agent 做什么</th></tr></thead>
+          <tbody>
+            <tr><td><code>promote APP-001</code></td><td>把这条工单推进到 Ready:起草 spec/plan 并独立评审</td></tr>
+            <tr><td><code>开始 APP-001</code></td><td>翻 In Progress,走 TDD 红→绿实现</td></tr>
+            <tr><td><code>handoff APP-001</code></td><td>评审 + 干净提交 + 核验交付,工单 Done</td></tr>
+            <tr><td>"看看进度 / 刷新看板"</td><td>跑 <code>render:board</code>、<code>validate:state</code>,浏览器打开 <code>BOARD.html</code></td></tr>
+          </tbody>
+        </table>
 
-    <!-- RUN -->
-    <section id="run">
-      <div class="wrap">
-        <span class="eyebrow">动手使用 · 第三步</span>
-        <h2 class="anchor-h">跑工单：用自然语言驱动流水线</h2>
-        <p class="sub">初始化完成后，剩下的事几乎都用自然语言对 agent 说就行。下面是典型对话。</p>
-
-        <h4>① 从 roadmap 拆工单（Stage 1）</h4>
-        <pre><span class="c"># 你对 agent 说：</span>
-用 blueprint2real，把这份 roadmap 拆成 Done 工单。
-<span class="c"># 或直接：</span>
-Use $blueprint2real to turn this roadmap into Done work items.</pre>
-        <p>agent 会派 roadmap-planner 拆出带依赖、带复杂度标签的工单序列，回填真实工单号，并跑 <code>validate:state</code> 把关。</p>
-
-        <h4>② 推进某条工单到 Ready（Stage 2）</h4>
-        <pre><span class="c"># 你对 agent 说：</span>
-promote APP-001</pre>
-        <p>生成 spec / plan / context-pack，经独立评审，确认前置依赖都 Done。</p>
-
-        <h4>③ 开始实现 → 交付（Stage 3–5）</h4>
-        <pre><span class="c"># 你对 agent 说：</span>
-开始 APP-001
-<span class="c"># 完成后：</span>
-handoff APP-001</pre>
-        <p>agent 走 TDD 实现、（按复杂度）评审、干净提交，最后跑 <code>verify:handoff</code> 核验交付。</p>
-
-        <h4>④ 随时查看进度</h4>
-        <pre><span class="k">cd</span> ./b2r-process
-<span class="k">npm</span> run render:board    <span class="c"># 刷新看板，浏览器打开 BOARD.html</span>
-<span class="k">npm</span> run validate:state  <span class="c"># 体检：状态是否自洽</span>
-<span class="k">npm</span> run deps:graph      <span class="c"># 看工单依赖图</span></pre>
-
-        <div class="note note-tip"><span class="b">🗣️</span><p><strong>触发词</strong>：开始 / promote / handoff / "跑工单流水线" / "从 roadmap 拆工单" / "让 agent 团跑完这条线" 等，都会唤起 b2r。你也可以直接念 <code>$blueprint2real</code>。</p></div>
+        <div class="note note-tip"><span class="b"><svg class="ico"><use href="#i-chat"/></svg></span><p>这些触发词都会唤起 b2r:<strong>开始 / promote / handoff / "跑工单流水线" / "从 roadmap 拆工单" / "让 agent 团跑完这条线"</strong>,或在含 <code>b2r-process/</code> 的仓库里要求"按工单走一遍"——不必每次念出 skill 名字。</p></div>
       </div>
     </section>
 
@@ -664,15 +762,15 @@ handoff APP-001</pre>
       <div class="wrap">
         <span class="eyebrow">融会贯通</span>
         <h2 class="anchor-h">一条工单的完整旅程</h2>
-        <p class="sub">把前面所有概念串起来，看一条 L2 工单从无到 Done 发生了什么——你会看到"调度者 + sub-agent + 脚本 + 证据"是如何协同的。</p>
+        <p class="sub">把前面所有概念串起来,看一条 L2 工单从无到 Done 发生了什么——你会看到"调度者 + sub-agent + 脚本 + 证据"是如何协同的。</p>
 
         <div class="pipe">
-          <div class="stage"><div class="num"><div class="dot">①</div><div class="line"></div></div><div class="body"><h4>你给 roadmap</h4><p>调度者派 <strong>roadmap-planner</strong> 拆出 <code>APP-007</code>，分诊为 <span class="badge b-l2">L2</span>，写入 <code>0-triage.json</code>。跑 <code>validate:state</code> ✅</p></div></div>
-          <div class="stage"><div class="num"><div class="dot">②</div><div class="line"></div></div><div class="body"><h4>promote APP-007</h4><p>确认前置依赖全 Done → <strong>spec-drafter</strong> + <strong>plan-drafter</strong> 起草 → <strong>spec-plan-reviewer</strong> 独立审过。工单翻 Ready。✅</p></div></div>
-          <div class="stage"><div class="num"><div class="dot">③</div><div class="line"></div></div><div class="body"><h4>开始 APP-007</h4><p><code>npm run start APP-007</code> 原子翻 In Progress。<strong>implementor</strong> 先写跑红的测试（红 gate 证据落 <code>3-impl.json</code>），再写最小实现让它变绿，回归全过。✅</p></div></div>
-          <div class="stage"><div class="num"><div class="dot">④</div><div class="line"></div></div><div class="body"><h4>轻量评审</h4><p>L2 走轻量内嵌评审 + <code>lint:redlines</code> 0 命中。✅</p></div></div>
-          <div class="stage"><div class="num"><div class="dot">⑤</div><div class="line"></div></div><div class="body"><h4>handoff APP-007</h4><p><strong>handoff-committer</strong>：实现 commit（不含 state）→ 翻档 → 交付 commit（只含 state + BOARD）。<code>verify:handoff APP-007</code> 全过。工单 Done。✅</p></div></div>
-          <div class="stage"><div class="num"><div class="dot">✓</div></div><div class="body"><h4>留下证据链</h4><p><code>work/APP-007_.../receipts/</code> 下躺着 0→5 每一阶段的 receipt JSON；commit 历史里实现与状态各自独立——<strong>这条工单从此可审计、可回滚</strong>。</p></div></div>
+          <div class="stage"><div class="num"><div class="dot">1</div><div class="line"></div></div><div class="body"><h4>你给 roadmap</h4><p>调度者派 <strong>roadmap-planner</strong> 拆出 <code>APP-007</code>,分诊为 <span class="badge b-l2">L2</span>,写入 <code>0-triage.json</code>。跑 <code>validate:state</code> 通过。</p></div></div>
+          <div class="stage"><div class="num"><div class="dot">2</div><div class="line"></div></div><div class="body"><h4>promote APP-007</h4><p>确认前置依赖全 Done → <strong>spec-drafter</strong> + <strong>plan-drafter</strong> 起草 → <strong>spec-plan-reviewer</strong> 独立审过。工单翻 Ready。</p></div></div>
+          <div class="stage"><div class="num"><div class="dot">3</div><div class="line"></div></div><div class="body"><h4>开始 APP-007</h4><p><code>npm run start APP-007</code> 原子翻 In Progress。<strong>implementor</strong> 先写跑红的测试(红 gate 证据落 <code>3-impl.json</code>),再写最小实现让它变绿,回归全过。</p></div></div>
+          <div class="stage"><div class="num"><div class="dot">4</div><div class="line"></div></div><div class="body"><h4>轻量评审</h4><p>L2 走轻量内嵌评审 + <code>lint:redlines</code> 0 命中。</p></div></div>
+          <div class="stage"><div class="num"><div class="dot">5</div><div class="line"></div></div><div class="body"><h4>handoff APP-007</h4><p><strong>handoff-committer</strong>:实现 commit(不含 state)→ 翻档 → 交付 commit(只含 state + BOARD)。<code>verify:handoff APP-007</code> 全过。工单 Done。</p></div></div>
+          <div class="stage"><div class="num"><div class="dot"><svg class="ico" style="width:16px;height:16px"><use href="#i-shield-check"/></svg></div></div><div class="body"><h4>留下证据链</h4><p><code>work/APP-007_.../receipts/</code> 下躺着 0→5 每一阶段的 receipt JSON;commit 历史里实现与状态各自独立——<strong>这条工单从此可审计、可回滚</strong>。</p></div></div>
         </div>
       </div>
     </section>
@@ -683,13 +781,13 @@ handoff APP-001</pre>
         <span class="eyebrow">参考</span>
         <h2 class="anchor-h">目录结构速查</h2>
 
-        <h3>skill 仓库（你克隆的这个）</h3>
+        <h3>skill 仓库(你克隆的这个)</h3>
         <pre><span class="k">blueprint2real/</span>
-├── SKILL.md            <span class="c"># 调度者的完整行为契约（核心）</span>
+├── SKILL.md            <span class="c"># 调度者的完整行为契约(核心)</span>
 ├── agents/             <span class="c"># 11 个 sub-agent 角色的 prompt 模板</span>
 │   ├── roadmap-planner.md   spec-drafter.md   plan-drafter.md
 │   ├── implementor.md       arch-security-reviewer.md  ...
-├── bootstrap/workflow/ <span class="c"># 底盘资产：scripts + templates（bootstrap 源）</span>
+├── bootstrap/workflow/ <span class="c"># 底盘资产:scripts + templates(bootstrap 源)</span>
 ├── references/         <span class="c"># 契约细则</span>
 │   ├── pipeline-flow.md      quality-gates.md
 │   ├── receipts-schema.md    workflow-contract.md
@@ -697,18 +795,18 @@ handoff APP-001</pre>
 
         <h3>目标项目里生成的工作区</h3>
         <pre><span class="k">b2r-process/</span>
-├── workflow.config.mjs <span class="c"># 项目配置：前缀/里程碑/回归命令/可选 ui·e2e</span>
+├── workflow.config.mjs <span class="c"># 项目配置:前缀/里程碑/回归命令/可选 ui·e2e</span>
 ├── AGENT_RUNBOOK.md    <span class="c"># 该项目的执行手册</span>
-├── workflow/           <span class="c"># 底盘脚本（由 bootstrap 分发，勿手改）</span>
+├── workflow/           <span class="c"># 底盘脚本(由 bootstrap 分发,勿手改)</span>
 ├── state/              <span class="c"># ★ 事实源 ★</span>
-│   ├── active.md            <span class="c"># 当前活跃工单（同时仅一条）</span>
-│   ├── queue.md             <span class="c"># 工单队列（8 列表）</span>
+│   ├── active.md            <span class="c"># 当前活跃工单(同时仅一条)</span>
+│   ├── queue.md             <span class="c"># 工单队列(8 列表)</span>
 │   ├── roadmap.md           <span class="c"># 里程碑路线图</span>
 │   ├── customer-visible.md  <span class="c"># 每条 Done 的客户可见变化</span>
 │   └── retro.md             <span class="c"># 复盘 / Manager 决策记录</span>
 ├── specs/              <span class="c"># 各工单 spec.md</span>
 ├── work/&lt;id&gt;_&lt;slug&gt;/    <span class="c"># 每工单的 plan / context-pack / receipts</span>
-└── BOARD.html          <span class="c"># 渲染产物，勿手改</span></pre>
+└── BOARD.html          <span class="c"># 渲染产物,勿手改</span></pre>
 
         <h3>核心脚本命令一览</h3>
         <table class="tbl">
@@ -716,8 +814,8 @@ handoff APP-001</pre>
           <tbody>
             <tr><td><code>npm run validate:state</code></td><td>校验 state/* 结构与跨文件一致性</td></tr>
             <tr><td><code>npm run render:board</code></td><td>由 state/* 生成 BOARD.html 看板</td></tr>
-            <tr><td><code>npm run promote &lt;id&gt;</code></td><td>把工单 Planned → Ready，生成 spec/plan stub</td></tr>
-            <tr><td><code>npm run start &lt;id&gt;</code></td><td>原子地把工单翻 In Progress（含 exactly-one 校验）</td></tr>
+            <tr><td><code>npm run promote &lt;id&gt;</code></td><td>把工单 Planned → Ready,生成 spec/plan stub</td></tr>
+            <tr><td><code>npm run start &lt;id&gt;</code></td><td>原子地把工单翻 In Progress(含 exactly-one 校验)</td></tr>
             <tr><td><code>npm run verify:handoff &lt;id&gt;</code></td><td>交付完整性检查</td></tr>
             <tr><td><code>npm run deps:graph</code></td><td>渲染工单依赖图</td></tr>
             <tr><td><code>npm run lint:redlines</code></td><td>架构红线 lint</td></tr>
@@ -733,25 +831,25 @@ handoff APP-001</pre>
         <span class="eyebrow">常见问题</span>
         <h2 class="anchor-h">FAQ</h2>
 
-        <h4>Q：我必须用 Claude Code 吗？</h4>
-        <p>不必。b2r 是 Agent 中立的——它只依赖 Markdown、JSON、Shell 和 Node.js。只要你的 agent runtime 支持 skill 机制并能调用 sub-agent 与跑脚本，就能用。</p>
+        <h4>Q:我必须用 Claude Code 吗?</h4>
+        <p>不必。b2r 是 Agent 中立的——它只依赖 Markdown、JSON、Shell 和 Node.js。只要你的 agent runtime 支持 skill 机制并能调用 sub-agent 与跑脚本,就能用。</p>
 
-        <h4>Q：纯后端 / CLI 项目能用吗？UI 和 E2E 是必须的吗？</h4>
-        <p>能用。UI 设计线和 E2E 验收线都是<strong>可选</strong>的——只有在 <code>workflow.config.mjs</code> 里配置了 <code>ui</code> / <code>e2e</code> 块才启用。缺省即关闭，纯库/CLI 项目不会因此报错。</p>
+        <h4>Q:纯后端 / CLI 项目能用吗?UI 和 E2E 是必须的吗?</h4>
+        <p>能用。UI 设计线和 E2E 验收线都是<strong>可选</strong>的——只有在 <code>workflow.config.mjs</code> 里配置了 <code>ui</code> / <code>e2e</code> 块才启用。缺省即关闭,纯库/CLI 项目不会因此报错。</p>
 
-        <h4>Q：旧项目用的是 <code>dev/</code> 目录，还能兼容吗？</h4>
-        <p>可以。默认工作目录是 <code>b2r-process/</code>（v5.1 起），但 skill 会按顺序回退查找 legacy 的 <code>dev/</code> 路径，两者都支持。</p>
+        <h4>Q:旧项目用的是 <code>dev/</code> 目录,还能兼容吗?</h4>
+        <p>可以。默认工作目录是 <code>b2r-process/</code>(v5.1 起),但 skill 会按顺序回退查找 legacy 的 <code>dev/</code> 路径,两者都支持。</p>
 
-        <h4>Q：BOARD.html 能手动编辑吗？</h4>
-        <p>不能。它是 <code>render:board</code> 的渲染产物，手改会被下次渲染覆盖。要改状态，请改 <code>state/*.md</code> 这个事实源。</p>
+        <h4>Q:BOARD.html 能手动编辑吗?</h4>
+        <p>不能。它是 <code>render:board</code> 的渲染产物,手改会被下次渲染覆盖。要改状态,请改 <code>state/*.md</code> 这个事实源。</p>
 
-        <h4>Q：为什么不让 AI 自己一次性把所有工单都 promote？</h4>
-        <p>因为铁律 #5：前置依赖全部 Done 才能 promote。否则后面的 spec 就是基于"想象中的接口"写的，必然失真。一次只推进一条，是为了让每条 spec 都基于真实已交付的代码。</p>
+        <h4>Q:为什么不让 AI 自己一次性把所有工单都 promote?</h4>
+        <p>因为铁律 #5:前置依赖全部 Done 才能 promote。否则后面的 spec 就是基于"想象中的接口"写的,必然失真。一次只推进一条,是为了让每条 spec 都基于真实已交付的代码。</p>
 
-        <h4>Q：出了问题，AI 会不会自己瞎搞？</h4>
-        <p>不会无限瞎搞。质量失败最多自动重试一次，仍不过就升级到 <strong>Manager Override</strong>——渲染完整失败链、起草建议，用选择题请你拍板，并把决策记录留痕在 <code>retro.md</code>。绝不静默循环。</p>
+        <h4>Q:出了问题,AI 会不会自己瞎搞?</h4>
+        <p>不会无限瞎搞。质量失败最多自动重试一次,仍不过就升级到 <strong>Manager Override</strong>——渲染完整失败链、起草建议,用选择题请你拍板,并把决策记录留痕在 <code>retro.md</code>。绝不静默循环。</p>
 
-        <h4>Q：怎么做整体验证？</h4>
+        <h4>Q:怎么做整体验证?</h4>
         <pre><span class="c"># 仓库级一键验证</span>
 <span class="k">npm</span> run validate
 <span class="c"># 或分别跑</span>
@@ -767,7 +865,7 @@ handoff APP-001</pre>
 <footer>
   <div class="wrap">
     <div>
-      <b>blueprint2real</b> · 把蓝图变成真正 Done 的工单流水线<br>
+      <b>blueprint2real</b> · 把蓝图变成真正可用的产品<br>
       MIT License · 维护者 <a href="https://x.com/Edwardzyzt">@Edwardzyzt</a>
     </div>
     <div>
@@ -777,7 +875,6 @@ handoff APP-001</pre>
 </footer>
 
 <script>
-  // 导航高亮
   const links = [...document.querySelectorAll('.nav a')];
   const map = {};
   links.forEach(a=>{const id=a.getAttribute('href').slice(1);map[id]=a;});
