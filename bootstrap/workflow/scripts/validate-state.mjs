@@ -8,7 +8,7 @@
 //   node workflow/scripts/validate-state.mjs --json       # JSON 输出（CI 消费）
 //   STATE_DIR=/path/to/state node ...                     # 覆盖 state 目录（默认 <devRoot>/state）
 //   WORKFLOW_CONFIG=/path/to/config.mjs node ...          # 覆盖 config 文件
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, inferDevRoot, makeWorkIdRegex, makeWorkIdPattern, makeWorkIdLoosePattern, workItemSlug, isMainModule } from './config.mjs';
@@ -71,6 +71,64 @@ function parseQueueTable(md) {
   return { headerLine: headerIdx + 1, rows };
 }
 
+// === D4/D5 · receipt 完整性 + 孤儿目录(v5.4 O13/O7) ===
+
+// level → 该工单 Done 时 receipts/ 下应存在的 stage receipt 文件清单。
+export function expectedReceipts(level) {
+  switch (level) {
+    case 'L0': return ['5-handoff.json'];
+    case 'L1': return ['2a-spec.json', '3-impl.json', '5-handoff.json'];
+    case 'L2': return ['2a-spec.json', '2b-plan.json', '2c-review.json', '3-impl.json', '5-handoff.json'];
+    case 'L3': return ['2a-spec.json', '2b-plan.json', '2c-review.json', '3-impl.json', '4-arch.json', '5-handoff.json'];
+    default: return ['5-handoff.json']; // 未知 level 至少要 handoff
+  }
+}
+
+// D4:Done 工单必须有全套 stage receipt(祖父豁免清单内的跳过)。
+// rows: [{ id, status, level }];slugOf(row) → '<id>_<slug>' 目录名。
+export function checkDoneReceipts({ rows, workDir, receiptsDir = 'receipts', grandfatherIds = [], slugOf }) {
+  const issues = [];
+  const gf = new Set(grandfatherIds);
+  for (const row of rows) {
+    if (row.status !== 'Done') continue;
+    if (gf.has(row.id)) continue;
+    const slug = slugOf(row);
+    const rDir = join(workDir, slug, receiptsDir);
+    for (const fname of expectedReceipts(row.level)) {
+      if (!existsSync(join(rDir, fname))) {
+        issues.push({ severity: 'error', file: `work/${slug}/${receiptsDir}`, msg: `Done 工单 ${row.id} 缺 receipt ${fname}` });
+      }
+    }
+  }
+  return issues;
+}
+
+// D5:work/ 下目录名无法被任一工单的 slugOf 命中 → 孤儿 / slug 漂移 warn。
+export function checkOrphanWorkDirs({ workDir, rows, slugOf, loosePattern }) {
+  const issues = [];
+  if (!existsSync(workDir)) return issues;
+  const canonical = new Set(rows.map((r) => slugOf(r)));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  for (const dir of readdirSync(workDir, { withFileTypes: true })) {
+    if (!dir.isDirectory()) continue;
+    if (canonical.has(dir.name)) continue;
+    const m = dir.name.match(loosePattern);
+    if (m && byId.has(m[1])) {
+      issues.push({ severity: 'warn', file: `work/${dir.name}`, msg: `目录 slug 与当前 workItemSlug 不一致(疑似底盘 slugify 升级),建议 git mv → ${slugOf(byId.get(m[1]))}` });
+    } else {
+      issues.push({ severity: 'warn', file: `work/${dir.name}`, msg: '孤儿 work 目录(无对应工单)' });
+    }
+  }
+  return issues;
+}
+
+// 从 work/<slug>/<receiptsDir>/0-triage.json 读 level;缺失则 null(由调用方兜底)。
+function levelFromTriage(workDir, slug, receiptsDir) {
+  const p = join(workDir, slug, receiptsDir, '0-triage.json');
+  if (!existsSync(p)) return null;
+  try { return JSON.parse(readFileSync(p, 'utf8')).level || null; } catch { return null; }
+}
+
 function parsePlannedSummaryIds(md, workIdPattern) {
   const re = new RegExp(`^###\\s+(${workIdPattern})\\s+·`, 'gm');
   const ids = [];
@@ -123,7 +181,7 @@ function parseAcceptanceMilestoneIds(md, milestones) {
   return ids;
 }
 
-export function validateState({ stateDir, config }) {
+export function validateState({ stateDir, config, workDir = null, grandfatherIds = [] }) {
   if (!config) throw new Error('validateState 需要传入 config（来自 loadConfig）');
   const WORK_ID_RE = makeWorkIdRegex(config);
   const WORK_ID_PATTERN = makeWorkIdPattern(config);
@@ -352,6 +410,23 @@ export function validateState({ stateDir, config }) {
     }
   }
 
+  // D4/D5 · receipt 完整性 + 孤儿目录(workDir 提供时才校验;纯 state 校验场景可不传)
+  if (workDir) {
+    const receiptsDir = config.pipeline?.receiptsDir || 'receipts';
+    const parsed = parseQueueTable(queueMd);
+    const qrows = (parsed?.rows || []).map((r) => ({
+      id: r.workId,
+      status: r.status,
+      title: r.name,
+      level: levelFromTriage(workDir, workItemSlug({ workId: r.workId, title: r.name }), receiptsDir) || 'L2',
+    }));
+    const slugOf = (r) => workItemSlug({ workId: r.id, title: r.title || '' });
+    // makeWorkIdLoosePattern 返回无捕获组的 pattern 串;包一层捕获组让 m[1] = workId。
+    const loose = new RegExp('(' + makeWorkIdLoosePattern(config) + ')');
+    for (const it of checkDoneReceipts({ rows: qrows, workDir, receiptsDir, grandfatherIds, slugOf })) issues.push(it);
+    for (const it of checkOrphanWorkDirs({ workDir, rows: qrows, slugOf, loosePattern: loose })) issues.push(it);
+  }
+
   const errors = issues.filter((i) => i.severity === 'error');
   return { issues, ok: errors.length === 0 };
 }
@@ -365,10 +440,16 @@ if (isMainModule(import.meta.url)) {
   const devRoot = inferDevRoot();
   const stateDir = process.env.STATE_DIR || join(devRoot, 'state');
   const asJson = process.argv.includes('--json');
+  const workDir = process.env.WORK_DIR || join(devRoot, 'work');
+  let grandfatherIds = [];
+  const gfPath = join(stateDir, 'receipt-grandfather.json');
+  if (existsSync(gfPath)) {
+    try { grandfatherIds = JSON.parse(readFileSync(gfPath, 'utf8')).ids || []; } catch { /* 容忍坏文件 */ }
+  }
   let result;
   try {
     const config = await loadConfig({ devRoot });
-    result = validateState({ stateDir, config });
+    result = validateState({ stateDir, config, workDir: existsSync(workDir) ? workDir : null, grandfatherIds });
   } catch (e) {
     console.error(`[validate-state] 致命错误: ${e.message}`);
     process.exit(2);
