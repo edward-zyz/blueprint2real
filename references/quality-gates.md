@@ -25,12 +25,14 @@
 | 3 | implementor 每切片完成后 | 本切片 targeted（plan §1 Step1 + spec §7） | 测试绿 | 红 → 回 implementor 改实现 |
 | 3 | **末切片完成后**（收敛 regression，主线亲跑一次） | `config.regressionCommands` 每一条 | 全部退出码 0 | 任一非 0 → **按切片二分定位**（各切片 targeted + 报告耦合线索），定位切片回 implementor；不裸面对全量红海。多切片工单全量 regression 从 N× 降到 1× |
 | 3 | implementation commit 后 | `git show --stat <hash>` + `git diff --name-only <hash>^ <hash>` | 文件列表 ⊆ spec §4 范围；无 state/* / BOARD.html | 超范围 → 把 commit reset 后回 implementor |
+| 3.5 | UI fidelity（可选 · 仅 ui=true 且有 mockup 目录） | 主线起应用+browser-harness 截深/浅图落盘 → 派 `design-reviewer(mode=fidelity)` → 读 `3.5-ui-fidelity.json` | `reviewer_verdict=PASS`（所有 `本轮做` 元件 match） | `NEEDS_FIX`（元件 missing/mismatch）→ retry 回 implementor → Manager Override；截图取不到 → `env-blocked` surface 环境前置缺口；无 mockup 目录 = 非 UI 工单跳过 |
 | 4 | arch-security-reviewer 返回前 | `cd {{devRoot}} && npm run lint:redlines`（含 `config.redlineCommands` 项目真 arch/layer/security lint，主线亲跑；占位态输出 WARN 而非假绿） | 0 命中 | 命中 → 把命中清单作为输入打回 implementor |
 | 4 | arch-security-reviewer 返回后 | reviewer 只产 **findings**（不自产 receipt）；主线据 findings + lint:redlines 确定性拼装并 `Write` `4-arch.json` | `verdict_suggestion=READY_TO_HANDOFF` | `NEEDS_FIX` → 按建议处理（fixup / 新 slice / 重做）。根治 O1 散文吞 receipt |
 | 5 | handoff-committer 第 5 步 | `cd {{devRoot}} && npm run validate:state` | 0 error | committer 翻档时漏了字段，回 committer 修 |
 | 5 | handoff-committer 第 6 步 | `cd {{devRoot}} && npm run render:board` | 0 退出码 | 渲染异常通常是 state schema 错位，回 validate:state 看 |
 | 5 | handoff-committer 第 8 步 commit 后 | `git show --stat <hash>` | 仅 state/* + BOARD.html | 超范围 → 把 handoff commit reset，重新做 |
-| 5 | handoff-committer 第 10 步 | `cd {{devRoot}} && npm run verify:handoff <id>` | 7 项 check 全 ✓（L0 跳 Check 4，6/6） | 任一 ✗ → 按 check 输出修正后**主线**再跑一次（不让 committer 自报） |
+| 5 | handoff-committer 第 10 步 | `cd {{devRoot}} && npm run verify:handoff <id>` | 8 项 check 全 ✓（L0 跳 Check 4，且非 UI 自动跳 Check 8） | 任一 ✗ → 按 check 输出修正后**主线**再跑一次（不让 committer 自报） |
+| 5 | Check 8 · UI fidelity 硬闸（v5.5） | verify:handoff 内含：有 `work/<id>/ui/` mockup 目录的工单读 `3.5-ui-fidelity.json` | `verdict=PASS`，或显式 `deferred_to_backlog`+`backlog_ref`，或 `reason_category=env-blocked`+证据 | 缺 receipt / 非 PASS 且无顺延证据 → handoff fail；render-diff 与测试绿并列必要，杜绝「测试绿但屏幕上不像」翻 Done |
 | 0 | roadmap-planner Triage 段 | 主线读 `<devRoot>/work/<id>/receipts/0-triage.json` | `level ∈ {L0,L1,L2,L3}`；`reasons[]` 非空 | level 缺或为空 → 打回 planner 重打标 |
 | M | Stage 5 handoff 后 | `cd {{devRoot}} && npm run milestone:status <milestone> -- --json` | `boundary_reached=true` 才进入 E2E；`next_action=skip_e2e_disabled` 时跳过 E2E 不报错 | 脚本未到边界 → 回 per-ticket pipeline；脚本异常 → 先修 state/config |
 | M | E2E acceptance（可选） | 主线读 `<reportsDir>/e2e-<milestone>.json` + 跑 `e2e.e2eCommands` | `overall_verdict=PASS` + `e2e_regression_green=true` + 人类可读报告存在 | FAIL → 按 `(milestone, journey_id)` 去重生成/复用 Planned 修复工单；`e2e_rerun_count > maxRerun` → Manager Override |

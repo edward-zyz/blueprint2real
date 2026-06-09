@@ -10,11 +10,13 @@
 //   5. BOARD.html 的 mtime 比所有 state/*.md 都新（说明已 render:board）
 //   6. validate-state 整体通过（兜底）
 //   7. v5.1: pipeline-status.json status=done 且 escalation_pack=null（如 receipt 目录存在）
+//   8. v5.5: UI 工单（work/<id>/ui/ 有 mockup 且 config.ui 已配置）必须有 3.5-ui-fidelity.json
+//      且 verdict=PASS，或带显式 deferred_to_backlog / env-blocked 证据——render-diff 与测试绿并列必要
 //
 // 用法：
 //   node workflow/scripts/verify-handoff.mjs <work-id>
 //   node workflow/scripts/verify-handoff.mjs <work-id> --json
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateState } from './validate-state.mjs';
@@ -41,6 +43,18 @@ function parseQueueRow(workId, queueMd) {
 function findField(md, key) {
   const m = md.match(new RegExp('^-\\s*' + key + ':\\s*(.+)$', 'm'));
   return m ? m[1].trim() : null;
+}
+
+// v5.5: 工单是否产出过 mockup。约定：mockup 是 work/<slug>/ui/ 下的 depth-1 文件
+// （如 survey-list.html、_chrome.css）；render-diff 截图落在子目录 impl-shots/。
+// depth-1 有任意常规文件 → 这是一条出过设计 mockup 的 UI 工单。
+function hasMockups(uiDir) {
+  if (!existsSync(uiDir)) return false;
+  try {
+    return readdirSync(uiDir, { withFileTypes: true }).some((e) => e.isFile());
+  } catch {
+    return false;
+  }
 }
 
 function findCvSegment(cvMd, workId, workIdPattern) {
@@ -217,6 +231,40 @@ export function verifyHandoff({ stateDir, workDir, boardPath, workId, config }) 
       }
     } catch (err) {
       fail('pipeline-status.json', `parse failed: ${err.message}`);
+    }
+  }
+
+  // Check 8 (v5.5): UI 还原度硬闸——有 mockup 的工单必须过 render-diff 闸
+  // render-diff 通过与测试绿是并列必要条件，杜绝「测试绿但屏幕上不像」一路绿到 handoff。
+  // 仅当 config.ui 已配置且本工单产出过 mockup 时强制；纯后端/CLI（无 config.ui 或无 mockup）跳过，零成本。
+  if (level === 'L0') {
+    pass('UI fidelity 闸', '(L0 跳过 — direct-fix 路径无 UI 设计线)');
+  } else if (!config.ui) {
+    pass('UI fidelity 闸', '(config.ui 未配置 — 非 UI 项目跳过)');
+  } else if (!hasMockups(join(workSubdir, 'ui'))) {
+    pass('UI fidelity 闸', '(本工单无 work/<id>/ui/ mockup — 非 UI 工单跳过)');
+  } else {
+    const fidPath = join(workSubdir, receiptsDir, '3.5-ui-fidelity.json');
+    if (!existsSync(fidPath)) {
+      fail('UI fidelity 闸', `${fidPath} 不存在；有 mockup 的工单必须过 Stage 3.5 render-diff 闸（实现页截图 ↔ mockup 并排比对），或显式登记 backlog 顺延`);
+    } else {
+      try {
+        const fid = JSON.parse(readFileSync(fidPath, 'utf8'));
+        const verdict = fid.reviewer_verdict;
+        const deferred = fid.deferred_to_backlog === true && typeof fid.backlog_ref === 'string' && fid.backlog_ref.trim();
+        const envBlocked = fid.reason_category === 'env-blocked' && typeof fid.blocked_evidence === 'string' && fid.blocked_evidence.trim();
+        if (verdict === 'PASS') {
+          pass('UI fidelity 闸', 'render-diff PASS');
+        } else if (deferred) {
+          pass('UI fidelity 闸', `差异显式顺延 backlog（${fid.backlog_ref}）`);
+        } else if (envBlocked) {
+          pass('UI fidelity 闸', `env-blocked（截图取不到，已 surface 环境前置缺口）`);
+        } else {
+          fail('UI fidelity 闸', `reviewer_verdict="${verdict}"（非 PASS）且无显式 deferred_to_backlog / env-blocked 证据；render-diff 差异未收口，不许 Done`);
+        }
+      } catch (err) {
+        fail('UI fidelity 闸', `3.5-ui-fidelity.json parse failed: ${err.message}`);
+      }
     }
   }
 

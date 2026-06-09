@@ -34,7 +34,7 @@
 2. {{devRoot}}/{{specsDir}}/{{slugDir}}.md
 3. {{devRoot}}/work/{{slugDir}}/plan.md
 4. {{devRoot}}/AGENT_RUNBOOK.md §2 / §6 / §9
-5. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON，确认 spec §4 引用了全部 `mockups[].path`。
+5. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON，确认 spec §4 引用了全部 `mockups[].path`，并**逐 key 对账** `mockup_elements[]` 是否都进了 §4 元件 checklist（这是 UI 还原度的入口闸——漏一个 key 就等于默许一个可见元件被静默丢掉）。
 
 按 context-pack §1 列出的依赖工单，扫一下 dep 的 spec §4/§5（具体路径见 `{{devRoot}}/state/queue.md` 中 dep 行的 Spec 列），确认本工单 §1 上游引用与依赖契约对得上。
 
@@ -59,6 +59,8 @@
 - [ ] §8 失败预案是**具体**的（不只是"如果失败就停下"）
 - [ ] §11 剩余风险都是**非**安全 / 密钥 / 审计 / 客户数据 类
 - [ ] UI 工单：spec §4 有 “UI mockups” 小节，且包含 `2.0-ui-design.json.mockups[]` 的全部路径
+- [ ] **UI 工单·元件清单覆盖（关键）**：`2.0-ui-design.json.mockup_elements[]` 的**每个 `key` 都在 §4 checklist 里出现**，且**每条都带三态标注**（本轮做/顺延/不做）。漏掉某 key、或某条没标三态 = **Fail**（不是 Concern）——这道闸专治「图有、spec 散文漏写」的静默丢失。砍元件本身不 fail（标 `顺延/不做` 是合法的、可审计的决定），**漏标才 fail**
+- [ ] **UI 工单·断言覆盖**：§7 里每个标 `本轮做` 的元件都有一条存在性断言（`顺延/不做` 的不要求）
 
 ### Plan checklist
 
@@ -73,7 +75,7 @@
 - [ ] spec §4 文件范围 ⊆ plan §3 Commit 范围（同一份白名单）
 - [ ] spec §7 Targeted 在 plan §1 TDD Step 1 里有对应失败测试描述
 - [ ] context-pack §1 依赖 → spec §1 前置段中均有提及
-- [ ] UI 工单：plan §1 / §5 的验证策略能覆盖 mockup 对齐断言
+- [ ] UI 工单：plan §1 / §5 的验证策略能覆盖 mockup 对齐断言，且 §1 TDD Step1 的失败测试包含 §7 元件存在性断言（不是只测业务 class/文案）
 
 ### 红线（命中即 Fail，不允许 Concern）
 
