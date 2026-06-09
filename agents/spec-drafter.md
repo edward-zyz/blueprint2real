@@ -46,7 +46,7 @@
 1. {{devRoot}}/work/{{slugDir}}/context-pack.md — 工单基础 + 前置工单已交付能力 + RUNBOOK 章节摘要
 2. {{devRoot}}/{{specsDir}}/{{slugDir}}.md — 当前 stub，你要填满
 3. {{devRoot}}/AGENT_RUNBOOK.md §2 / §6 — 核心规则 + 红线
-4. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON 以及其中 `mockups[].path` 指向的文件；这些是本工单 UI 实现目标。
+4. 如果 `{{uiDesignReceiptPath}}` 不是 null，读取该 JSON 以及其中 `mockups[].path` 指向的文件；这些是本工单 UI 实现目标。**重点读 `mockup_elements[]`**——它是你 §4 元件 checklist 的草稿源，逐条都要在 §4 出现并标三态。
 
 按 context-pack §1 列出的依赖工单，快速扫一眼 dep 的 spec §4/§5（它们交付了什么）。具体路径从 `{{devRoot}}/state/queue.md` 中 dep 行的 Spec 列读（形如 `../{{specsDir}}/<dep-id>_<dep-slug>.md`），但不要全文扫读。
 
@@ -74,7 +74,11 @@ brainstorming 会引导你 explore：
 7. **§8 失败预案具体到**"哪一步失败 → 怎么收"（不写"如果失败就停下"这种废话）
 8. **§11 剩余风险**：仅允许 **非**安全 / **非**密钥 / **非**审计 / **非**客户数据 类风险
 9. **§10 验收 checkbox** 保留 stub 里的清单，必要时增补
-10. **UI 工单额外**：如果存在 `2.0-ui-design.json`，§4 必须增加 “UI mockups” 小节，逐条引用 `mockups[].path`；§7 至少补一条可自动化或人工可核的 UI 对齐断言。不要把 mockup 路径藏在散文里。
+10. **UI 工单额外——清单化，禁止散文化**：如果存在 `2.0-ui-design.json`，§4 必须增加 “UI mockups” 小节：
+    - 先逐条引用 `mockups[].path`（不要把路径藏在散文里）。
+    - **再把 `2.0-ui-design.json.mockup_elements[]` 逐条落成一张元件 checklist**，每条标注三态之一：`本轮做 / 顺延 / 不做`。`mockup_elements[]` 已经把图翻译成结构化条目，你**只做三态标注，不要重新对着图手抄**——但**每一条都必须出现**，一条都不能在写散文时手滑漏掉。
+    - **砍可以，但必须显式砍**：决定本轮不还原某元件，就标 `顺延` 或 `不做` 并一句话写原因（如「表格视图本轮 defer，列入 backlog」）。漏标 = 静默丢失，这正是 UI 还原度断点的根因（图有、spec 散文漏写、测试不锁、实现砍掉、全绿放行）。
+    - **§7 为每个标 `本轮做` 的元件补一条存在性断言**（happy-dom 测不了像素，但测得了「元件在不在」），形如 `expect(w.find('.sv-search').exists()).toBe(true)` / `expect(tier.find('svg').exists()).toBe(true)`。`顺延 / 不做` 的不写断言。用 `mockup_elements[].selector_hint` 起草断言的选择器。
 
 == 自检 ==
 
@@ -89,7 +93,10 @@ brainstorming 会引导你 explore：
 3. §4 列出的文件路径在仓库中能定位
 4. §7 targeted 至少 1 条可被自动化验证
 5. **删除 / 退役类工单**：§4 删除清单条数 == 实际 `git ls-files <目录>` 枚举数；叙述里所有文件计数（§4 / §8 / 估时表）与该条数一致——不一致**先改对再返回**，别留给 reviewer 当 nit（残留数字会触发整轮重跑）
-6. UI 工单：`2.0-ui-design.json.mockups[].path` 全部出现在 spec §4；漏 1 条都先补齐。
+6. UI 工单：
+   - `2.0-ui-design.json.mockups[].path` 全部出现在 spec §4；漏 1 条都先补齐。
+   - `2.0-ui-design.json.mockup_elements[]` **每个 `key` 都在 §4 元件 checklist 里出现且带三态标注**（本轮做/顺延/不做）。逐 key 对账：`mockup_elements` 里有、§4 里没有 = 静默漏写，先补。
+   - §7 里 `本轮做` 的元件**每个都有一条存在性断言**；`顺延/不做` 的不写。
 
 == 返回 ==
 
@@ -117,12 +124,15 @@ brainstorming 会引导你 explore：
   "tbd_grep": 0,
   "file_whitelist_ls": "pass",
   "ui_mockups_referenced": true,
+  "ui_elements_total": 0,
+  "ui_elements_this_round": 0,
+  "ui_elements_deferred": 0,
   "level_check": "matches_triage",
   "skills_used": ["brainstorming"]
 }
 ```
 
-非 UI 工单可填 `"ui_mockups_referenced": null`；UI 工单必须为 `true`。
+非 UI 工单可填 `"ui_mockups_referenced": null`，三个 `ui_elements_*` 也填 `null`；UI 工单 `ui_mockups_referenced` 必须为 `true`，且 `ui_elements_total == mockup_elements[].length`（逐 key 对账过），`this_round + deferred == total`（每条都有三态归属，没有漏标）。
 `tbd_grep` 填**自检 step 2 broadened pattern** 的命中数（含「待 fresh thread 起草」「占位」「（待」等 stub 标记，不是旧窄 `TBD/待定/TODO`），除 §11 明示外应为 0。
 
 精简报告（≤200 字）：

@@ -60,6 +60,7 @@ mode=delta：
 - mockup 可多屏，写入 `{{devRoot}}/work/{{slugDir}}/ui/`。
 - 每个 mockup 文件名用稳定英文/拼音 slug，避免空格和特殊符号。
 - mockup 中使用的 token / 组件 / layout 术语应能追溯到 anchor、配置引用、主动发现结果或合成 anchor；只有项目没有覆盖时，才使用 `designSkill` 补充可用性和交互细节。
+- **逐元件抽 `mockup_elements[]`（v5.5，下游清单化的草稿源）**：mockup 出完后，把每张图里**每个可见元件**逐条登记——工具条/搜索框、视图切换、每个图标、每个 stat、每个空态、每个独立交互控件、关键 layout 区块。这份清单是 spec-drafter「§4 元件清单」与 implementor「元件存在性断言」的**草稿源**：你在这一步把图翻译成结构化条目，下游就只需做「本轮做 / 顺延 / 不做」三态标注，而不必再对着图手抄——从源头堵住「图有、spec 散文漏写、实现静默砍掉」这条有损链（这正是 UI 还原度断点的根因）。**宁可多列**：一个元件漏登记，下游就永远不会知道它该被还原。每条给一个稳定 `key`（如 `toolbar.search`、`tier.icon`）、一句 `desc`、一个 `kind`、以及可选的 `selector_hint`（实现里大概率的 class/role，帮下游写存在性断言）。
 
 == 返回 ==
 
@@ -79,6 +80,9 @@ mode=delta：
   "mockups": [
     { "screen": "<screen>", "path": "work/{{slugDir}}/ui/<screen>.<ext>", "kind": "mockup|screenshot" }
   ],
+  "mockup_elements": [
+    { "screen": "<screen>", "key": "toolbar.search", "desc": "搜索框", "kind": "control|icon|stat|state|nav|layout", "selector_hint": ".sv-search" }
+  ],
   "design_ref_source": "configured|discovered|mixed|synthesized",
   "design_refs_used": ["<configured-or-discovered-path>"],
   "discovered_design_refs": ["<path>"],
@@ -88,7 +92,7 @@ mode=delta：
 }
 ```
 
-mode=anchor 时 `mockups` 可为空；mode=delta 时 `mockups` 必须非空。
+mode=anchor 时 `mockups` / `mockup_elements` 可为空；mode=delta 时 `mockups` 与 `mockup_elements` 都**必须非空**——空 `mockup_elements` 等于没把图翻译成可清单化条目，会被 design-reviewer 判 `NEEDS_FIX`。
 
 == 禁项 ==
 

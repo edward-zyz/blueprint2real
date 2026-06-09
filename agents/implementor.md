@@ -75,7 +75,10 @@ cd {{devRoot}} && npm run start {{workId}}
 3. **不要起 sub-agent**
 4. **不顺手 refactor / cleanup / rename 无关代码**——commit 范围严格限制
 5. **删除受版本控制的文件一律用 `git rm`，禁止裸 `rm -rf` 删仓库路径**——git rm 可回滚（`git restore --staged` / `git reset`）、进 handoff diff 可审计，符合 b2r 可回滚可审计原则；裸 `rm` 不可逆、不留痕，且在无人值守下会触发权限确认弹窗卡死流水线。仅临时产物（`/tmp`、构建输出等非受控文件）可用 `rm`。退役/cleanup 类工单的删除清单同样走 `git rm`（与 spec-drafter §4 由 `git ls-files` 枚举的清单一致）。
-6. **UI 工单必须对齐 mockups**：如果存在 `2.0-ui-design.json`，实现目标包含其中每个 `mockups[].path`。不要只实现功能而忽略布局/状态/屏幕结构；无法对齐时停下说明是 spec §4/设计产物问题。
+6. **UI 工单必须对齐 mockups + 元件清单**：如果存在 `2.0-ui-design.json`，实现目标是 spec §4 元件 checklist 里**标 `本轮做` 的每一条**（不是只实现业务逻辑而忽略布局/状态/图标/屏幕结构）。
+   - **Step 1 失败测试必须包含 §7 的元件存在性断言**——每个 `本轮做` 元件一条（如 `expect(w.find('.sv-search').exists()).toBe(true)`、`expect(tier.find('svg').exists()).toBe(true)`）。这是 b2r 对 UI 工单 TDD 的硬约束：happy-dom 测不了像素，但「元件在不在」必须先红后绿，**丢一个元件红一个**。只测业务 class/文案、不测元件存在性 = 退化，下游 fidelity 闸会逐图打回、整轮重跑。
+   - `顺延 / 不做` 的元件本轮不实现、不写断言——它们在 spec 里已显式记账，不是漏做。
+   - 无法对齐 `本轮做` 某元件时停下说明是 spec §4 / 设计产物问题，不要静默砍掉。
 
 == Step 3 · 本切片 targeted（自跑兜底；全量 regression 收敛到末切片后由主线跑）==
 
@@ -97,7 +100,7 @@ targeted 红 → **停下**，不进 commit，改实现让它过（或 systemati
 - 本切片 targeted 测试绿 ✓（全量 regression 不在切片内跑，主线末切片后收敛跑）
 - git diff 文件清单 ⊆ spec §4 ✓
 - 没有 state/* / BOARD.html 在暂存区 ✓
-- UI 工单：已核对实现与 `2.0-ui-design.json.mockups[]`，差异已解释或修正 ✓
+- UI 工单：spec §4 每个 `本轮做` 元件都已实现且 §7 存在性断言绿 ✓；与 `2.0-ui-design.json.mockups[]` 并排核对过，差异已解释或修正 ✓（注：这只是 happy-dom 级自检；Stage 3.5 主线还会真起应用截图做 render-diff，**别把视觉缺失留给那一步才暴露**）
 
 通过后再 commit（**先按「工作目录纪律」断言 `git rev-parse --show-toplevel` == 仓根**，再只 add 白名单文件）：
 
@@ -145,11 +148,12 @@ receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给
   "files_changed": ["..."],
   "in_spec_scope": true,
   "ui_mockups_checked": true,
+  "ui_element_assertions": 0,
   "skills_used": ["test-driven-development", "verification-before-completion"]
 }
 ```
 
-非 UI 工单可填 `"ui_mockups_checked": null`；UI 工单必须为 `true`。
+非 UI 工单 `ui_mockups_checked` / `ui_element_assertions` 都填 `null`；UI 工单 `ui_mockups_checked` 必须为 `true`，`ui_element_assertions` 填**本轮失败测试里元件存在性断言的条数**（应 == spec §4 标 `本轮做` 的元件数；为 0 而 spec 有 `本轮做` 元件 = TDD 没锁元件，主线打回）。
 
 精简报告（≤300 字）：
 - Step 1 失败测试的实际输出（贴红色那次的关键行）

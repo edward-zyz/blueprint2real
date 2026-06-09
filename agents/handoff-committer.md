@@ -211,10 +211,11 @@ handoff-committer 止于 Step 8（state 翻档 + handoff commit）。verify:hand
      "current_attempt": {{attempt}}, "status": "done",
      "blocked_reason": null, "escalation_pack": null, "last_feedback": null }
    ```
-2. **亲自跑** `cd {{devRoot}} && npm run verify:handoff {{workId}}` 冷确认（不依赖 sub-agent 自报）。7 项 check 全过（L0 跳 Check 4，6/6）：
+2. **亲自跑** `cd {{devRoot}} && npm run verify:handoff {{workId}}` 冷确认（不依赖 sub-agent 自报）。8 项 check 全过（L0 跳 Check 4；非 UI 工单自动跳 Check 8）：
    - 1 queue=Done + hash/日期合法 · 2 active=Idle · 3 customer-visible 有 Done 段
    - 4 spec/plan 存在（L0 跳）· 5 BOARD mtime ≥ state/* · 6 validate-state 通过
    - 7 pipeline-status `status==="done"` 无 pending escalation
+   - 8 UI fidelity（v5.5）：有 `work/<id>/ui/` mockup 目录的工单须 `3.5-ui-fidelity.json`=PASS（或显式顺延/env-blocked）；非 UI 工单跳过
    - 任一 fail → 按 check 输出修正后主线再跑（retry 仍 fail 进 Manager Override）
 3. **亲自跑** `git log --oneline -3` 看 impl + handoff commit 物理分离
 4. 向用户汇报工单 Done + 下一条建议

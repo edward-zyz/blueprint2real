@@ -198,3 +198,88 @@ test('workId 格式非法 → 立即 fail，不继续走后续检查', () => {
   assert.equal(r.checks.length, 1);
   rmSync(root, { recursive: true, force: true });
 });
+
+// ── Check 8 · UI fidelity 硬闸（v5.5）─────────────────────────────
+const uiConfig = loadConfigSync({
+  override: {
+    workIdPrefix: 'IS',
+    workIdDigits: 3,
+    ui: { designSkill: 'ui-ux-pro-max', uiPaths: ['web/src/**'], anchorPath: 'state/ui-anchor.md' },
+  },
+});
+
+// 给 IS-003（legacy work/IS-003/ 结构）加 mockup 目录 + 可选 fidelity receipt
+function addUiTicket(workDir, { mockup = true, fidelity = null } = {}) {
+  const uiDir = join(workDir, 'IS-003', 'ui');
+  if (mockup) {
+    mkdirSync(uiDir, { recursive: true });
+    writeFileSync(join(uiDir, 'survey-list.html'), '<div class="sv-search"></div>');
+  }
+  if (fidelity) {
+    const recDir = join(workDir, 'IS-003', 'receipts');
+    mkdirSync(recDir, { recursive: true });
+    writeFileSync(join(recDir, '3.5-ui-fidelity.json'), JSON.stringify(fidelity));
+  }
+}
+
+const fidExists = (r) => r.checks.find((c) => /UI fidelity 闸/.test(c.name));
+
+test('UI 工单 fidelity=PASS → ok', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  addUiTicket(workDir, { fidelity: { reviewer_verdict: 'PASS' } });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: uiConfig });
+  assert.equal(r.ok, true, `期望通过，实际:\n${r.checks.map((c) => `  ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}`);
+  assert.ok(fidExists(r).ok);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('UI 工单有 mockup 但缺 fidelity receipt → fail', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  addUiTicket(workDir, { fidelity: null });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: uiConfig });
+  assert.equal(r.ok, false);
+  assert.ok(fidExists(r) && !fidExists(r).ok && /不存在/.test(fidExists(r).detail));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('UI 工单 fidelity=NEEDS_FIX 且无顺延证据 → fail', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  addUiTicket(workDir, { fidelity: { reviewer_verdict: 'NEEDS_FIX' } });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: uiConfig });
+  assert.equal(r.ok, false);
+  assert.ok(fidExists(r) && !fidExists(r).ok && /非 PASS/.test(fidExists(r).detail));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('UI 工单 fidelity=NEEDS_FIX 但显式 deferred_to_backlog → ok', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  addUiTicket(workDir, { fidelity: { reviewer_verdict: 'NEEDS_FIX', deferred_to_backlog: true, backlog_ref: 'IS-010' } });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: uiConfig });
+  assert.equal(r.ok, true, `期望通过，实际:\n${r.checks.map((c) => `  ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}`);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('UI 工单 fidelity 截图取不到 env-blocked → ok', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  addUiTicket(workDir, { fidelity: { reviewer_verdict: 'NEEDS_FIX', reason_category: 'env-blocked', blocked_evidence: '应用起不来：launch 命令 exit 1' } });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: uiConfig });
+  assert.equal(r.ok, true, `期望通过，实际:\n${r.checks.map((c) => `  ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}`);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('config.ui 已配置但工单无 mockup 目录 → 跳过（非 UI 工单零成本）', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: uiConfig });
+  assert.equal(r.ok, true, `期望通过，实际:\n${r.checks.map((c) => `  ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}`);
+  assert.ok(fidExists(r).ok && /非 UI 工单跳过/.test(fidExists(r).detail));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('config.ui 未配置 → 即便有 mockup 也跳过 Check 8', () => {
+  const { root, stateDir, workDir, boardPath } = setupFixture();
+  addUiTicket(workDir, { fidelity: null });
+  const r = verifyHandoff({ stateDir, workDir, boardPath, workId: 'IS-003', config: testConfig });
+  assert.equal(r.ok, true, `期望通过，实际:\n${r.checks.map((c) => `  ${c.ok ? '✓' : '✗'} ${c.name}: ${c.detail}`).join('\n')}`);
+  assert.ok(fidExists(r).ok && /未配置/.test(fidExists(r).detail));
+  rmSync(root, { recursive: true, force: true });
+});

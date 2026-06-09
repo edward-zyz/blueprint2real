@@ -18,7 +18,7 @@
 
 ```json
 {
-  "stage_id": "<0-triage | 1-planner | 1.5-ui-anchor | 2.0-ui-design | 2a-spec | 2b-plan | 2c-review | 3-impl | 4-arch | 5-handoff | e2e-acceptance>",
+  "stage_id": "<0-triage | 1-planner | 1.5-ui-anchor | 2.0-ui-design | 2a-spec | 2b-plan | 2c-review | 3-impl | 3.5-ui-fidelity | 4-arch | 5-handoff | e2e-acceptance>",
   "level": "<L0 | L1 | L2 | L3 | null>",
   "attempt": <number, 1-based>,
   "completed_at": "<ISO8601 +08:00>",
@@ -104,6 +104,9 @@ UI 路由两路探测（顶层布尔，互斥）：
   "mockups": [
     { "screen": "<screen name>", "path": "work/<slugDir>/ui/<screen>.<ext>", "kind": "mockup|screenshot" }
   ],
+  "mockup_elements": [
+    { "screen": "<screen>", "key": "toolbar.search", "desc": "搜索框", "kind": "control|icon|stat|state|nav|layout", "selector_hint": ".sv-search" }
+  ],
   "inherits_anchor": true,
   "ui_novel": false,
   "design_ref_source": "configured | discovered | mixed | synthesized",
@@ -119,7 +122,7 @@ UI 路由两路探测（顶层布尔，互斥）：
 }
 ```
 
-`mockups` 是数组，后续 spec-drafter 必须把这些路径写入 spec §4，implementor 必须把它们当 UI 实现目标。
+`mockups` 是数组，后续 spec-drafter 必须把这些路径写入 spec §4，implementor 必须把它们当 UI 实现目标。`mockup_elements`（v5.5）把每张图的可见元件逐条结构化——它是 spec §4 元件 checklist 的草稿源（spec-drafter 只做 本轮做/顺延/不做 三态标注，不手抄）与 Stage 3.5 render-diff 的比对基准。mode=delta 时必须非空。
 
 ### 2a-spec.json
 
@@ -131,11 +134,14 @@ UI 路由两路探测（顶层布尔，互斥）：
   "tbd_grep": 0,
   "file_whitelist_ls": "pass",
   "ui_mockups_referenced": true,
+  "ui_elements_total": 0,
+  "ui_elements_this_round": 0,
+  "ui_elements_deferred": 0,
   "level_check": "matches_triage | upgrade_to_L?"
 }
 ```
 
-非 UI 工单可填 `ui_mockups_referenced: null`；UI 工单必须为 `true`。
+非 UI 工单 `ui_mockups_referenced` 与三个 `ui_elements_*` 都填 `null`；UI 工单 `ui_mockups_referenced` 必须为 `true`，且 `ui_elements_total == 2.0-ui-design.json.mockup_elements[].length`（§4 逐 key 对账过），`this_round + deferred == total`（每个元件都有三态归属，没有漏标——漏标=静默丢失）。
 
 ### 2b-plan.json
 
@@ -183,15 +189,37 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
   "regression_results": [{ "cmd": "<...>", "exit": 0 }],
   "files_changed": ["<...>"],
   "in_spec_scope": true,
-  "ui_mockups_checked": true
+  "ui_mockups_checked": true,
+  "ui_element_assertions": 0
 }
 ```
 
-非 UI 工单可填 `ui_mockups_checked: null`；UI 工单必须为 `true`。
+非 UI 工单 `ui_mockups_checked` / `ui_element_assertions` 都填 `null`；UI 工单 `ui_mockups_checked` 必须为 `true`，`ui_element_assertions`（v5.5）填本轮失败测试里元件存在性断言条数（应 == spec §4 标 `本轮做` 的元件数）。
 
 > **`failing_test_output`（v5.4 O16）必填**：红阶段（TDD 第一步）测试失败输出关键行或 artifact 路径。主线核红 gate 凭此证据，**不凭** `failing_test_first:"pass"` 布尔——布尔可被 sub-agent 自报伪造，证据不能。
 
 > **Receipt 落盘者（v5.4 O13）**：stage receipt 文件由该 stage 的 **sub-agent 自己 `Write`**（路径主线以 `{{receiptPath}}` 钉死），主线派工返回后 `test -f {{receiptPath}}` 校验存在性，不存在即判交付失败。例外见下：4-arch 由主线确定性拼装。
+
+### 3.5-ui-fidelity.json（v5.5 · 仅 ui=true 且有 mockup 目录）
+
+```json
+{
+  ...envelope (stage_id: "3.5-ui-fidelity"),
+  "element_diffs": [
+    { "key": "toolbar.search", "expected": "搜索框 .sv-search", "actual": "缺失", "status": "match|missing|mismatch|extra", "severity": "blocker|minor" }
+  ],
+  "screenshots_checked": ["work/<slugDir>/ui/impl-shots/<screen>-dark.png", "work/<slugDir>/ui/impl-shots/<screen>-light.png"],
+  "reviewer_verdict": "PASS | NEEDS_FIX",
+  "reason_category": "ok | env-blocked",
+  "deferred_to_backlog": false,
+  "backlog_ref": null,
+  "fail_items": [],
+  "reviewer_expectation": null,
+  "escalated_to_human": false
+}
+```
+
+Stage 3.5 render-diff 闸 receipt：`design-reviewer(mode=fidelity)` 把实现页截图 ↔ mockup 逐元件比对后产出，主线落盘。`verify-handoff` 的 Check 8 据此判 handoff：`reviewer_verdict=PASS`，或 `deferred_to_backlog=true`+非空 `backlog_ref`（差异显式顺延），或 `reason_category=env-blocked`+非空 `blocked_evidence`（截图取不到，已 surface 环境前置缺口）——三者之一才放行，否则不许 Done。`element_diffs` 只核 spec §4 标 `本轮做` 的元件；`顺延/不做` 的不算缺失。
 
 ### 4-arch.json（L3 完整 / L2 轻量；L1 不出）
 

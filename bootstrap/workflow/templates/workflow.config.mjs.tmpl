@@ -31,10 +31,13 @@ export default {
   // 可选 UI 设计线。缺省即关闭；纯后端 / CLI 项目不要配置本段。
   // ui: {
   //   designSkill: 'ui-ux-pro-max',            // 推荐；提供 UI/UX 推理与质检清单
-  //   designRefs: ['../docs/design-system/'],  // 可选；项目设计系统优先级最高，缺省/空数组时自动发现，仍找不到则合成 anchor
+  //   designRefs: ['../web/src/views/', '../docs/design-system/'],  // 可选；优先指向「能在浏览器渲染的真实组件/路由」（参照系是渲染真值，而非文字转述的静态 HTML/MD）；缺省/空数组时自动发现，仍找不到则合成 anchor
   //   uiPaths: ['web/src/views/**'],           // 相对 projectRoot，用于和 triage files_estimated 比对
   //   anchorPath: 'state/ui-anchor.md',        // 相对 devRoot，不能越界
   // },
+  // v5.5：配 ui 块即开启「UI 还原度三道防线」——元件清单化 spec（§4/§7）+ 元件存在性 TDD 断言 +
+  //       Stage 3.5 render-diff 硬闸（实现页截图 ↔ mockup 并排比对）。render-diff 闸需要能起应用截图，
+  //       建议同时配下面 e2e 块（verifySkill/launch 复用为截图入口）；缺 e2e 时退化为 verify skill / 项目 dev-server。
 
   // 可选蓝图级 E2E 验收线。缺省即关闭；纯库 / 无可启动应用项目不要配置本段。
   // e2e: {
