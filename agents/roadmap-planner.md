@@ -115,6 +115,22 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
 
 判定要谨慎、可证伪：`ui_paths_stale_suspected` 的触发是**「有前端意图信号」AND「该批 0 命中 uiPaths」**的合取——纯后端批次（前端意图信号为空）即使 0 命中也**不**标，避免对真后端误报。两个标互斥：有 ui 块只可能出 `ui_paths_stale_suspected`，无 ui 块只可能出 `ui_intent_detected`。
 
+**合并候选探测（v5.5 O28 · 治「同包线性链被拆成 N 张工单」的固定开销倍增）**：一个内聚特性被切成多张严格线性依赖的工单时，链上无并行收益，却要为每张付一遍固定开销——逐 stage dispatch 往返 ＋ 末切片全量 regression ＋ 独立 handoff commit ＋ BOARD render，固定开销 ×N = 纯浪费。这个「该 1 工单多 sub-slice、还是 N 工单」的决策当前**没有任何节点负责**（sub-slice 声明点在 spec §4，等到那时工单已 mint 进 queue）。你在出 proposal 时把它机械检测出来、交主线让人拍板。
+
+对本批切片跑一个**机械检测**（集合交 ＋ 图单链，可证伪，**非模糊判断**）。把命中**全部**下列硬条件的、≥2 条**连续**切片标成一个 coalesce candidate：
+
+| 硬条件 | 判法 |
+|---|---|
+| `files_estimated` 同包前缀 | 这组切片的 `files_estimated` 路径前缀集合**相交非空**（存在一个公共目录前缀） |
+| 依赖构成严格单链 | 依赖图上这组节点是一条路径 `A→B→C…`：每个节点**仅**依赖组内前一个、**无分叉**（无第三个节点也依赖中间节点）、对组外无并行入边——即合并不损失任何并行收益 |
+| 链上每条 ≤ L2 | 组内每条 `levels[temp_key] ∈ {L0,L1,L2}`。**L3 自动出局**——含 schema/migration/新依赖/安全敏感的链天然不满足「每条 ≤L2」，无需额外「L3 强制独立」豁免条款 |
+| 同 milestone | 组内 milestone 全等。防跨里程碑误并污染批次 E2E 分组 |
+| 同 ui 标 | 组内 `ui_flags[temp_key]` 全等。防后端 slice 被拖进 mockup 流程、或前端 slice 漏 Stage 3.5 fidelity 闸 |
+
+命中即把该组写进顶层 `coalesce_candidates[]`（每组给 `temp_keys` ＋ `shared_prefix` ＋ `levels` ＋ `milestone` ＋ `ui` ＋ `est_dispatches_saved`=组长-1 ＋ 一行 `evidence` 复述五个硬条件如何满足）。**你只探测、不合并**——workId 未定型时不做结构决策。主线见 `coalesce_candidates[]` 非空**必须 `AskUserQuestion`** 让人拍板（同构于 O27 `ui_paths_stale` → AskUserQuestion）。被采纳合并的切片**从不单独 mint workId**，直接作为 sub-slice 存在，故不存在「跨批引用中间号 → 合并后断边」的风险。
+
+判定要谨慎、可证伪：五个硬条件是**合取**，少一个就不标。分叉链（B 被组内外两个节点依赖）、跨包链（前缀集合空交）、含 L3 的链都**不**标——宁可漏报让人手动合并，不可误报把该独立的工单错并。
+
 **receipt envelope**（必填）：
 
 ```json
@@ -142,6 +158,17 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
   "ui_intent_detected": false,
   "ui_paths_stale_suspected": false,
   "ui_paths_stale_evidence": null,
+  "coalesce_candidates": [
+    {
+      "temp_keys": ["T2", "T3", "T4"],
+      "shared_prefix": "packages/_sdk/survey/",
+      "levels": ["L2", "L2", "L1"],
+      "milestone": "M0",
+      "ui": false,
+      "est_dispatches_saved": 2,
+      "evidence": "T2→T3→T4 严格单链(各仅依赖前一条、无分叉、无组外并行入边)；files_estimated 公共前缀 packages/_sdk/survey/；每条 ≤L2；同 M0；同 ui=false"
+    }
+  ],
   "acceptance": [
     {
       "milestone": "M0",
@@ -165,6 +192,7 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
 精简报告（≤200 字）：
 - 共提议几条 Planned 工单
 - 每条 temp_key + 名称 + 里程碑 + 依赖 + level
+- 若 `coalesce_candidates[]` 非空：逐组列 `temp_keys` + `shared_prefix` + 可省 dispatch 数，并提示主线「待 AskUserQuestion 让人拍板是否合并」；为空写 "no coalesce candidates"
 - 若 e2e 已配置，说明 acceptance 提案覆盖了哪些里程碑；若未配置，写 "e2e disabled"
 - proposal 自检结果
 - 跑了哪些 skill 以及它们的关键产出（1-2 句话总结）
@@ -204,6 +232,7 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
 1. 等 sub-agent 返回
 2. 主线解析 `items[]`，读取现有 queue IDs，对每条 item 依次调用 `mintWorkId(config, existingIds, new Date())`；每分配一个 ID 就加入 `existingIds`，保证同批本地去重
 3. 主线把 `temp_key` 依赖替换成真实 ID，按 8 列 schema 写入 `queue.md` 表格行与 §Planned 摘要段，并创建对应 `work/<slugDir>/<receiptsDir>/0-triage.json`
+   - **若 proposal 含 `coalesce_candidates[]`**：主线在写 queue 前先用 `AskUserQuestion` 把每组合并建议交用户拍板（见 SKILL.md「合并候选 → AskUserQuestion」段）。用户确认合并的组**只 mint 1 个 workId**（组内其余 temp_key 不单独 mint，作为该工单的 sub-slice 存在），并在该工单的 §Planned 摘要里加一行散文 `含原 N 切片: <子能力 1>/<子能力 2>/…` 留追溯（**不进 receipt schema**）；用户选不合并则按原样逐条 mint。被合并组的 0-triage.json 仍按组内 `level = max(slice levels)` 落一份。
 4. 若 `e2e` 已配置，主线把 `acceptance[]` 合并写入 `state/acceptance.md`，每个配置里程碑保留 `## <milestone> ·` 段；不要把 acceptance 写成 customer-visible 交付记录
 5. 主线**亲自跑** `cd {{devRoot}} && npm run validate:state` 双重确认
 6. 跑 `cd {{devRoot}} && npm run deps:graph` 看依赖图（无环 / 有清晰 leaf）
