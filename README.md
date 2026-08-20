@@ -24,6 +24,9 @@ to leave a clear evidence trail instead of becoming an informal chat transcript.
   direct fixes, and handoff commits.
 - **Quality gates by default**: validates state, dependencies, redlines,
   receipts, generated boards, and handoff boundaries.
+- **Project-defined promotion guards**: optionally runs ordered
+  `prePromoteCommands` before any Planned-to-Ready mutation, including dry-run;
+  failures stop with queue/spec/plan untouched.
 - **Milestone E2E acceptance**: optionally validates completed milestones
   against `state/acceptance.md`, writes human-readable acceptance reports, and
   feeds integration failures back into the work queue.
@@ -81,6 +84,23 @@ Use it through an agent:
 ```text
 Use $blueprint2real to turn this roadmap into Done work items.
 ```
+
+To gate promotion on an external or cross-repository contract, configure the
+generated `workflow.config.mjs`:
+
+```js
+export default {
+  projectRoot: '..',
+  prePromoteCommands: ['npm run verify:external-gates'],
+};
+```
+
+Commands run in `projectRoot`, in array order, with `B2R_WORK_ID`,
+`B2R_WORK_TITLE`, `B2R_DRY_RUN`, and `B2R_FORCE` in the environment. The two
+boolean values are `1` or `0`. A non-zero exit, signal, or launch failure stops
+promotion before queue/spec/plan changes. `--dry-run` still runs the guards and
+`--force` cannot bypass them. Omitting the field is backward-compatible and
+acts like `prePromoteCommands: []`.
 
 ## How It Works
 

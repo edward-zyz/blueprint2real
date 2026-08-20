@@ -56,6 +56,9 @@ export const defaults = Object.freeze({
     'cd dev && npm run render:board',
   ],
 
+  // Planned → Ready 前的项目级外部门禁。按顺序执行，任一失败即停止 promote。
+  prePromoteCommands: [],
+
   // blueprint2real skill 的 pipeline 行为参数（v5.1 新增）
   // 跨项目可调，blueprint2real skill 在派 sub-agent 时读这些值填充 prompt 占位
   pipeline: {
@@ -97,6 +100,10 @@ function validate(config) {
   if (typeof config.boardTitle !== 'string' || !config.boardTitle) errs.push('boardTitle 必须是非空字符串');
   if (!Array.isArray(config.docsRefs)) errs.push('docsRefs 必须是数组');
   if (!Array.isArray(config.regressionCommands)) errs.push('regressionCommands 必须是数组');
+  if (!Array.isArray(config.prePromoteCommands) ||
+      config.prePromoteCommands.some((cmd) => typeof cmd !== 'string' || !cmd.trim())) {
+    errs.push(`prePromoteCommands 必须是字符串数组且元素非空（当前: ${JSON.stringify(config.prePromoteCommands)}）`);
+  }
 
   // pipeline (v5.1 新增；缺省时由 defaults 填补)
   if (config.pipeline) {

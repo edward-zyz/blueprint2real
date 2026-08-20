@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { promote } from './promote.mjs';
+import { promote, runPrePromoteCommands } from './promote.mjs';
 import { loadConfigSync } from './config.mjs';
 
 const testConfig = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3, projectName: 'insight' } });
@@ -172,6 +172,146 @@ test('--dry-run 不写盘', async () => {
   assert.ok(!existsSync(join(root, 'specs', 'IS-003_Instance-Profile-加载.md')), 'spec 不应被创建');
   assert.ok(!existsSync(join(workDir, 'IS-003_Instance-Profile-加载', 'plan.md')), 'plan 不应被创建');
   rmSync(root, { recursive: true, force: true });
+});
+
+test('旧调用方传入不含 prePromoteCommands 的 config 时保持兼容', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const legacyConfig = { ...testConfig };
+  delete legacyConfig.prePromoteCommands;
+  const r = await promote({ stateDir, workDir, workId: 'IS-003', config: legacyConfig, dryRun: true });
+  assert.equal(r.ok, true);
+  assert.equal(r.dryRun, true);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('pre-promote guard 失败时 queue/spec/plan/context/BOARD 零改动', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const boardPath = join(root, 'BOARD.html');
+  writeFileSync(boardPath, '<html>BEFORE</html>');
+  const beforeQueue = readFileSync(join(stateDir, 'queue.md'), 'utf8');
+  const config = loadConfigSync({ override: {
+    workIdPrefix: 'IS', workIdDigits: 3, projectName: 'insight',
+    prePromoteCommands: ['node -e "process.exit(7)"'],
+  } });
+
+  await assert.rejects(
+    () => promote({ stateDir, workDir, workId: 'IS-003', config, boardPath }),
+    /pre-promote guard.*exit(?: code)? 7/i,
+  );
+
+  assert.equal(readFileSync(join(stateDir, 'queue.md'), 'utf8'), beforeQueue);
+  assert.equal(readFileSync(boardPath, 'utf8'), '<html>BEFORE</html>');
+  assert.ok(!existsSync(join(root, 'specs', 'IS-003_Instance-Profile-加载.md')));
+  assert.ok(!existsSync(join(workDir, 'IS-003_Instance-Profile-加载', 'plan.md')));
+  assert.ok(!existsSync(join(workDir, 'IS-003_Instance-Profile-加载', 'context-pack.md')));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('pre-promote guard 在 dry-run 也执行，并注入工单/标题/dry-run/force/cwd', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const projectRoot = join(root, 'project');
+  mkdirSync(projectRoot);
+  const evidencePath = join(root, 'guard-env.json');
+  const script = `require('node:fs').writeFileSync(${JSON.stringify(evidencePath)}, JSON.stringify({cwd:process.cwd(),id:process.env.B2R_WORK_ID,title:process.env.B2R_WORK_TITLE,dry:process.env.B2R_DRY_RUN,force:process.env.B2R_FORCE}))`;
+  const command = `node -e ${JSON.stringify(script)}`;
+  const config = loadConfigSync({ override: {
+    workIdPrefix: 'IS', workIdDigits: 3, projectName: 'insight',
+    projectRoot: 'project',
+    prePromoteCommands: [command],
+  } });
+
+  const r = await promote({ stateDir, workDir, workId: 'IS-003', config, dryRun: true });
+  assert.equal(r.dryRun, true);
+  assert.deepEqual(JSON.parse(readFileSync(evidencePath, 'utf8')), {
+    cwd: realpathSync(projectRoot),
+    id: 'IS-003',
+    title: 'Instance Profile 加载',
+    dry: '1',
+    force: '0',
+  });
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('pre-promote guard 以显式 devRoot 解析 projectRoot，不受外置 stateDir 影响', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const externalStateRoot = mkdtempSync(join(tmpdir(), 'b2r-external-state-'));
+  const externalStateDir = join(externalStateRoot, 'snapshot');
+  mkdirSync(externalStateDir);
+  for (const name of ['queue.md', 'customer-visible.md', 'roadmap.md', 'active.md']) {
+    writeFileSync(join(externalStateDir, name), readFileSync(join(stateDir, name)));
+  }
+  const devRoot = join(root, 'b2r-process');
+  const projectRoot = root;
+  mkdirSync(devRoot);
+  const evidencePath = join(root, 'guard-cwd.txt');
+  const command = `node -e ${JSON.stringify(`require('node:fs').writeFileSync(${JSON.stringify(evidencePath)}, process.cwd())`)}`;
+  const config = loadConfigSync({ override: {
+    workIdPrefix: 'IS', workIdDigits: 3, projectName: 'insight',
+    projectRoot: '..',
+    prePromoteCommands: [command],
+  } });
+
+  await promote({
+    stateDir: externalStateDir,
+    workDir,
+    workId: 'IS-003',
+    config,
+    devRoot,
+    dryRun: true,
+  });
+
+  assert.equal(readFileSync(evidencePath, 'utf8'), realpathSync(projectRoot));
+  rmSync(externalStateRoot, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('--force 只跳依赖门，不绕过 pre-promote guard', async () => {
+  const queue = QUEUE_BASE.replace(
+    '| IS-002 | Metadata Store | Done | M0 | `../work/IS-002/spec.md` | `../work/IS-002/plan.md` | 182c25a | 2026-05-13 |',
+    '| IS-002 | Metadata Store | Planned | M0 | — | — | — | — |',
+  ) + '\n### IS-002 · Metadata Store\n\n目标：SQLite。不做：MySQL。验收：建表通过。依赖：IS-001。\n';
+  const { root, stateDir, workDir } = setupFixture(queue);
+  const config = loadConfigSync({ override: {
+    workIdPrefix: 'IS', workIdDigits: 3, projectName: 'insight',
+    prePromoteCommands: ['node -e "process.exit(9)"'],
+  } });
+  await assert.rejects(
+    () => promote({ stateDir, workDir, workId: 'IS-003', config, force: true }),
+    /pre-promote guard.*exit(?: code)? 9/i,
+  );
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('多个 pre-promote guard 顺序执行，首个失败后短路', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const tracePath = join(root, 'guard-trace.txt');
+  const append = (value) => `node -e ${JSON.stringify(`require('node:fs').appendFileSync(${JSON.stringify(tracePath)}, '${value}')`)}`;
+  const config = loadConfigSync({ override: {
+    workIdPrefix: 'IS', workIdDigits: 3, projectName: 'insight',
+    prePromoteCommands: [append('1'), `${append('2')}; exit 4`, append('3')],
+  } });
+  await assert.rejects(
+    () => promote({ stateDir, workDir, workId: 'IS-003', config }),
+    /pre-promote guard.*#2.*exit(?: code)? 4/i,
+  );
+  assert.equal(readFileSync(tracePath, 'utf8'), '12');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('pre-promote guard 收到信号或启动失败时 fail-closed', () => {
+  const context = { projectRoot: process.cwd(), workId: 'IS-003', workTitle: 'x', dryRun: false, force: false };
+  assert.throws(
+    () => runPrePromoteCommands(['x'], context, () => { throw new Error('sync spawn failure'); }),
+    /pre-promote guard.*sync spawn failure/i,
+  );
+  assert.throws(
+    () => runPrePromoteCommands(['x'], context, () => ({ status: null, signal: 'SIGTERM' })),
+    /pre-promote guard.*SIGTERM/i,
+  );
+  assert.throws(
+    () => runPrePromoteCommands(['x'], context, () => ({ status: null, signal: null, error: new Error('spawn ENOENT') })),
+    /pre-promote guard.*spawn ENOENT/i,
+  );
 });
 
 test('promote 后 validate-state 兜底通过', async () => {

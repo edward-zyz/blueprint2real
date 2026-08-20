@@ -25,6 +25,7 @@ description: Multi-agent 工作流编排器。把路线图 / roadmap / 设计文
 8. **pipeline-status.json 主线单写者；stage receipt 由 sub-agent 落盘**：`b2r-process/work/<id>/receipts/pipeline-status.json` 仅由主线 thread 写入。但**每个 stage 的 receipt 文件 `<stage>.json` 由该 stage 的 sub-agent 自己 `Write`**（路径由主线在 prompt 中以 `{{receiptPath}}` 钉死），末条消息里的 receipt 仅作冗余副本。主线派工返回后**第一动作是 `test -f {{receiptPath}}`**——文件不存在即判交付失败（走不变量 10 自愈），不再依赖解析末条消息判成功。二者不冲突：不同文件、不同写者。
 9. **skill 不直接 Write 底盘脚本**：主线 / 任何 sub-agent 都**不**得直接 Write 或 Edit `workflow/scripts/`、`workflow/templates/`、`workflow/package.json`、`<target>/package.json` 等底盘文件。底盘只能通过 `init.mjs --bootstrap` 一次性 bootstrap，源是本 skill 的 `bootstrap/workflow/` 自带资产。看到底盘缺失时**停下**报告 + 引导用户跑 bootstrap 命令，不允许"贴心创造"。理由：底盘是 skill 的共享物理实现，从单一权威源分发；让 LLM 每次贴心重造会导致版本漂移、与 skill 期望的契约脱节。
 10. **交付失败 ≠ 质量失败**：sub-agent **返回了**但产物不可用（529/overloaded 错误串、空、截断、末条非合法 receipt JSON）时，主线按「receipt 兜底协议」**自动恢复**——fresh 重派 1 次 → 仍不可用则主线内联接手 → 主线也做不动才进 Manager Override；这整条**不计入 gate attempt**，也**不**在前两步惊动用户。边界：**进程级真 hang**（主线同步阻塞、无从检测）不在本条范围，依赖 harness 的 Agent 超时回收。与不变量 7 区分——那是 sub-agent 主动报 `blocked:true`+证据（质量/能力分歧 → 直进 Manager）；本条是 sub-agent 根本没给出可用 receipt（交付层 → 先自愈）。
+11. **项目外部门禁先于 promote 副作用**：配置了 `prePromoteCommands` 时，`promote.mjs` 必须在 Planned → Ready 的任何写盘或 dry-run 输出前，于 `projectRoot` 顺序执行全部命令。任一命令非 0、被信号终止或无法启动都 fail-closed；`--force` 只豁免依赖 Done 检查，不能绕过此外部门禁。
 
 为什么这些必须硬阻断：每一条都对应过历史踩过的坑。`exactly-one` 治"假装在做多个"的 LLM 幻觉；`物理分离` 让任一切片可独立 revert；`前置 Done 后 promote` 防止把"想象的接口"当成真接口去 spec。略过任一条，会让本工作流退化成普通的"看心情写代码"。
 
@@ -75,6 +76,7 @@ node <SKILL_ROOT>/bootstrap/workflow/scripts/init.mjs --upgrade --target <devRoo
 - `projectName` / `boardTitle` — 品牌
 - `docsRefs` — 项目上游文档路径（spec 必须从这些位置引用具体章节）
 - `regressionCommands` — regression 阶段必须跑的命令
+- `prePromoteCommands`（默认 `[]`）— Planned → Ready 前的项目级外部门禁；按顺序在 `projectRoot` 执行，任一失败即零 promote 副作用停止
 - `pipeline.maxRetry`（默认 `1`） — Gate fail 后 retry 上限
 - `pipeline.retroSurfaceThreshold`（默认 `3`） — 累计 N 条 retro override 主动 surface 给用户
 - `pipeline.receiptsDir`（默认 `receipts`） — `work/<slugDir>/` 下 receipt 子目录名
@@ -126,12 +128,14 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
    ▼
 ┌─ Stage 2 · Promote ─────────────────────────────────────────┐
 │  目标：把 1 条 Planned 翻 Ready，生成 spec / plan / context-pack │
-│  执行者：promote.mjs（脚本）→ 可选 UI 设计 → spec/plan drafting │
+│  执行者：promote.mjs（prePromoteCommands → 门禁通过后写盘）→ 可选 UI 设计 → spec/plan drafting │
 │            L1：spec + plan 合并 + self-review 内嵌            │
 │            L2/L3：独立 2a / 2b / 2c 三步                      │
 │  产物：specs/<slug>.md + work/<slug>/{plan,context-pack}.md + receipt-2*.json │
 │  门槛：spec/plan reviewer 通过 + npm run validate:state OK    │
 └────────────────────────────────────────────────────────────┘
+
+> **Pre-promote guard（v5.6）**：若 `workflow.config.mjs` 配置 `prePromoteCommands`，`promote.mjs` 会在确认工单可 promote、但尚未创建 spec/plan/context-pack、修改 queue 或输出 dry-run 摘要之前，依数组顺序运行命令。命令 cwd 为 `projectRoot`（缺省 `devRoot`），并注入 `B2R_WORK_ID`、`B2R_WORK_TITLE`、`B2R_DRY_RUN`、`B2R_FORCE`；后二者使用 `1` / `0`。失败后短路，后续命令不执行；`--dry-run` 仍执行，`--force` 不能绕过。未配置时默认空数组，行为与 v5.5 完全一致。
 
 > **合并候选 → AskUserQuestion（v5.5 O28 · 治同包线性链的固定开销倍增）**：roadmap-planner 在 Stage 1 proposal 里若返回 `coalesce_candidates[]` 非空，说明本批存在「同包前缀 ＋ 严格单链 ＋ 每条 ≤L2 ＋ 同里程碑 ＋ 同 ui 标」的连续切片——它们是一个内聚特性被拆成多张线性工单，链上**无并行收益**，却要为每张付一遍固定开销（逐 stage dispatch 往返 ＋ 末切片全量 regression ＋ 独立 handoff commit ＋ BOARD render，固定开销 ×N = 纯浪费）。「该 1 工单多 sub-slice、还是 N 工单」这个决策原本**无人负责**（sub-slice 声明点在 spec §4，那时工单已 mint 进 queue）；O28 把它前移到此处机械检测 ＋ 人确认。主线**必须**在 `mintWorkId` 前对每组 `AskUserQuestion`：「检测到 N 条切片是同包线性链（`<shared_prefix>`），无并行收益。合成 1 工单 ＋ N sub-slice 可省 N-1 遍 spec/plan/review/regression/handoff。是否合并？(a) 合并成 1 工单 ＋ N sub-slice (b) 保持 N 张独立工单」。**由人拍板，主线不自动合并**——workId 未定型时不做结构决策，同构于 O27 `ui_paths_stale` → AskUserQuestion。选合并 → 该组只 mint 1 个 workId、其余 temp_key 作 sub-slice、§Planned 摘要加「含原 N 切片: …」一行散文留追溯（不进 receipt schema）；选不合并 → 逐条照常 mint。被合并的切片从不单独 mint 中间号，故无「跨批引用中间号 → 合并后断边」风险。spec-drafter 据此在 spec §4 写 `### Sub-slice 列表`（RUNBOOK §11）。
 >
@@ -377,6 +381,7 @@ E2E acceptance 是蓝图级 gate，不占用单工单 stage attempt；失败时�
 |---|---|---|
 | Stage 0 Triage | （主线读 receipt） | level ∈ {L0,L1,L2,L3}，判据非空 |
 | Stage 1 Backlog 落地 | `cd {{devRoot}} && npm run validate:state` | 0 error（warn 允许） |
+| Stage 2 Promote 前（可选） | `config.prePromoteCommands`（由 `promote.mjs` 在 `projectRoot` 顺序执行） | 全部退出码 0；失败时 queue/spec/plan/context/BOARD 零改动；dry-run/force 也不豁免 |
 | Stage 2 Promote 后 | `cd {{devRoot}} && npm run validate:state` + `cd {{devRoot}} && npm run deps:graph` | 0 error，依赖图无环、无孤儿 |
 | Stage 1.5 UI Anchor（可选） | 主线读 `1.5-ui-anchor.json` + design source 证据 | `reviewer_verdict=="PASS"`，且 `ref_grep_hits` 非空或 `synthesized_design_system==true` 且 `synthesis_evidence` 非空；项目事实源未被通用 designSkill 覆盖 |
 | Stage 2.0 UI Delta（可选） | 主线读 `2.0-ui-design.json` + mockup 路径存在性 | `reviewer_verdict=="PASS"` 且 `mockups[]` 非空，mockup 对齐 anchor；`ui_novel=true` 或 `NEEDS_FIX` surface |

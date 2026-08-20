@@ -13,7 +13,9 @@ flowchart TD
 
     S1[Stage 1 Planner] --> R1[(receipt-1)]
     R1 --> G2{Gate 2}
-    G2 -->|pass| S2a
+    G2 -->|pass| PG{prePromoteCommands<br/>optional fail-closed gate}
+    PG -->|pass / no commands| S2a
+    PG -->|nonzero / signal / launch failure| GuardStop([Stop<br/>queue/spec/plan untouched])
     G2 -.fail / self-blocked.-> Mgr
 
     S2a[Stage 2a Spec Drafter] --> R2a[(receipt-2a)]

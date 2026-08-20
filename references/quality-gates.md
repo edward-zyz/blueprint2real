@@ -14,6 +14,7 @@
 |---|---|---|---|---|
 | 1 | roadmap-planner 返回后 | `cd {{devRoot}} && npm run validate:state` | 0 error | sub-agent 显然没写好 queue.md，回报用户决定是否打回重做 |
 | 1 | roadmap-planner 返回后 | `cd {{devRoot}} && npm run deps:graph` | 退出码 0（无环）+ 文本输出依赖关系合理 | 依赖循环或孤儿节点 → 打回 planner 调整 |
+| 2 | promote 写盘 / dry-run 输出前（可选） | `config.prePromoteCommands`，由 `promote.mjs` 在 `projectRoot` 顺序执行 | 全部退出码 0；环境含工单 ID/标题/dry-run/force | 任一非 0、信号或启动失败 → 立即停止，queue/spec/plan/context/BOARD 零改动；`--force` 不豁免 |
 | 2 | promote.mjs 后 | promote.mjs 内嵌跑了 validate:state；主线再跑一次冷确认 | 0 error | promote 应该不会留 broken state，但万一发生，回报 |
 | 1.5 | UI anchor（可选） | 主线读 `1.5-ui-anchor.json` + 校验 `state/ui-anchor.md` 存在 | `reviewer_verdict=PASS`，且 `ref_grep_hits` 非空或 `synthesized_design_system=true` 且 `synthesis_evidence` 非空；项目事实源未被通用 designSkill 覆盖 | `NEEDS_FIX`、需要发现时未主动发现、或合成证据为空 → retry-once；仍失败进 Manager Override |
 | 2.0 | UI delta（可选） | 主线读 `2.0-ui-design.json` + 校验 `mockups[].path` 存在 | `reviewer_verdict=PASS` 且 `mockups[]` 非空；`ui_novel=false`；mockup 对齐 anchor | `NEEDS_FIX` 或 `ui_novel=true` → surface / Manager Override；PASS 后 spec-drafter 必须引用 mockups |

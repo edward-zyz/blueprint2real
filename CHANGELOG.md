@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.6.0] - 2026-08-20
+
+### Added
+
+- Added optional `workflow.config.prePromoteCommands` as an ordered,
+  fail-closed Planned → Ready guard. Commands run in `projectRoot` before any
+  promote mutation or dry-run output, receive work-item context via `B2R_*`
+  environment variables, short-circuit on failure, and cannot be bypassed by
+  `--force`.
+- Added config validation, bootstrap template defaults, upgrade-preservation
+  coverage, and regression tests for zero-mutation failure, dry-run execution,
+  environment propagation, sequential short-circuiting, signals, launch
+  failures, and backward compatibility.
+
+## [5.5.0] - 2026-08-19
+
 ### Added
 
 - **UI 还原度三道防线（workflow bootstrap v5.5）**——根治「高保真 mockup 经 `图 → spec 散文 → happy-dom 测试 → 代码` 有损压缩后，未被转录的视觉信息静默丢失却全绿放行」：
