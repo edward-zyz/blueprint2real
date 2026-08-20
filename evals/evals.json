@@ -90,10 +90,10 @@
           "expected": ">=3"
         },
         {
-          "text": "SKILL.md 含 6 阶段编排（Stage 0 Triage + 1-5）",
+          "text": "SKILL.md 含 7 个阶段框（Stage 0-5，含 Stage 3.5 UI fidelity）",
           "type": "shell",
           "command": "grep -cE '^┌─ Stage [0-5]' \"$SKILL_ROOT\"/SKILL.md",
-          "expected": "6"
+          "expected": "7"
         },
         {
           "text": "quality-gates.md 列出至少 14 个具体节点",
@@ -456,9 +456,9 @@
           "expected": ">=1"
         },
         {
-          "text": "P1·dist: bundle VERSION = 5.4.0",
+          "text": "P1·dist: bundle VERSION = 5.6.0",
           "type": "shell",
-          "command": "grep -c '5.4.0' \"$SKILL_ROOT\"/bootstrap/workflow/VERSION",
+          "command": "grep -c '5.6.0' \"$SKILL_ROOT\"/bootstrap/workflow/VERSION",
           "expected": "1"
         },
         {
@@ -480,10 +480,10 @@
           "expected": "ok"
         },
         {
-          "text": "P1·dist: --upgrade 端到端(thin:.b2r-version=5.4.0 + 无 workflow/ + 补 regression:diff alias)",
+          "text": "P1·dist: --upgrade 端到端(thin:.b2r-version=5.6.0 + 无 workflow/ + 补 regression:diff alias)",
           "type": "shell",
           "command": "rm -rf /tmp/b2r-up && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --bootstrap --prefix UP --milestones M0 --project uptest --target /tmp/b2r-up >/dev/null 2>&1 && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --upgrade --target /tmp/b2r-up >/dev/null 2>&1 && ver=$(tr -d '[:space:]' < /tmp/b2r-up/.b2r-version 2>/dev/null) && wf=$(test -d /tmp/b2r-up/workflow && echo FAT || echo THIN) && al=$(grep -c 'regression:diff' /tmp/b2r-up/package.json) && echo \"$ver-$wf-$al\"",
-          "expected": "5.4.0-THIN-1"
+          "expected": "5.6.0-THIN-1"
         },
         {
           "text": "P2·O13: SKILL.md 含 test -f {{receiptPath}} 主线校验",
