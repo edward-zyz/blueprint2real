@@ -47,7 +47,7 @@
 }
 ```
 
-`reasons[]`（v5.6）每条必须引用 triage 决策树的分支号 + 工单事实；主线机械核 level vs `files_estimated.length` 自洽（L1 ⇒ 恰 1 文件，L0/L2 ⇒ ≤3 文件），矛盾即打回重判。`files_estimated` 与 `ui_match_evidence` 均使用 projectRoot 相对路径。`workflow.config.ui.uiPaths` 也按 projectRoot 相对 glob 解释，避免和 `b2r-process/` devRoot 混淆。
+`reasons[]` 每条必须引用 triage 决策树的分支号 + 工单事实；主线机械核 level vs `files_estimated.length` 自洽（L1 ⇒ 恰 1 文件，L0/L2 ⇒ ≤3 文件），矛盾即打回重判。`files_estimated` 与 `ui_match_evidence` 均使用 projectRoot 相对路径。`workflow.config.ui.uiPaths` 也按 projectRoot 相对 glob 解释，避免和 `b2r-process/` devRoot 混淆。
 
 ### 1-planner.json
 
@@ -153,11 +153,16 @@ UI 路由两路探测（顶层布尔，互斥）：
   "tdd_step1_described": true,
   "regression_cmds_unchanged": true,
   "sub_slice_count": <1 or N>,
+  "slices": [
+    { "label": "<slice 标签 or '整工单单切片'>", "inline_ok": false, "inline_ok_reason": "<标 true 时的具体依据，否则 null>" }
+  ],
   "l1_self_review_verdict": "<READY_TO_IMPLEMENT | NEEDS_REVISION | null>"
 }
 ```
 
 L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-review）。
+
+`slices[].inline_ok`（微切片内联通道）：plan-drafter 判定该切片「改动 ≤2 文件 且 无新增行为断言需求」（典型：只差提交、纯配置/文案、上游已验证只需落盘）时标 `true`，主线可内联完成、不派 implementor，对应 `3-impl.json` 记 `inline: true`。**拿不准就不标**，整轮 implementor 是默认。
 
 ### 2c-review.json（仅 L2/L3）
 
@@ -183,8 +188,10 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
   ...envelope (stage_id: "3-impl"),
   "sub_slice": "<label or '整工单单切片'>",
   "impl_commit": "<7-hex>",
+  "red_gate_mode": "behavior-change | new-module",
+  "inline": false,
   "failing_test_first": "pass",
-  "failing_test_output": "<红阶段测试输出关键行，或 artifact 路径>",
+  "failing_test_output": "<按 red_gate_mode 分型，见下>",
   "targeted_test": "pass",
   "regression_results": [{ "cmd": "<...>", "exit": 0 }],
   "files_changed": ["<...>"],
@@ -194,9 +201,17 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
 }
 ```
 
-非 UI 工单 `ui_mockups_checked` / `ui_element_assertions` 都填 `null`；UI 工单 `ui_mockups_checked` 必须为 `true`，`ui_element_assertions`（v5.5）填本轮失败测试里元件存在性断言条数（应 == spec §4 标 `本轮做` 的元件数）。
+多切片工单按切片各出一份 3-impl receipt（`sub_slice` 区分）；若主线把切片汇总成 `slices[]` 数组，每个条目同样携带 `red_gate_mode` / `inline` / `failing_test_output` 三个字段，语义一致。
 
-> **`failing_test_output`（v5.4 O16 · v5.6 收紧）必填且须含失败结构**：红阶段（TDD 第一步）测试失败输出关键行或 artifact 路径，且内容必须体现失败结构——非 0 退出码记录，或 `FAIL` / `Error` / `AssertionError` / `✗` 等测试框架失败关键行。主线核红 gate 时 grep 这些关键字，**不凭** `failing_test_first:"pass"` 布尔、也不接受"非空即过"——布尔可伪造，任意非空散文同样可伪造，失败结构才是不可伪造的最小证据。
+非 UI 工单 `ui_mockups_checked` / `ui_element_assertions` 都填 `null`；UI 工单 `ui_mockups_checked` 必须为 `true`，`ui_element_assertions` 填本轮失败测试里元件存在性断言条数（应 == spec §4 标 `本轮做` 的元件数）。
+
+> **红门证据按切片分型（`red_gate_mode` 必填）**：
+> - `"behavior-change"`（改既有行为的切片）：`failing_test_output` 必须是**断言级**红色输出关键行或 artifact 路径——期望值 vs 实际值的差异（如"期望 200 实得 404"）。`ERR_MODULE_NOT_FOUND` / `Cannot find module` 式的红**不算证据**（只证明文件不存在，是仪式不是验证），主线见到即判红门未过、打回。主线核时**grep 失败结构关键字**——非 0 退出码记录，或 `FAIL` / `Error` / `AssertionError` / `✗` 等测试框架失败关键行；"非空即过"不成立，任意散文都能骗过它。
+> - `"new-module"`（从零新建模块/文件的切片）：允许 tests 与最小实现同批落地，`failing_test_output` 写明"tests+impl 同批，断言覆盖 spec §7 Tx/Ty"并附跑绿输出关键行。
+>
+> 两型都**不凭** `failing_test_first:"pass"` 布尔判门（布尔可被自报伪造，证据不能）。
+
+> **`inline`（微切片内联通道）**：该切片由主线内联完成、未派 implementor 时填 `true`。前提是 plan `2b-plan.json.slices[].inline_ok == true`（改动 ≤2 文件 + 无新增行为断言需求）。内联切片同样受不变量 3 / 4 约束，红门证据字段照常填。
 
 > **Receipt 落盘者（v5.4 O13）**：stage receipt 文件由该 stage 的 **sub-agent 自己 `Write`**（路径主线以 `{{receiptPath}}` 钉死），主线派工返回后 `test -f {{receiptPath}}` 校验存在性，不存在即判交付失败。例外见下：4-arch 由主线确定性拼装。
 
@@ -234,13 +249,17 @@ Stage 3.5 render-diff 闸 receipt：`design-reviewer(mode=fidelity)` 把实现�
   "redline_human_audit": "pass",
   "implementation_quality": "pass",
   "section11_alignment": "pass",
+  "independent_review_dispatched": false,
+  "dispatch_reason": "<未派时写明依据；派了时写命中的条件 (a)/(b)/(c)>",
   "reviewer_expectation": null
 }
 ```
 
-L2 轻量路径 `skills_used` 仅含 `security-review`，不含 `architecture`。
+L2 轻量路径 `skills_used` 仅含 `security-review`，不含 `architecture`；未派独立 reviewer 时 `skills_used` 可为空数组。
 
-> **4-arch 由主线拼装（v5.4 O1/O13）**：arch-security-reviewer **不自产此 receipt**，只返回结构化 findings（`red_line_hits` / `security_findings` / `verdict_suggestion` / `scope_check`）。主线亲跑 `lint:redlines` + 读 findings 后**确定性拼装并 `Write` 4-arch.json**——根治 security-review skill 散文收尾挤掉 receipt 的复发坑。
+> **4-arch 始终由主线拼装**：即使派了 arch-security-reviewer，它也**不自产此 receipt**，只返回结构化 findings（`red_line_hits` / `security_findings` / `verdict_suggestion` / `scope_check`）。主线亲跑 `lint:redlines` + 读 findings 后**确定性拼装并 `Write` 4-arch.json**——根治 security-review skill 散文收尾挤掉 receipt 的复发坑。
+
+> **`independent_review_dispatched` / `dispatch_reason`**：L3 的 Stage 4 默认由主线内联完成（亲跑 `lint:redlines` + 核 scope 一致性 / spec §11 对齐 / diff 面），此时填 `false` + 未派依据（如"lint:redlines 0 命中，diff 不触碰认证/授权/加密/密钥/权限/migration/计费，内联核查无疑点"）。仅命中 (a) 红线 lint 或 redlineCommands 命中 / (b) diff 触碰安全敏感面 / (c) 主线内联核查发现疑点 之一时才派独立 reviewer，填 `true` + 命中条件。L2 轻量内嵌、L1 不出本 receipt。
 
 ### 5-handoff.json
 
@@ -257,6 +276,8 @@ L2 轻量路径 `skills_used` 仅含 `security-review`，不含 `architecture`�
 ```
 
 L0 路径 `verify_handoff_checks` 写 `6/6 pass (skip Check 4 spec/plan)`。
+
+> **落盘者**：Stage 5 默认由主线亲做（白名单 `git add` → 断言双 commit 分离 → 亲跑 `verify:handoff` → 翻档），`5-handoff.json` 由**主线**落盘。仅在主线上下文吃紧或并行多单收尾时才派 handoff-committer，此时由它落盘，但主线仍须亲跑一次 `verify:handoff` 与 `git show --stat` 复核。
 
 ### e2e-<milestone>.json（里程碑级，非工单目录）
 
