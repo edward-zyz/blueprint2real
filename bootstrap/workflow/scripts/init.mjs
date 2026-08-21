@@ -200,6 +200,12 @@ export function planInit({ config, targetDir, bootstrap = false }) {
   // 可在用户级 / 迁移安装时覆盖，实现 runtime（b2r-process 状态）与 skill 定义解耦。
   const skillRootRel = resolve(WORKFLOW_DIR, '..', '..').split(sep).join('/');
 
+  // v5.6 迭代2:devRoot 目录名按实际 target 派生(默认 b2r-process,用户可自定义),
+  // 模板与 regressionCommands 不再硬编码 legacy `dev`。
+  const devRootName = targetDir.split(sep).filter(Boolean).pop() || 'b2r-process';
+  const regressionCommands = config.regressionCommands.map((c) =>
+    c.replace(/^cd (dev|b2r-process) && /, `cd ${devRootName} && `));
+
   const vars = {
     workIdPrefix: config.workIdPrefix,
     workIdDigits: String(config.workIdDigits),
@@ -210,11 +216,12 @@ export function planInit({ config, targetDir, bootstrap = false }) {
     milestonesSlash,
     milestonesJson: JSON.stringify(config.milestones),
     docsRefsJson: JSON.stringify(config.docsRefs, null, 2).replace(/\n/g, '\n  '),
-    regressionCommandsJson: JSON.stringify(config.regressionCommands, null, 2).replace(/\n/g, '\n  '),
+    regressionCommandsJson: JSON.stringify(regressionCommands, null, 2).replace(/\n/g, '\n  '),
     docsRefsBullets: buildDocsRefsBullets(config.docsRefs),
     milestoneSections: buildMilestoneSections(config.milestones),
     acceptanceSections: buildAcceptanceSections(config.milestones),
     skillRoot: skillRootRel,
+    devRootName,
   };
 
   const items = [
@@ -261,9 +268,25 @@ export function planInit({ config, targetDir, bootstrap = false }) {
       out: join(targetDir, 'package.json'),
       tmpl: join(TEMPLATES_DIR, 'dev-package.json.tmpl'),
     });
+    // v5.6: skillRoot 不再烘焙进 package.json,写进项目本地 .b2r-home;
+    // 换机克隆后跑 init --upgrade 重写此文件即可修复全部 alias。
+    items.push({
+      out: join(targetDir, '.b2r-home'),
+      content: skillRootRel + '\n',
+    });
+    // v5.6 迭代2:bootstrap 也写 .b2r-version(此前只有 upgrade 写,新项目一落地
+    // 就触发底盘契约自检的"版本缺失"分支、被迫补跑一次 upgrade)。
+    const versionSrc = resolve(WORKFLOW_DIR, 'VERSION');
+    if (existsSync(versionSrc)) {
+      items.push({
+        out: join(targetDir, '.b2r-version'),
+        content: readFileSync(versionSrc, 'utf8').trim() + '\n',
+      });
+    }
   }
 
   return items.map((it) => {
+    if (it.content !== undefined) return it; // 内容直供,无模板
     if (!existsSync(it.tmpl)) throw new InitError(`模板缺失: ${it.tmpl}`);
     const content = it.raw
       ? readFileSync(it.tmpl, 'utf8')
@@ -274,10 +297,17 @@ export function planInit({ config, targetDir, bootstrap = false }) {
 
 // === v5.4 --upgrade(thin 架构:不复制脚本,只修 alias + version 标记 + 回填 state) ===
 
+// v5.6: alias 不再烘焙 bootstrap 那台机器的 skillRoot 绝对路径(换机即失效,诊断报告 3.4)。
+// 解析链:B2R_HOME 环境变量 → <devRoot>/.b2r-home 项目本地配置(bootstrap/upgrade 时写入)。
+// 两者都缺时落到一个自解释的假路径,报错信息即修复指引。
+export const B2R_HOME_RESOLVE = '${B2R_HOME:-$(cat .b2r-home 2>/dev/null || echo /B2R_HOME_MISSING_RUN_INIT_UPGRADE)}';
+// 旧式烘焙指纹:${B2R_HOME:-/abs/path}。新式 :- 后跟 $(,不会误中。
+const BAKED_PATH_RE = /\$\{B2R_HOME:-\/[^}]*\}/g;
+
 // 用与 dev-package.json.tmpl 同款的 thin 调用串构造 alias 命令。
-function aliasCmd(scriptFile, skillRoot) {
-  if (scriptFile === 'init.mjs') return `node "\${B2R_HOME:-${skillRoot}}/bootstrap/workflow/scripts/init.mjs"`;
-  return `DEV_ROOT="$PWD" node "\${B2R_HOME:-${skillRoot}}/bootstrap/workflow/scripts/${scriptFile}"`;
+function aliasCmd(scriptFile) {
+  if (scriptFile === 'init.mjs') return `node "${B2R_HOME_RESOLVE}/bootstrap/workflow/scripts/init.mjs"`;
+  return `DEV_ROOT="$PWD" node "${B2R_HOME_RESOLVE}/bootstrap/workflow/scripts/${scriptFile}"`;
 }
 
 // alias 名 → 脚本文件名。值在运行时由 aliasCmd 构造(依赖 skillRoot)。
@@ -292,18 +322,28 @@ export const REQUIRED_ALIASES = {
   'verify:handoff': 'verify-handoff.mjs',
   'milestone:status': 'milestone-status.mjs',
   'e2e-group:status': 'e2e-group-status.mjs',
+  'batch:status': 'e2e-group-status.mjs', // v5.6 P0-3:批次完整性闸的语义化入口(同一脚本)
   'render:board': 'render-board.mjs',
   'regression:diff': 'regression-diff.mjs',
 };
 
-// 只补缺失 alias,不覆盖已有(用户可能定制过)。返回 { scripts, added }。
-export function mergeAliases(existing = {}, skillRoot, required = REQUIRED_ALIASES) {
+// 只补缺失 alias,不覆盖用户定制;但带旧式烘焙指纹(${B2R_HOME:-/abs/path})的 alias
+// 是 b2r 自己生成的,统一迁移为 .b2r-home 运行时解析。返回 { scripts, added, migrated }。
+export function mergeAliases(existing = {}, required = REQUIRED_ALIASES) {
   const out = { ...existing };
   let added = 0;
-  for (const [name, file] of Object.entries(required)) {
-    if (!(name in out)) { out[name] = aliasCmd(file, skillRoot); added++; }
+  let migrated = 0;
+  for (const [name, val] of Object.entries(out)) {
+    if (typeof val === 'string' && BAKED_PATH_RE.test(val)) {
+      out[name] = val.replace(BAKED_PATH_RE, B2R_HOME_RESOLVE);
+      migrated++;
+    }
+    BAKED_PATH_RE.lastIndex = 0; // 全局 regex 复用需重置
   }
-  return { scripts: out, added };
+  for (const [name, file] of Object.entries(required)) {
+    if (!(name in out)) { out[name] = aliasCmd(file); added++; }
+  }
+  return { scripts: out, added, migrated };
 }
 
 export function extractDoneIds(queueMd) {
@@ -320,15 +360,18 @@ export function runUpgrade({ targetDir, skillRoot = resolve(WORKFLOW_DIR, '..', 
   }
   const versionSrc = resolve(WORKFLOW_DIR, 'VERSION');
   const version = existsSync(versionSrc) ? readFileSync(versionSrc, 'utf8').trim() : '';
-  // ① 补 package.json alias(thin:指向 bundle,不复制脚本)
+  // ① 补 package.json alias(thin:指向 bundle,不复制脚本)+ 迁移旧式烘焙路径 alias
   const pkgPath = resolve(targetDir, 'package.json');
   let added = 0;
+  let migrated = 0;
   if (existsSync(pkgPath)) {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-    const r = mergeAliases(pkg.scripts || {}, skillRoot);
-    added = r.added; pkg.scripts = r.scripts;
+    const r = mergeAliases(pkg.scripts || {});
+    added = r.added; migrated = r.migrated; pkg.scripts = r.scripts;
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
   }
+  // ①b 写/重写 .b2r-home(alias 的运行时解析源;upgrade 即换机修复动作)
+  writeFileSync(resolve(targetDir, '.b2r-home'), skillRoot.split(sep).join('/') + '\n');
   // ② 写漂移标记
   if (version) writeFileSync(resolve(targetDir, '.b2r-version'), version + '\n');
   // ③ 首次回填 state 文件(grandfather Done ids + 空 flaky 基线)
@@ -343,7 +386,7 @@ export function runUpgrade({ targetDir, skillRoot = resolve(WORKFLOW_DIR, '..', 
   if (!existsSync(flakyPath) && existsSync(resolve(targetDir, 'state'))) {
     writeFileSync(flakyPath, JSON.stringify({ suites: [] }, null, 2) + '\n');
   }
-  return { version, added, gfCount };
+  return { version, added, migrated, gfCount };
 }
 
 export async function runInit({ argv = process.argv.slice(2) } = {}) {
@@ -372,7 +415,7 @@ export async function runInit({ argv = process.argv.slice(2) } = {}) {
       if (e instanceof InitError) { console.error(`[init] ${e.message}`); process.exit(1); }
       throw e;
     }
-    console.log(`[upgrade] thin · .b2r-version ${r.version} · 新增 ${r.added} alias · 祖父豁免回填 ${r.gfCount} 条 · scripts 走 bundle 未复制`);
+    console.log(`[upgrade] thin · .b2r-version ${r.version} · 新增 ${r.added} alias · 迁移烘焙路径 ${r.migrated} 条 · .b2r-home 已重写 · 祖父豁免回填 ${r.gfCount} 条 · scripts 走 bundle 未复制`);
     return r;
   }
 

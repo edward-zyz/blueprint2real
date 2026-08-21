@@ -1,5 +1,7 @@
 # Quality Gates · 脚本驱动的硬阻断节点清单
 
+> **单源声明（v5.6）**：Gate 判定规则以本文件为唯一权威；`pipeline-flow.md` 只是流程图示，两者冲突时以本文件为准（Gate 编号对齐 pipeline-flow 图中节点名，如 G6=level branch）。
+
 > 何时读本文：你在主线 thread 想跳过某个验证步骤、或对"为什么 sub-agent 完成不算数"感到疑惑时。
 
 ## 核心原则
@@ -56,7 +58,7 @@
 | Action | 适用场景 | 回流点 | 调度细节 |
 |---|---|---|---|
 | `accept-override` | reviewer 给的是过严的"理论问题"但实际可接受 | 下一 stage（接受当前 receipt verdict 强行 READY） | 后续 receipt 全部带 `manager_override: { gate, decision_path, action }` |
-| `downgrade` | 发现工单实际复杂度低于初判 | **Gate 4 重判 level branch**（不直跳 S3） | 改 `0-triage.json.level`（如 L3→L2）；customer-visible 记录降档 |
+| `downgrade` | 发现工单实际复杂度低于初判 | **Gate 6（level branch 重判）**（不直跳 S3） | 改 `0-triage.json.level`（如 L3→L2）；customer-visible 记录降档 |
 | `shrink-scope` | 工单边界没收住，应剥离卡住部分 | S2a（spec retry，加 §3 不做项） | 自动建新 Planned 工单接住剥离部分 |
 | `split-slice` | spec §4 范围过大，部分能做部分卡住 | **S2b（plan retry，声明 sub-slice）** | plan §3 增 Sub-slice 列表；implementor 按 slice 重启 |
 | `drop` | 工单本身错了，前置假设不成立 | Done（queue 翻 Superseded） | active 翻 Idle；customer-visible 写"暂停 + 原因" |

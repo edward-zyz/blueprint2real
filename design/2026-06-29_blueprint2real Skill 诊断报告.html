@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>blueprint2real Skill 诊断报告</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'JetBrains Mono', monospace; background: #020617; min-height: 100vh; padding: 2.5rem 2rem; color: #e2e8f0; line-height: 1.65; }
+    .container { max-width: 1080px; margin: 0 auto; }
+    .header { margin-bottom: 1.8rem; border-bottom: 1px solid #1e293b; padding-bottom: 1.4rem; }
+    .header-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.6rem; }
+    .pulse-dot { width: 12px; height: 12px; background: #fb7185; border-radius: 50%; box-shadow: 0 0 12px #fb7185; }
+    h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
+    .subtitle { color: #94a3b8; font-size: 0.85rem; margin-left: 1.75rem; }
+    .meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.9rem 0 0 1.75rem; }
+    .chip { background: rgba(30,41,59,0.6); border: 1px solid #334155; border-radius: 999px; padding: 0.25rem 0.8rem; font-size: 0.72rem; color: #cbd5e1; }
+    h2 { font-size: 1.05rem; font-weight: 700; color: #fff; margin: 2.2rem 0 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
+    h2 .bar { width: 4px; height: 18px; border-radius: 2px; background: #fb7185; }
+    h3 { font-size: 0.92rem; color: #fff; margin: 1.3rem 0 0.5rem; }
+    p { font-size: 0.85rem; color: #cbd5e1; margin-bottom: 0.6rem; }
+    .verdict { background: rgba(120,53,15,0.12); border: 1px solid rgba(251,191,36,0.35); border-left: 3px solid #fbbf24; border-radius: 0.6rem; padding: 1.1rem 1.3rem; font-size: 0.9rem; color: #fde68a; }
+    .verdict b { color: #fcd34d; }
+    pre { background: #0b1220; border: 1px solid #1e293b; border-radius: 0.5rem; padding: 1rem 1.2rem; overflow-x: auto; font-size: 0.74rem; color: #93c5fd; margin: 0.6rem 0; line-height: 1.5; }
+    code { background: rgba(30,41,59,0.7); padding: 0.05rem 0.35rem; border-radius: 3px; font-size: 0.9em; color: #93c5fd; }
+    ul { list-style: none; margin: 0.4rem 0; }
+    li { font-size: 0.83rem; color: #94a3b8; margin-bottom: 0.5rem; padding-left: 1.1rem; position: relative; }
+    li::before { content: "▹"; position: absolute; left: 0; color: #475569; }
+    li b { color: #cbd5e1; }
+    table { width: 100%; border-collapse: collapse; margin: 0.6rem 0; font-size: 0.78rem; }
+    th, td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid #1e293b; vertical-align: top; }
+    th { color: #94a3b8; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; }
+    td { color: #cbd5e1; }
+    .flaw { background: rgba(15,23,42,0.5); border: 1px solid #1e293b; border-left: 3px solid #fb7185; border-radius: 0.5rem; padding: 0.9rem 1.2rem; margin: 0.8rem 0; }
+    .flaw .t { font-size: 0.92rem; color: #fff; font-weight: 600; margin-bottom: 0.4rem; }
+    .flaw .ev { font-size: 0.78rem; color: #fda4af; margin: 0.4rem 0; }
+    .flaw .fix { font-size: 0.78rem; color: #6ee7b7; }
+    .flaw .ev b, .flaw .fix b { color: inherit; font-weight: 700; }
+    .pri { border-radius: 0.6rem; padding: 0.9rem 1.2rem; margin: 0.6rem 0; }
+    .pri.p0 { background: rgba(127,29,29,0.18); border: 1px solid rgba(248,113,113,0.35); }
+    .pri.p1 { background: rgba(120,53,15,0.14); border: 1px solid rgba(251,191,36,0.3); }
+    .pri.p2 { background: rgba(30,58,73,0.18); border: 1px solid rgba(34,211,238,0.25); }
+    .pri h3 { margin: 0 0 0.5rem; font-size: 0.85rem; }
+    .pri.p0 h3 { color: #fca5a5; } .pri.p1 h3 { color: #fcd34d; } .pri.p2 h3 { color: #67e8f9; }
+    .footer { margin-top: 2.5rem; padding-top: 1.2rem; border-top: 1px solid #1e293b; color: #475569; font-size: 0.72rem; text-align: center; }
+    .ok { color: #6ee7b7; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-row">
+        <div class="pulse-dot"></div>
+        <h1>blueprint2real Skill 诊断报告</h1>
+      </div>
+      <p class="subtitle">多 Agent 工单编排器 · 批判性评估(侧重缺点与改进)</p>
+      <div class="meta-row">
+        <span class="chip">评估基准:1 批 11 工单全链路实战</span>
+        <span class="chip">+ SKILL.md 47KB / 11 agent 模板 / 4 篇 references 全勘察</span>
+        <span class="chip">2026-06-28</span>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <b>一句话定性:</b>这是一套<b>事故驱动、补丁叠补丁的高仪式化协议</b>。内核(TDD + 物理分离 commit + 单一事实源 + 诚实边界)确实有效;但它把"全自主"的承诺架在了一个极强的隐性假设上——<b>主线 LLM 永不偷懒地亲跑每条命令、永不误判每种失败、永不漏跟踪每条工单</b>。本会话证明这个假设会破(编排者自己就漏跑了一条工单),而它的认知负荷与维护债,已逼近甚至超过它要防范的退化风险本身。
+    </div>
+
+    <h2><span class="bar"></span>一、实际工作流程(本会话真实形态)</h2>
+    <p>文档画的是 6 阶段流水线;实跑下来的真实形态是——主线作为串行编排器,对每条工单循环:</p>
+    <pre>promote.mjs(脚本)
+ → 派 spec-drafter (merge_2b 合并 spec+plan)      [Agent 往返 1]
+ → 主线亲跑 tbd grep + validate + deps 校验
+ → 派 spec-plan-reviewer (2c 独立评审)             [Agent 往返 2]
+ → start.mjs(脚本,需手动注入 B2R_HOME)
+ → 派 implementor (TDD 红→绿)                      [Agent 往返 3]
+ → 主线亲跑 targeted + 收敛 regression
+ → [L3] 派 arch-security-reviewer → 主线写 4-arch   [Agent 往返 4]
+ → 派 handoff-committer → 主线写 pipeline-status     [Agent 往返 5]
+ → 主线亲跑 verify:handoff</pre>
+    <p><b>实测数据:</b>单条工单 5–6 次 Agent 往返 + ~8 次主线脚本校验;11 工单 ≈ <b>50+ 次 sub-agent 派发</b>(每次 fresh context 重读 spec/plan/模板);连纯文档 / spike 工单(只产一个 .md)也走全套重流程。<b>第一个发现:流程对"产物复杂度"不敏感,文档工单和跨模块重构付一样的仪式开销。</b></p>
+
+    <h2><span class="bar"></span>二、优点(客观)</h2>
+    <ul>
+      <li><b class="ok">commit 物理分离 + TDD 强制是真有效的</b>——每条工单 impl/handoff commit 干净分离可独立 revert;红 gate 真实失败证据挡住"先写实现"退化(本会话 11 条都有)。</li>
+      <li><b class="ok">状态机单一事实源 + 脚本兜底</b>——validate-state 多次在手滑时挡住;BOARD 由 render 生成不可手改,审计链完整。</li>
+      <li><b class="ok">诚实边界做得好(最值得肯定)</b>——本会话 ig→linkedArr defer、7r→生产 backfill defer、97→真人签字、组级 E2E→env-blocked,全部如实标注未伪造绿。</li>
+      <li><b class="ok">Manager Override 不静默循环</b>——retry-once 后强制升级到人,机制健全。</li>
+    </ul>
+
+    <h2><span class="bar"></span>三、缺点与改进点(重点)</h2>
+
+    <div class="flaw">
+      <div class="t">3.1 「全自主」是个幻觉——关键节点结构性回落人工</div>
+      <p>所有需要价值判断的地方全部硬性回落人工 <code>AskUserQuestion</code>:coalesce 合并(O28)、ui_paths_stale / ui_intent(O15/O27)、Manager Override(attempt&gt;2 / 自报阻塞 / Gate8 fail)。</p>
+      <div class="ev"><b>本会话实证:</b>97 安全签字 + 组级 E2E 收口两次 AskUserQuestion 都是流程硬卡点,没人就推不下去。这不是"偶尔需要人",是设计上把所有不确定性外包给人。</div>
+      <div class="fix"><b>改进:</b>诚实重定位为 human-in-the-loop 编排器,显著位置列全"必停问人"清单;无人值守模式明确声明哪些工单类型根本不能跑。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.2 「自报不算数」原则被自己系统性侵蚀</div>
+      <p>立身核心原则,却被多处打折:<b>L1 self-review 既当运动员又当裁判</b>(L1 跳过独立 reviewer 由 drafter 自评);<b>「证据非空即过」</b>只校验红 gate 输出非空、不校验真的是失败,塞任意非空串即可骗过;<b>散文判据仍在</b>(reviewer"总判定"、deps"依赖合理"本质解析自然语言)。</p>
+      <div class="ev"><b>本会话实证:</b>97(L1)的 receipt 根本没出 <code>l1_self_review_verdict</code> 字段,是主线亲核兜底才发现。</div>
+      <div class="fix"><b>改进:</b>取消 L1 自评旁路或停止宣称它"有 gate";红 gate 应校验失败结构(退出码 / FAIL 关键字)而非仅非空。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.3 委派的「底层 skill」在真实环境根本没生效</div>
+      <p>模板大讲调 brainstorming / writing-plans / test-driven-development……</p>
+      <div class="ev"><b>本会话实证:</b>绝大多数 sub-agent 返回的 <code>skills_used</code> 是 <code>[]</code>——这些 skill 在执行环境"未注册",只能"按其纪律手动执行"。整个 v2 "skill-delegating" 架构在本环境是<b>空中楼阁</b>,模板里"第一步调 X skill"是 dead instruction,全靠 prompt 复述纪律硬撑——这是模板臃肿根因之一。</div>
+      <div class="fix"><b>改进:</b>模板先探测 skill 可用性,不可用走精简内联纪律,而非每个模板背两套逻辑。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.4 环境健壮性差(硬证据)</div>
+      <table>
+        <thead><tr><th>坑</th><th>证据</th><th>性质</th></tr></thead>
+        <tbody>
+          <tr><td><b>B2R_HOME 硬编码他机路径</b></td><td>start/render/verify 的 alias 兜底是 <code>/Users/zhangyingze/Documents/...</code>,本机不存在,每条命令都要手动 export</td><td>分发缺陷,memory 已记录仍未根治</td></tr>
+          <tr><td><b>validate-state 鸡生蛋</b></td><td>Done 工单要 5-handoff.json,但该 receipt 要 handoff hash,hash 又要 commit 后才有 → 每个 handoff 都要绕"render→commit→写receipt→复跑"圈</td><td>状态机自指,每单复发</td></tr>
+          <tr><td><b>lint:redlines 空跑</b></td><td>项目没配红线 → WARN → Stage 4"红线 gate"形同虚设却显示通过</td><td>gate 形式主义</td></tr>
+        </tbody>
+      </table>
+      <div class="fix"><b>改进:</b>B2R_HOME 应在 init 写项目本地配置而非硬编码他机绝对路径(最该立刻修);5-handoff 存在性校验应豁免"hash 待生成"中间态。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.5 大量声称能力有结构性高门槛,实践中跑不起来</div>
+      <p>本会话未触发的能力<b>不是巧合,是结构性门槛</b>:UI 线(ui-designer/design-reviewer)依赖外部 designSkill + 活服务 + 浏览器截图;E2E 线模板自己坦白 playwright"恒 2 passed+3 skipped、缺浏览器/secrets 即 env-blocked";L0 direct-fix 判据窄到真实命中率极低;roadmap-planner 在工单预 mint 用法下被整个旁路。</p>
+      <div class="ev"><b>结论:</b>只有 L1–L3 后端工单循环是真能无人值守跑的核心;其余几支是高环境门槛、需人工+活服务配合的"可选枝"。文档却把它们写成平级能力,给"开箱即用"错觉。</div>
+      <div class="fix"><b>改进:</b>文档分层标注每条线的"环境前置 + 自给程度"。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.6 主线编排器是未设防的单点失败(最尖锐)</div>
+      <p>整套"脚本兜底"全建立在主线每次都亲跑、且永不漏跟踪上,而主线没有任何强制约束,纯靠纪律。</p>
+      <div class="ev"><b>本会话铁证:</b>编排者列了 10 工单计划、做到 z3 就以为收官,<b>实际漏了 pi</b>——是 handoff-committer 在报告里点出"组里 pi 仍 Planned"才发现。这正是该 skill 声称要根治的退化("以为做完了")在<b>主线侧的同构复发</b>:它给 sub-agent 设了天罗地网的 gate,却忘了给编排者自己设 gate。</div>
+      <div class="fix"><b>改进:</b>加"批次完整性"硬校验——每次 handoff 后强制比对"计划 N 条 vs 已 Done M 条",而非靠主线心算。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.7 三套编号 + 双源契约 = 认知过载与实质冲突</div>
+      <p>协议层有<b>三套互不对齐的编号</b>:state 用不变量号(1-7/D4/D5)、quality-gates 用 Stage+节点、pipeline-flow 用 Gate(G2-G8)。同一判定点三个名字,且已出现<b>实质冲突</b>:downgrade 回流点在 quality-gates 写"Gate 4"、在 pipeline-flow 写"回 Gate 6"。加上双源契约(.mjs 与 .md 双写校验规则必漂移)、Markdown 当数据库(表头列序/"≤2行/≥3条"当 hard schema)、receipt 数百字段 + 条件必填地狱(本会话多个 2b receipt 字段漂移成非标准形状)。</p>
+      <div class="fix"><b>改进:</b>编号统一一套;校验规则单源(脚本为准、文档自动生成);receipt 必填字段集中校验表 + 宽松解析。</div>
+    </div>
+
+    <div class="flaw">
+      <div class="t">3.8 成本/效率:固定开销对小工单严重倒挂</div>
+      <p>文档 / spike 工单(rk/ig/97)产物就一个 .md,却付了和跨模块重构(ex)一样的 5–6 次 Agent 往返 + 全套 review/regression。O28 的 coalesce 合并本为治这个,但只在 Stage 1 同批线性链触发且要问人——本会话工单预 mint,该优化整个没生效。</p>
+      <div class="ev"><b>本会话实证:</b>triage <b>3 次误判 L1</b>(ci/qh/97 的 reasons 全是自相矛盾的"单文件却涉及3文件"),主线手动升档 2 次。triage 质量低导致路由失准。</div>
+      <div class="fix"><b>改进:</b>小产物工单(纯文档/spike)走专门轻量路径;修 triage level 判据(reasons 自相矛盾说明判定 prompt 有 bug)。</div>
+    </div>
+
+    <h2><span class="bar"></span>四、优先级改进清单</h2>
+    <div class="pri p0">
+      <h3>P0 — 立即(低成本高收益)</h3>
+      <ul>
+        <li><b>修 B2R_HOME 硬编码他机路径</b>:init 时写项目本地配置。最低级的分发 bug,每条命令都被它绊。</li>
+        <li><b>修 triage level 判据</b>:"单文件却涉及3文件"自相矛盾说明判定逻辑坏了,本会话 3/3 误判。</li>
+        <li><b>加批次完整性闸</b>:handoff 后强制比对"计划数 vs Done 数",堵主线漏跟踪(漏 pi 的坑)。</li>
+      </ul>
+    </div>
+    <div class="pri p1">
+      <h3>P1 — 结构性</h3>
+      <ul>
+        <li>诚实重定位为 human-in-the-loop,列全"必停问人"清单,停止"全自主"宣称。</li>
+        <li>修 validate-state 鸡生蛋(豁免 handoff hash 中间态)。</li>
+        <li>统一三套编号 + 契约单源,消除 Gate4/Gate6 实质冲突。</li>
+        <li>红 gate 校验失败结构而非仅"非空"。</li>
+      </ul>
+    </div>
+    <div class="pri p2">
+      <h3>P2 — 架构债</h3>
+      <ul>
+        <li>底层 skill 委派做可用性探测,不可用时精简模板。</li>
+        <li>小产物工单(文档/spike)轻量路径,不走全套仪式。</li>
+        <li>receipt schema 瘦身 + 宽松解析(数百字段+条件必填是 sub-agent 最高频失败点)。</li>
+      </ul>
+    </div>
+
+    <h2><span class="bar"></span>五、收尾判断</h2>
+    <p>blueprint2real 的<b class="ok">内核是好的</b>,本会话也确实产出 11 条干净可回滚、状态完整的工单。但它<b>把好内核包裹在过度仪式化的外壳里</b>:三套编号、数百字段 receipt、事故驱动的 gate 膨胀、对主线纪律和人工值守的隐性全量依赖。</p>
+    <p>最尖锐的一条:<b>它给 sub-agent 设了天罗地网的 gate,却忘了给编排者自己设 gate</b>——而本会话恰恰是编排者漏跑了一条工单。一个声称根治"以为做完了"的系统,在它最信任的主线节点上复发了同一种退化。这是它最该照镜子的地方。</p>
+
+    <p class="footer">
+      blueprint2real Skill 批判性诊断报告 · 2026-06-28 · 评估基准:CRC v2 一批 11 工单全链路实战 + 全量 skill 勘察
+    </p>
+  </div>
+</body>
+</html>

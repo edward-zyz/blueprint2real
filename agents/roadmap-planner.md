@@ -43,14 +43,15 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
 
 **第 2 步 · Stage 0 Triage（每条工单打 level + ui 标）**：
 
-对第 1 步得到的每条工单切片，按下表打 L0-L3 level 标，依据写入 receipt：
+对第 1 步得到的每条工单切片：**先老实列全 `files_estimated`**（预计改动的文件清单，含测试文件，projectRoot 相对路径），**再**按下面的决策树**从上到下**判 level——第一个命中的分支即为结果。这是有序短路判定，**不是**"满足任一行"的平行表格匹配（v5.6 修复：旧表格语义含混，实战曾产出"单文件却涉及3文件"式自相矛盾 reasons）：
 
-| Level | 判据（满足任一） |
-|---|---|
-| L0 TRIVIAL | typo / 注释 / 文档措辞 / 单行格式化 |
-| L1 SIMPLE | 单文件 + 无新接口 + 无 schema + ≤30 行改动 |
-| L2 STANDARD | 跨 2-3 文件 + 有新函数 + 无跨模块边界变化 |
-| L3 COMPLEX | 跨模块 / 新 schema / 新依赖 / 含安全敏感 / 含 migration |
+1. 命中任一硬升档信号 → **L3 COMPLEX**：跨模块边界 / 新 schema / 新增第三方依赖 / 安全敏感面（认证、权限、密钥、支付、注入面）/ 含 migration
+2. 否则，改动为零逻辑变化（typo / 注释 / 文档措辞 / 单行格式化）→ **L0 TRIVIAL**
+3. 否则，`files_estimated` 恰 1 个文件 且 无新导出接口 且 预估 ≤30 行 → **L1 SIMPLE**
+4. 否则，`files_estimated` ≤3 个文件 且 无跨模块边界变化 → **L2 STANDARD**
+5. 否则 → **L3 COMPLEX**
+
+**reasons 必须机械可核**：`reasons[]` 每条引用命中分支号 + 该工单事实，例如 `"分支3: 单文件 src/foo.js · 无新导出 · 预估 ~20 行"`。level 与 `files_estimated` 数量必须自洽——主线会做机械一致性校验（L1 ⇒ 恰 1 文件；L0/L2 ⇒ ≤3 文件），矛盾即整份 triage 打回重判，不接受"单文件却列 3 个文件"这类 reasons。
 
 **升档不降档**：拿不准时取较高档。L0 不再走 spec/plan 流程，必须真的是单行/几行无逻辑变化才打 L0。
 
@@ -70,7 +71,7 @@ brainstorming 跑完你会得到一份"按工单切片的设计草稿"。
   "attempt": 1,
   "completed_at": "<ISO8601 +08:00>",
   "manager_override": null,
-  "reasons": ["跨 3 文件", "新增 helper 函数"],
+  "reasons": ["分支4: 3 文件(与 files_estimated 一致) · 新增 helper 函数 · 无跨模块边界变化"],
   "files_estimated": ["web/src/views/Foo.tsx", "src/foo.js", "test/foo.test.js"],
   "ui": true,
   "ui_match_evidence": ["web/src/views/Foo.tsx matches ui.uiPaths web/src/views/**"]

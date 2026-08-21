@@ -65,23 +65,30 @@ test('boundary false while a group member is not Done', () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-test('group unit disabled when config.e2e.unit is milestone (default)', () => {
+// v5.6 P0-3 批次完整性闸:批次账本与 e2e 配置解耦——unit 非 group 或无 e2e 块时,
+// done/total、open_members、boundary 照常计算;到边界的收口动作是 skip_e2e_disabled(翻 Skipped)。
+test('batch ledger: unit=milestone 时边界照常计算,收口动作为 skip_e2e_disabled', () => {
   const queue = QUEUE(`| IS-001 | A | Done | M0 | x | x | abc1234 | 2026-05-13 |`);
   const groups = GROUPS(`| EG-260602-190312 | IS-001 | Open | — | 2026-06-02 |`);
   const { root, stateDir } = makeStateDir(queue, groups);
   const result = buildGroupStatus({ stateDir, config: milestoneOnlyConfig });
   assert.equal(result.group_unit_enabled, false);
-  assert.equal(result.groups[0].next_action, 'group_unit_disabled');
+  assert.equal(result.groups[0].boundary_reached, true);
+  assert.equal(result.groups[0].next_action, 'skip_e2e_disabled');
   rmSync(root, { recursive: true, force: true });
 });
 
-test('group unit disabled when no e2e block at all', () => {
-  const queue = QUEUE(`| IS-001 | A | Done | M0 | x | x | abc1234 | 2026-05-13 |`);
-  const groups = GROUPS(`| EG-260602-190312 | IS-001 | Open | — | 2026-06-02 |`);
+test('batch ledger: 无 e2e 块时 done/total 与 open_members 照常可见（完整性比对）', () => {
+  const queue = QUEUE(`| IS-001 | A | Done | M0 | x | x | abc1234 | 2026-05-13 |
+| IS-002 | B | Planned | M0 | — | — | — | — |`);
+  const groups = GROUPS(`| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |`);
   const { root, stateDir } = makeStateDir(queue, groups);
   const result = buildGroupStatus({ stateDir, config: noE2eConfig });
   assert.equal(result.group_unit_enabled, false);
-  assert.equal(result.groups[0].next_action, 'group_unit_disabled');
+  assert.equal(result.groups[0].done, 1);
+  assert.equal(result.groups[0].total, 2);
+  assert.equal(result.groups[0].next_action, 'continue_per_ticket_pipeline');
+  assert.deepEqual(result.groups[0].open_members.map((m) => m.workId), ['IS-002']);
   rmSync(root, { recursive: true, force: true });
 });
 

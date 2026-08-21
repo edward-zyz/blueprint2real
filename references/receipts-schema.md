@@ -40,14 +40,14 @@
 ```json
 {
   ...envelope (stage_id: "0-triage"),
-  "reasons": ["<判据原文>"],
+  "reasons": ["分支4: 3 文件(与 files_estimated 一致) · 新增 helper 函数 · 无跨模块边界变化"],
   "files_estimated": ["<相对项目根>"],
   "ui": <boolean>,
   "ui_match_evidence": ["<命中 uiPaths 的文件或判定理由>"]
 }
 ```
 
-`files_estimated` 与 `ui_match_evidence` 均使用 projectRoot 相对路径。`workflow.config.ui.uiPaths` 也按 projectRoot 相对 glob 解释，避免和 `b2r-process/` devRoot 混淆。
+`reasons[]`（v5.6）每条必须引用 triage 决策树的分支号 + 工单事实；主线机械核 level vs `files_estimated.length` 自洽（L1 ⇒ 恰 1 文件，L0/L2 ⇒ ≤3 文件），矛盾即打回重判。`files_estimated` 与 `ui_match_evidence` 均使用 projectRoot 相对路径。`workflow.config.ui.uiPaths` 也按 projectRoot 相对 glob 解释，避免和 `b2r-process/` devRoot 混淆。
 
 ### 1-planner.json
 
@@ -196,7 +196,7 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
 
 非 UI 工单 `ui_mockups_checked` / `ui_element_assertions` 都填 `null`；UI 工单 `ui_mockups_checked` 必须为 `true`，`ui_element_assertions`（v5.5）填本轮失败测试里元件存在性断言条数（应 == spec §4 标 `本轮做` 的元件数）。
 
-> **`failing_test_output`（v5.4 O16）必填**：红阶段（TDD 第一步）测试失败输出关键行或 artifact 路径。主线核红 gate 凭此证据，**不凭** `failing_test_first:"pass"` 布尔——布尔可被 sub-agent 自报伪造，证据不能。
+> **`failing_test_output`（v5.4 O16 · v5.6 收紧）必填且须含失败结构**：红阶段（TDD 第一步）测试失败输出关键行或 artifact 路径，且内容必须体现失败结构——非 0 退出码记录，或 `FAIL` / `Error` / `AssertionError` / `✗` 等测试框架失败关键行。主线核红 gate 时 grep 这些关键字，**不凭** `failing_test_first:"pass"` 布尔、也不接受"非空即过"——布尔可伪造，任意非空散文同样可伪造，失败结构才是不可伪造的最小证据。
 
 > **Receipt 落盘者（v5.4 O13）**：stage receipt 文件由该 stage 的 **sub-agent 自己 `Write`**（路径主线以 `{{receiptPath}}` 钉死），主线派工返回后 `test -f {{receiptPath}}` 校验存在性，不存在即判交付失败。例外见下：4-arch 由主线确定性拼装。
 

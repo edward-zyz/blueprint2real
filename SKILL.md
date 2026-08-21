@@ -1,6 +1,6 @@
 ---
 name: blueprint2real
-description: Multi-agent 工作流编排器。把路线图 / roadmap / 设计文档变成一条真正 Done 的工单流水线——通过 sub-agent 分别承担 spec drafter / planner / TDD implementor / reviewer / committer 等角色，由内建质检节点（validate-state / failing-test / regression / verify-handoff）把关每一步，保证产出可回滚、可审计。当用户说「开始 IS-XXX」「promote IS-XXX」「handoff IS-XXX」「跑工单流水线」「从 roadmap 拆工单」「让 agent 团跑完这条线」或在含 b2r-process/state/、b2r-process/workflow.config.mjs（或 legacy 路径 dev/state/、dev/workflow.config.mjs）的仓库里要求"按工单走一遍"时，必须用此 skill，即使用户没有显式说 "blueprint2real"。
+description: Multi-agent 工作流编排器。把路线图 / roadmap / 设计文档变成一条真正 Done 的工单流水线——通过 sub-agent 分别承担 spec drafter / planner / TDD implementor / reviewer / committer 等角色，由内建质检节点（validate-state / failing-test / regression / verify-handoff）把关每一步，保证产出可回滚、可审计。当用户说「开始 IS-XXX」「promote IS-XXX」「handoff IS-XXX」「跑工单流水线」「从 roadmap 拆工单」「让 agent 团跑完这条线」「这批工单做完没有 / 能不能收官」「接着跑上次中断的批次」「给这个项目 bootstrap 一套工单流水线底盘」，或在含 b2r-process/state/、b2r-process/workflow.config.mjs（或 legacy 路径 dev/state/、dev/workflow.config.mjs）的仓库里要求"按工单走一遍"、以及换机克隆后 b2r-process 里 npm 命令报 Cannot find module 需要修底盘继续跑工单时，必须用此 skill，即使用户没有显式说 "blueprint2real"。
 ---
 
 # blueprint2real · 路线图变 Done 工单的多 Agent 编排器
@@ -27,6 +27,20 @@ description: Multi-agent 工作流编排器。把路线图 / roadmap / 设计文
 10. **交付失败 ≠ 质量失败**：sub-agent **返回了**但产物不可用（529/overloaded 错误串、空、截断、末条非合法 receipt JSON）时，主线按「receipt 兜底协议」**自动恢复**——fresh 重派 1 次 → 仍不可用则主线内联接手 → 主线也做不动才进 Manager Override；这整条**不计入 gate attempt**，也**不**在前两步惊动用户。边界：**进程级真 hang**（主线同步阻塞、无从检测）不在本条范围，依赖 harness 的 Agent 超时回收。与不变量 7 区分——那是 sub-agent 主动报 `blocked:true`+证据（质量/能力分歧 → 直进 Manager）；本条是 sub-agent 根本没给出可用 receipt（交付层 → 先自愈）。
 
 为什么这些必须硬阻断：每一条都对应过历史踩过的坑。`exactly-one` 治"假装在做多个"的 LLM 幻觉；`物理分离` 让任一切片可独立 revert；`前置 Done 后 promote` 防止把"想象的接口"当成真接口去 spec。略过任一条，会让本工作流退化成普通的"看心情写代码"。
+
+## 自主边界（v5.6 · 诚实定位）
+
+本 skill 的定位是**核心循环无人值守 + 边界决策 human-in-the-loop**，不是"全自主"。两类能力界限分明，向用户预期管理时照此表述：
+
+**可无人值守的核心**：L1–L3 后端/CLI 工单循环（triage → spec/plan → TDD 实现 → review → handoff），含交付失败自愈（不变量 10）与批次完整性闸。实战验证过整批工单无人跑通。
+
+**必停问人清单**（设计上外包给人的价值判断，无人值守模式下命中即挂起该工单/该批，不得自作主张）：
+1. coalesce 合并候选（O28）——工单结构决策由人拍板
+2. `ui_intent_detected` / `ui_paths_stale_suspected`（O15/O27）——UI 线开关与路由修正
+3. Manager Override（attempt>2 / 自报阻塞 / Gate 8 fail）——质量分歧升级
+4. 安全敏感工单的验收签字、组级 E2E 收口方式（补配置 vs Skipped）等文档明示"用户确认"的节点
+
+**高环境门槛的可选枝**（有前置依赖，不是开箱即用；缺前置时如实标 `env-blocked`，不算质量失败）：UI 线需 designSkill + 可启动应用 + 浏览器截图；E2E 线需 verifySkill + 活服务/浏览器/secrets；L0 direct-fix 判据极窄，真实命中率低。
 
 ## 启动协议
 
@@ -62,7 +76,7 @@ skill 被调用时，第一件事永远是**定位工作目录与读 workflow.co
 
 **重要**：不要让 sub-agent 自己 `Write` `workflow/scripts/*.mjs` 或类似底盘文件——那是退化模式，每次贴心重造导致版本漂移。bootstrap 命令是唯一权威分发途径。
 
-**底盘契约自检（v5.4+，thin 架构）**：找到 devRoot（已 bootstrap 的项目）后，比对 skill 自带 `bootstrap/workflow/VERSION` 与 `<devRoot>/.b2r-version`，或关键 alias（`start` / `regression:diff` / `lint:redlines`）是否在 `<devRoot>/package.json` 缺失。版本不一致或 alias 缺失 → **停下**，引导用户**主线亲跑**（thin：只补 alias + 写 `.b2r-version` 标记 + 回填 state，**不复制脚本**，脚本永远从 bundle 跑）：
+**底盘契约自检（v5.4+，thin 架构）**：找到 devRoot（已 bootstrap 的项目）后，检查三项：① skill 自带 `bootstrap/workflow/VERSION` 与 `<devRoot>/.b2r-version` 是否一致；② 关键 alias（`start` / `regression:diff` / `lint:redlines`）是否在 `<devRoot>/package.json` 缺失；③ **`<devRoot>/.b2r-home` 是否存在、且其内容路径下 `bootstrap/workflow/scripts/` 真实存在**（v5.6 起 alias 运行时从 `.b2r-home` 解析 skill 位置——文件缺失或指向他机路径是"仓库换机克隆"的典型症状，每条 npm 命令都会因此报 `Cannot find module`）。任一不满足 → **停下**，引导用户**主线亲跑**（thin：只补 alias + 迁移旧式烘焙路径 + 重写 `.b2r-home` + 写 `.b2r-version` 标记 + 回填 state，**不复制脚本**，脚本永远从 bundle 跑）：
 ```
 node <SKILL_ROOT>/bootstrap/workflow/scripts/init.mjs --upgrade --target <devRoot>
 ```
@@ -86,14 +100,18 @@ node <SKILL_ROOT>/bootstrap/workflow/scripts/init.mjs --upgrade --target <devRoo
 
 ## 4 档复杂度路由（Stage 0 Triage 内嵌）
 
-每条工单在 Stage 0 由 `roadmap-planner` 打标 `level`，决定后续走"完整 / 中等 / 简化 / 单 stage"哪条路径。打标依据写入 `0-triage.json` receipt，**不允许后期降档**（只能升档）：
+每条工单在 Stage 0 由 `roadmap-planner` 打标 `level`，决定后续走"完整 / 中等 / 简化 / 单 stage"哪条路径。打标依据写入 `0-triage.json` receipt，**不允许后期降档**（只能升档）。
 
-| Level | 判据（满足任一） | 路径 | 跳过 |
-|---|---|---|---|
-| **L0** TRIVIAL | typo / 注释 / 文档措辞 / 单行格式化 | `direct-fix` 单 agent: edit + state-flip + commit | 跳过 spec/plan/review/arch |
-| **L1** SIMPLE | 单文件 + 无新接口 + 无 schema + ≤30 行改动 | Stage 1 → 2-merged (spec+plan+self-review) → 3 → 5 | 省独立 reviewer + arch-reviewer 阶段 |
-| **L2** STANDARD | 跨 2-3 文件 + 有新函数 + 无跨模块边界变化 | Stage 1 → 2a → 2b → 2c → 3 → 4-light → 5 | reviewer 走轻量清单，不调 skill |
-| **L3** COMPLEX | 跨模块 / 新 schema / 新依赖 / 含安全敏感 / 含 migration | Stage 1 → 2a → 2b → 2c → 3 → 4 → 5（完整 7 stage） | — |
+**判定是决策树、从上到下短路，不是平行表格匹配**（v5.6 修复：旧"满足任一"表格语义含混，L1 的判据实为合取，实战曾 3/3 误判并产出"单文件却涉及3文件"式自相矛盾 reasons）：先列全 `files_estimated` → ① 命中硬升档信号（跨模块 / 新 schema / 新依赖 / 安全敏感 / migration）→ L3；② 零逻辑变化（typo / 注释 / 文档措辞 / 单行格式化）→ L0；③ 恰 1 文件 + 无新导出接口 + ≤30 行 → L1；④ ≤3 文件 + 无跨模块边界变化 → L2；⑤ 其余 → L3。
+
+| Level | 路径 | 跳过 |
+|---|---|---|
+| **L0** TRIVIAL | `direct-fix` 单 agent: edit + state-flip + commit | 跳过 spec/plan/review/arch |
+| **L1** SIMPLE | Stage 1 → 2-merged (spec+plan+self-review) → 3 → 5 | 省独立 reviewer + arch-reviewer 阶段 |
+| **L2** STANDARD | Stage 1 → 2a → 2b → 2c → 3 → 4-light → 5 | reviewer 走轻量清单，不调 skill |
+| **L3** COMPLEX | Stage 1 → 2a → 2b → 2c → 3 → 4 → 5（完整 7 stage） | — |
+
+**主线收 proposal 后的机械一致性校验（v5.6，不需要 LLM 判断）**：对每条 triage 逐条核 `level` vs `files_estimated.length`——L1 ⇒ 恰 1 文件；L0/L2 ⇒ ≤3 文件；矛盾即该条 triage 无效，整份打回 roadmap-planner 重判（计入 gate attempt）。`reasons[]` 须引用决策树分支号；引用缺失按同等无效处理。这道校验堵"reasons 自相矛盾但照样放行"的路由失准（诊断报告 3.8：triage 误判直接导致 L1/L2 路径错配、主线手动升档兜底）。
 
 Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level` 决定走哪条路径。Level 一致性由 Gate 校验（实际改动文件数 / 是否含 schema 变更等指标 vs 初判 level，超出则升档）。
 
@@ -171,7 +189,7 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 
 > **可选批次级 E2E 验收线（per-submission，`e2e.unit∈{group,both}` 时启用）**：把"一次 b2r 提交 mint 出的一批工单"作为一个 E2E 验收单位，比粗里程碑更贴合日常交付节奏；与里程碑级线可并存（`unit:'both'`）。
 >
-> - **mint 时建组**：Stage 1 主线 `mintWorkId` 回填这批 backlog 的真实工单号后，再调 `mintGroupId(new Date())` 生成 group id（`EG-<本地时间戳>`），把这批工单号写进 `state/e2e-groups.md` 一行：`| <group> | <id1>, <id2>, … | Open | — | <YYYY-MM-DD> |`。一次提交一行，缺省 Status=Open。
+> - **mint 时建组**：Stage 1 主线 `mintWorkId` 回填这批 backlog 的真实工单号后，再调 `mintGroupId(new Date())` 生成 group id（`EG-<本地时间戳>`），把这批工单号写进 `state/e2e-groups.md` 一行：`| <group> | <id1>, <id2>, … | Open | — | <YYYY-MM-DD> |`。一次提交一行，缺省 Status=Open。（v5.6 起建组**无条件**执行——账本同时是批次完整性闸的事实源，见 Stage 1 mint 段；本节其余内容才是 `unit∈{group,both}` 专属的组级 E2E 验收语义。）
 > - **边界检测**：每次 Stage 5 handoff 让 active 回 Idle 后，主线亲跑 `cd {{devRoot}} && npm run e2e-group:status -- --json`。对 `next_action=run_group_e2e`（该组工单全 Done 且 Status 仍 Open）的组进入组级 E2E，不得凭自然语言判断边界。
 > - **派 verifier**：用 `agents/e2e-verifier.md` 的 `mode=group`、`{{scopeId}}=<group>` 派一次。旅程基准取该组各成员工单 spec 的 §验收标准 + `customer-visible.md` 的成员 Done 段（**不读 acceptance.md**）。
 > - **收口**：PASS（`overall_verdict=PASS` 且 `e2e_regression_green=true`）→ 主线把该组行翻 `Accepted` 并填 Receipt 路径 `<reportsDir>/e2e-<group>.json`；确认无可观测面（verifier `blocked` 证据为"无可观测面"）→ 翻 `Skipped` 并在该行 Receipt 写 `skip:<原因>`。两者都解除硬卡。
@@ -224,10 +242,14 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 │  门槛：npm run verify:handoff <id> · 全过                     │
 └────────────────────────────────────────────────────────────┘
    │
-   │  active 翻回 Idle → 主线亲跑 `npm run milestone:status <milestone>`
-   │    ├─ boundary=false → 回 Stage 2 拿下一条 Ready
-   │    ├─ boundary=true 且 e2e 未配置 → 记录跳过，按里程碑翻档要求继续
-   │    └─ boundary=true 且 e2e 已配置 → 进入里程碑 E2E 验收（循环之外）
+   │  active 翻回 Idle → 主线亲跑两条状态脚本（都不许凭记忆跳过）：
+   │    1. `npm run batch:status`（批次完整性闸 v5.6）：读本批 done/total 与
+   │       open_members——`M/N Done · 剩余: [ids]` 是机械读数，不是心算；
+   │       open_members 非空时禁止向用户宣称"本批收官"
+   │    2. `npm run milestone:status <milestone>`
+   │       ├─ boundary=false → 回 Stage 2 拿下一条 Ready
+   │       ├─ boundary=true 且 e2e 未配置 → 记录跳过，按里程碑翻档要求继续
+   │       └─ boundary=true 且 e2e 已配置 → 进入里程碑 E2E 验收（循环之外）
    ▼
 ```
 
@@ -235,7 +257,7 @@ Stage 0 之外的所有 stage 在派 sub-agent 前都要读 `0-triage.json.level
 
 Stage 1 的真实工单号由主线脚本化分配：`roadmap-planner` 只返回带 `temp_key` 的 backlog proposal（标题、范围、依赖、triage），主线读取当前 `queue.md` 的 existing IDs，逐条调用 `workflow/scripts/config.mjs::mintWorkId(config, existingIds, new Date())`，再把 `temp_key` 替换成真实 workId 并写入 `queue.md` / `0-triage.json`。不要让 sub-agent 手算 `max+1` 或凭自然语言生成 timestamp。
 
-> 若 `config.e2e.unit∈{group,both}`：这批工单号全部回填后，主线再调 `config.mjs::mintGroupId(new Date())` 生成 group id，把这批工单写进 `state/e2e-groups.md` 一行（Status=Open）。详见上文「批次级 E2E 验收线」。
+> **批次账本（v5.6 P0-3，无条件）**：这批工单号全部回填后，主线**无论 e2e 配置与否**都调 `config.mjs::mintGroupId(new Date())` 生成批次 id，把这批工单写进 `state/e2e-groups.md` 一行（Status=Open）。账本是"计划 N 条 vs Done M 条"的机械事实源——诊断报告实证过主线心算跟踪必漏（11 条计划做到第 10 条就以为收官）。`e2e.unit∈{group,both}` 时该批次同时承担组级 E2E 验收单位（见上文「批次级 E2E 验收线」）；e2e 未启用时它只作完整性追踪，全 Done 后翻 `Skipped`（Receipt 写 `skip:e2e-disabled`）一行收口。`validate-state` D3 对账本做无条件簿记校验与收口硬卡——账本必须有尾。
 
 ## 失败处理：交付失败兜底 → 质量失败 retry-once → Manager Override
 
@@ -290,7 +312,7 @@ Stage 1 的真实工单号由主线脚本化分配：`roadmap-planner` 只返回
 | action | 回流点 | 备注 |
 |---|---|---|
 | `accept-override` | 下一 stage | 后续 receipt 全部带 `manager_override` 标记 |
-| `downgrade` | **Gate 4**（重判 level branch） | 改 0-triage.json.level；不直跳 S3 |
+| `downgrade` | **Gate 6（level branch 重判）** | 改 0-triage.json.level；不直跳 S3。（v5.6 统一：此前 quality-gates 写 Gate 4、pipeline-flow 写 Gate 6，两处冲突；以 pipeline-flow 图中 G6=level branch 为准） |
 | `shrink-scope` | S2a（spec retry，必加 §3 不做项） | 卡住部分自动建新 Planned 工单 |
 | `split-slice` | **S2b**（plan retry，声明 sub-slice） | 与"派 plan-drafter"一致 |
 | `drop` | Done（queue 翻 Superseded） | active 翻 Idle |
@@ -375,13 +397,13 @@ E2E acceptance 是蓝图级 gate，不占用单工单 stage attempt；失败时�
 
 | 阶段 | 质检命令 | 通过判据 |
 |---|---|---|
-| Stage 0 Triage | （主线读 receipt） | level ∈ {L0,L1,L2,L3}，判据非空 |
+| Stage 0 Triage | （主线读 receipt，机械核） | level ∈ {L0,L1,L2,L3}；`reasons[]` 引用决策树分支号；level vs `files_estimated.length` 自洽（L1 ⇒ 恰 1 文件，L0/L2 ⇒ ≤3 文件），矛盾即打回重判 |
 | Stage 1 Backlog 落地 | `cd {{devRoot}} && npm run validate:state` | 0 error（warn 允许） |
 | Stage 2 Promote 后 | `cd {{devRoot}} && npm run validate:state` + `cd {{devRoot}} && npm run deps:graph` | 0 error，依赖图无环、无孤儿 |
 | Stage 1.5 UI Anchor（可选） | 主线读 `1.5-ui-anchor.json` + design source 证据 | `reviewer_verdict=="PASS"`，且 `ref_grep_hits` 非空或 `synthesized_design_system==true` 且 `synthesis_evidence` 非空；项目事实源未被通用 designSkill 覆盖 |
 | Stage 2.0 UI Delta（可选） | 主线读 `2.0-ui-design.json` + mockup 路径存在性 | `reviewer_verdict=="PASS"` 且 `mockups[]` 非空，mockup 对齐 anchor；`ui_novel=true` 或 `NEEDS_FIX` surface |
 | Stage 2 收 spec/plan 后（主线亲核 tbd，O16） | `cd {{devRoot}} && grep -nE 'TBD\|待定\|待起草\|占位\|待 *fresh' <spec/plan 文件>` | 0 命中（命中 = sub-agent 谎报 sections_filled，打回；**不信** receipt 的 `tbd_grep` 自报字段——曾出现全占位 spec 谎报 tbd:0） |
-| Stage 3 红 gate | 主线核 `3-impl.json`：`failing_test_first=="pass"` + `failing_test_output` 红色输出证据非空 | 证据缺失/为空 = 红 gate 未过，打回 implementor（整包派工模式下红→绿在 implementor 内部，主线核 receipt 的 `failing_test_output` 自证，不凭布尔） |
+| Stage 3 红 gate | 主线核 `3-impl.json` 的 `failing_test_output`：必须含**失败结构证据**——非 0 退出码记录，或 `FAIL` / `Error` / `AssertionError` / `✗` 等测试框架失败关键行（v5.6 收紧：仅"非空"可被任意散文骗过，主线核时 grep 关键字） | 证据缺失/为空/无失败结构 = 红 gate 未过，打回 implementor（整包派工模式下红→绿在 implementor 内部，主线核 receipt 自证，不凭 `failing_test_first` 布尔） |
 | Stage 3 Impl 后 targeted（**每切片**） | spec §7 中本工单特有命令 + 本切片 plan §1 Step1 test | 0 error / 测试绿 |
 | Stage 3 收敛 Regression（**末切片后跑一次**，主线亲跑） | config.regressionCommands 每一条 | 全部退出码 0；红了**按切片二分定位**（每切片留 targeted + 增量集成 checkpoint），不裸跑全量面对红海 |
 | Stage 3.5 UI Fidelity（可选 · 仅 ui=true 且有 mockup 目录） | 主线起应用+browser-harness 截深/浅图落盘 → 派 `design-reviewer(mode=fidelity)` → 读 `3.5-ui-fidelity.json` | `reviewer_verdict=="PASS"`；`NEEDS_FIX`（某 `本轮做` 元件 missing/mismatch）→ retry 回 implementor → Manager Override；截图取不到 → `reason_category=env-blocked` surface（不静默跳过）。无 mockup 目录 = 非 UI 工单，整道闸跳过 |
@@ -389,7 +411,8 @@ E2E acceptance 是蓝图级 gate，不占用单工单 stage attempt；失败时�
 | Stage 5 Handoff | `cd {{devRoot}} && npm run verify:handoff <id>` | 全过（L3: 8 项 / L0: 跳过 spec/plan 相关 check）。**Check 8（UI 工单）**：有 `work/<id>/ui/` mockup 目录的工单必须有 `3.5-ui-fidelity.json` 且 `verdict=PASS`，或带显式 `deferred_to_backlog`/`env-blocked` 证据，否则不许 Done——render-diff 与测试绿并列必要 |
 | 里程碑边界 | `cd {{devRoot}} && npm run milestone:status <milestone> -- --json` | `boundary_reached=true` 才能进入 E2E；`next_action=skip_e2e_disabled` 时跳过 E2E 不报错 |
 | 里程碑 E2E（可选） | 主线读 `<reportsDir>/e2e-<milestone>.json` + 跑 `e2e.e2eCommands` | `overall_verdict=PASS` 且 `e2e_regression_green=true`，报告存在且是业务语言 |
-| 组级边界（`unit∈{group,both}`） | `cd {{devRoot}} && npm run e2e-group:status -- --json` | `next_action=run_group_e2e` 才进组级 E2E；硬卡见 validate-state D3（组全 Done 仍 Open → error） |
+| 批次完整性闸（v5.6，**每次 handoff 后必跑**） | `cd {{devRoot}} && npm run batch:status -- --json` | 读本批 `done/total` + `open_members`；`open_members` 非空 → 不许宣称批次收官（继续跑剩余工单或显式 surface"剩余 X 条"）；收官汇报固定含 `批次: M/N Done` |
+| 组级边界（`unit∈{group,both}`） | `cd {{devRoot}} && npm run e2e-group:status -- --json` | `next_action=run_group_e2e` 才进组级 E2E；硬卡见 validate-state D3（批次全 Done 仍 Open → error，v5.6 起无条件生效） |
 | 组级 E2E（可选） | 主线读 `<reportsDir>/e2e-<group>.json` + 跑 `e2e.e2eCommands`，PASS 后把组翻 `Accepted`+Receipt | `overall_verdict=PASS` 且 `e2e_regression_green=true`，报告存在且是业务语言 |
 | 任意 Gate fail 后 retry | 重新跑同一脚本 | retry attempt 仍 fail → Manager Override |
 
@@ -440,5 +463,6 @@ E2E acceptance 是蓝图级 gate，不占用单工单 stage attempt；失败时�
 - **不要在 SKILL 触发后立即操作代码**——先确认 `state/active.md` 的当前状态、用户的明确意图（哪条工单、是 promote 还是 handoff），再行动。
 - **不要让 retry 静默循环**——retry 失败必进 Manager Override，让用户看到失败链；不要让 sub-agent "再试一次又一次"假装搞定。
 - **不要凭感觉判断里程碑/组级边界**——Stage 5 后必须跑 `npm run milestone:status <milestone>`（里程碑线）或 `npm run e2e-group:status`（组级线，`unit∈{group,both}`）；脚本未报到达边界（`boundary_reached=true` / `next_action=run_group_e2e`）就不能派 E2E verifier。
+- **不要凭记忆宣称批次收官**——"以为做完了"是主线侧最典型的退化（实战曾 11 条计划做到第 10 条就收官汇报，漏 1 条靠 sub-agent 事后点破）。收官汇报前必跑 `npm run batch:status`：`open_members` 非空就不是收官，汇报里固定带 `批次: M/N Done`。这套 skill 给 sub-agent 设了层层 gate，批次账本是给编排者自己的那道 gate。
 - **不要在 Manager Override 时手编 manager-decision.json**——主线起草建议 + 用户 `AskUserQuestion` 确认 + 主线落盘，避免 schema 错填。
 - **不要在新项目首次启动时"贴心生成"底盘脚本**——按不变量 9，新项目首次启动只能跑 `init.mjs --bootstrap` 命令（源是 skill 自带的 `bootstrap/workflow/`）。`Write` 任何 `workflow/scripts/*.mjs` 内容都是错误行为。

@@ -1,6 +1,7 @@
 # Pipeline Flow · v5.1 简化主流程图
 
 > 何时读本文：你想搞清楚"工单从 roadmap 到 Done 走了哪些 stage、Gate fail 怎么处理"。
+> **本文是图示**；Gate 判定规则的唯一权威是 `quality-gates.md`，冲突以后者为准（v5.6 单源声明）。
 
 ## 主流程（简化版）
 

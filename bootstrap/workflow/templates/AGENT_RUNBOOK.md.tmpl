@@ -90,7 +90,7 @@ promote one work item to Ready          (promote.mjs 自动 render BOARD)
 ### 6.1 可执行红线（lint 兜底）
 
 ```bash
-cd dev && npm run lint:redlines
+cd {{devRootName}} && npm run lint:redlines
 ```
 
 当 RULES 为空时退出码 0；新增红线时往该数组里推一个 `(rootDir) => Issue[]` 函数 + 同步加测试。

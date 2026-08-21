@@ -419,6 +419,63 @@ test('D3: 整组全 Done 且已 Accepted（带 receipt）→ 通过', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+// ── D3 泛化（v5.6 P0-3 批次完整性闸）：e2e-groups.md 一旦有批次行,簿记校验与收口硬卡
+// 不再依赖 e2e 配置——账本语义升级为"批次账本",给编排者自己设 gate ──
+
+test('D3 泛化: e2e 未配置也做批次簿记校验（成员查无此条 → error）', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-999 | Open | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /IS-999 在 queue\.md 中查无此条/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3 泛化: e2e 未配置,批次全 Done 仍 Open → error（提示翻 Skipped 收口）', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |'),
+  });
+  const { ok, issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.equal(ok, false);
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /批次未收口/.test(i.msg)));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3 泛化: e2e 未配置,批次全 Done 已 Skipped（带原因）→ 通过', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Skipped | skip:e2e-disabled | 2026-06-02 |'),
+  });
+  const { issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), `不应有 e2e-groups 报错：\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('D3 泛化: e2e 未配置,批次未全 Done → 不硬卡（open_members 由 status 脚本呈现）', () => {
+  const dir = makeStateDir({
+    'active.md': ACTIVE_IDLE,
+    'queue.md': QUEUE_OK,
+    'roadmap.md': ROADMAP_OK,
+    'customer-visible.md': CV_OK,
+    'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-003 | Open | — | 2026-06-02 |'),
+  });
+  const { issues } = validateState({ stateDir: dir, config: testConfig });
+  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), `未全 Done 不应硬卡：\n${issues.map((i) => `${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('D3: 组内有工单未 Done → 不提前硬卡（继续 per-ticket）', () => {
   const dir = makeStateDir({
     'active.md': ACTIVE_IDLE,
@@ -448,7 +505,7 @@ test('D3: Status=Accepted 但缺 Receipt → error', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('D3: unit=milestone（默认）时组级硬卡不激活', () => {
+test('D3: unit=milestone（默认）时批次收口硬卡仍激活（v5.6 完整性闸），文案为翻 Skipped', () => {
   const dir = makeStateDir({
     'active.md': ACTIVE_IDLE,
     'queue.md': QUEUE_OK,
@@ -458,7 +515,7 @@ test('D3: unit=milestone（默认）时组级硬卡不激活', () => {
     'e2e-groups.md': GROUPS('| EG-260602-190312 | IS-001, IS-002 | Open | — | 2026-06-02 |'),
   });
   const { issues } = validateState({ stateDir: dir, config: e2eConfig }); // unit 默认 milestone
-  assert.ok(!issues.some((i) => i.file === 'e2e-groups.md'), 'unit=milestone 不应触发组级硬卡');
+  assert.ok(issues.some((i) => i.file === 'e2e-groups.md' && /批次未收口/.test(i.msg)), 'unit=milestone 也应触发批次收口硬卡（文案=翻 Skipped，而非组级 E2E）');
   rmSync(dir, { recursive: true, force: true });
 });
 
