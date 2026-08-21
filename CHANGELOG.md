@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **微切片内联通道**：`plan-drafter` 可为切片标 `inline_ok: true`（判据：改动 ≤2 文件 且 无新增行为断言需求），主线对这类切片可内联完成、不派 implementor，`3-impl.json` 记 `inline: true`。仍受不变量 3 / 4 约束；拿不准就不标，整轮 implementor 是默认。
 - 新增 `references/e2e-acceptance.md`（可选 E2E 验收线的完整机制；批次账本建组与 D3 收口硬卡的无条件语义一并收在此）。
+- **`prePromoteCommands` promote 前置门禁（不变量 11）**：可选的项目级外部门禁，在 Planned → Ready 的任何写盘或 dry-run 输出前于 `projectRoot` 顺序执行。命令注入 `B2R_WORK_ID` / `B2R_WORK_TITLE` / `B2R_DRY_RUN` / `B2R_FORCE`（后二者 `1`/`0`），任一非 0 / 被信号终止 / 无法启动即 fail-closed 且零 promote 副作用；`--force` 只豁免依赖 Done 检查，不能绕过。缺省 `[]`，旧项目行为不变。此特性原在分发源之外的下游副本上以 v5.6 名义开发，本次作为增量回灌，使两条 v5.6 线合流。
+
+### Changed（bootstrap chassis）
+
+- `bootstrap/workflow/VERSION` 5.6.0 → 5.7.0：promote 链路行为变更（新增前置门禁），按本仓惯例底盘特性发布即升版本，令既有项目的 `.b2r-version` 漂移自检生效。
 
 ## [5.6.0] - 2026-07-05
 

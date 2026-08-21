@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REQUIRED_ALIASES, mergeAliases, extractDoneIds, planInit } from './init.mjs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { REQUIRED_ALIASES, mergeAliases, extractDoneIds, planInit, runUpgrade } from './init.mjs';
+import { loadConfigSync } from './config.mjs';
 
 test('REQUIRED_ALIASES 含 v5.4 新脚本(值=脚本文件名)', () => {
   assert.equal(REQUIRED_ALIASES['regression:diff'], 'regression-diff.mjs');
@@ -87,4 +91,26 @@ test('extractDoneIds: 只取 Done 行的工单号', () => {
     '| IS-003 | 标题 C | Done | M1 |',
   ].join('\n');
   assert.deepEqual(extractDoneIds(queue), ['IS-001', 'IS-003']);
+});
+
+// pre-promote guard:模板显式生成缺省值,upgrade 不得覆盖项目已配置的门禁
+test('init 配置模板显式生成 prePromoteCommands: []', () => {
+  const config = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3 } });
+  const item = planInit({ config, targetDir: '/tmp/x', bootstrap: true })
+    .find((it) => it.out.endsWith('workflow.config.mjs'));
+  assert.ok(item);
+  assert.match(item.content, /prePromoteCommands:\s*\[\]/);
+});
+
+test('upgrade 保留项目已有 prePromoteCommands 配置原文', () => {
+  const root = mkdtempSync(join(tmpdir(), 'b2r-upgrade-guard-'));
+  mkdirSync(join(root, 'state'));
+  const configPath = join(root, 'workflow.config.mjs');
+  const original = "export default { prePromoteCommands: ['npm run gate'] };\n";
+  writeFileSync(configPath, original);
+  writeFileSync(join(root, 'package.json'), '{"scripts":{}}\n');
+  writeFileSync(join(root, 'state', 'queue.md'), '# Work Queue\n');
+  runUpgrade({ targetDir: root });
+  assert.equal(readFileSync(configPath, 'utf8'), original);
+  rmSync(root, { recursive: true, force: true });
 });

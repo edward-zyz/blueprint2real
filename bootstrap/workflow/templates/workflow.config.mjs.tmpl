@@ -23,6 +23,11 @@ export default {
   // promote 生成的 spec/plan stub 中嵌入的 regression 命令
   regressionCommands: {{regressionCommandsJson}},
 
+  // 可选：Planned → Ready 前顺序执行的项目级门禁；任一失败即 fail-closed。
+  // 命令 cwd = projectRoot（缺省 devRoot），可读 B2R_WORK_ID / B2R_WORK_TITLE /
+  // B2R_DRY_RUN / B2R_FORCE（布尔值以 '1' / '0' 注入）。--force 不会绕过本门禁。
+  prePromoteCommands: [],
+
   // 可选:项目真架构/分层/安全红线,Stage 4 主线亲跑 lint:redlines 时逐条执行,任一非 0 退出即红线命中。
   // 缺省 = 无项目红线(lint:redlines 占位态输出 WARN,不阻断)。
   // redlineCommands: ['npm run lint:packages-architecture'],

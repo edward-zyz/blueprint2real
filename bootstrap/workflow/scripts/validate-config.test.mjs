@@ -241,3 +241,23 @@ test('u. mintGroupId 同秒碰撞时追加 base36 尾缀去重', () => {
   assert.notEqual(b, a);
   assert.match(b, /^EG-260602-190312-[0-9a-z]{2}$/);
 });
+
+test('v. prePromoteCommands 缺省为 []，合法非空字符串数组可加载', () => {
+  const base = loadConfigSync({ override: { workIdPrefix: 'IS', workIdDigits: 3 } });
+  assert.deepEqual(base.prePromoteCommands, []);
+  const configured = loadConfigSync({ override: {
+    workIdPrefix: 'IS', workIdDigits: 3,
+    prePromoteCommands: ['npm run verify:external-gate', 'node scripts/check.mjs'],
+  } });
+  assert.deepEqual(configured.prePromoteCommands, ['npm run verify:external-gate', 'node scripts/check.mjs']);
+});
+
+test('w. prePromoteCommands 非数组或含空命令时 config 校验失败', async () => {
+  for (const value of ["'npm test'", "['npm test', '']", "['npm test', 42]"]) {
+    const root = makeFixture(VALID.replace('};', `,\n  prePromoteCommands: ${value}\n};`));
+    const r = await validateConfig({ devRoot: root });
+    assert.equal(r.ok, false, `value=${value}`);
+    assert.ok(r.errors.some((e) => /prePromoteCommands/.test(e.field || e.msg)), `value=${value}`);
+    rmSync(root, { recursive: true, force: true });
+  }
+});

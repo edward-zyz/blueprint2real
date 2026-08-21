@@ -13,7 +13,8 @@
 //   node workflow/scripts/promote.mjs <work-id> --dry-run  # 只展示动作，不写盘
 //   node workflow/scripts/promote.mjs <work-id> --force    # 跳过依赖 Done 检查
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateState } from './validate-state.mjs';
 import { renderBoard } from './render-board.mjs';
@@ -30,6 +31,48 @@ const TODAY_ISO = (() => {
 })();
 
 class PromoteError extends Error {}
+
+// Planned → Ready 前的项目级外部门禁。按 config.prePromoteCommands 顺序执行，
+// 任一命令非 0 / 被信号终止 / 无法启动都 fail-closed（抛 PromoteError，promote 零副作用退出）。
+export function runPrePromoteCommands(commands, {
+  projectRoot,
+  workId,
+  workTitle,
+  dryRun,
+  force,
+}, spawn = spawnSync) {
+  for (let index = 0; index < commands.length; index++) {
+    const command = commands[index];
+    const label = `pre-promote guard #${index + 1}`;
+    let result;
+    try {
+      result = spawn(command, {
+        cwd: projectRoot,
+        env: {
+          ...process.env,
+          B2R_WORK_ID: workId,
+          B2R_WORK_TITLE: workTitle,
+          B2R_DRY_RUN: dryRun ? '1' : '0',
+          B2R_FORCE: force ? '1' : '0',
+        },
+        shell: true,
+        stdio: 'pipe',
+        encoding: 'utf8',
+      });
+    } catch (error) {
+      throw new PromoteError(`${label} 启动失败: ${error.message}`);
+    }
+    if (result.error) {
+      throw new PromoteError(`${label} 启动失败: ${result.error.message}`);
+    }
+    if (result.signal) {
+      throw new PromoteError(`${label} 被信号 ${result.signal} 终止`);
+    }
+    if (result.status !== 0) {
+      throw new PromoteError(`${label} exit code ${result.status}`);
+    }
+  }
+}
 
 function parseQueueRow(line, workIdRe) {
   if (!line.startsWith('|')) return null;
@@ -395,7 +438,7 @@ function rewriteQueueMd({ queueMd, workId, specRelPath, planRelPath, workIdRe, w
   return out;
 }
 
-export async function promote({ stateDir, workDir, workId, config, dryRun = false, force = false, today = TODAY_ISO, boardPath = null }) {
+export async function promote({ stateDir, workDir, workId, config, devRoot = null, dryRun = false, force = false, today = TODAY_ISO, boardPath = null }) {
   if (!config) throw new Error('promote 需要传入 config（来自 loadConfig）');
   const WORK_ID_RE = makeWorkIdRegex(config);
   const WORK_ID_PATTERN = makeWorkIdPattern(config);
@@ -444,6 +487,18 @@ export async function promote({ stateDir, workDir, workId, config, dryRun = fals
   if (existsSync(specPath) || existsSync(planPath) || existsSync(contextPackPath)) {
     throw new PromoteError(`${specPath} 或 ${workSubdir}/{plan,context-pack}.md 已存在，promote 拒绝覆盖`);
   }
+
+  // 外部门禁先于任何写盘 / dry-run 输出：失败即 queue/spec/plan/context/BOARD 零改动。
+  // --force 只豁免上面的依赖 Done 检查，不能绕过这里。
+  const resolvedDevRoot = devRoot ? resolve(devRoot) : resolve(stateDir, '..');
+  const projectRoot = resolve(resolvedDevRoot, config.projectRoot || '.');
+  runPrePromoteCommands(config.prePromoteCommands || [], {
+    projectRoot,
+    workId,
+    workTitle: row.name,
+    dryRun,
+    force,
+  });
 
   const specRelPath = `../${specsDir}/${slugDir}.md`;
   const planRelPath = `../work/${slugDir}/plan.md`;
@@ -532,7 +587,7 @@ if (isMainModule(import.meta.url)) {
   const workDir = process.env.WORK_DIR || join(devRoot, 'work');
   try {
     const config = await loadConfig({ devRoot });
-    const r = await promote({ stateDir, workDir, workId, config, dryRun, force });
+    const r = await promote({ stateDir, workDir, workId, config, devRoot, dryRun, force });
     if (dryRun) {
       console.log(`[promote] DRY-RUN · ${workId}`);
       console.log(`  name        : ${r.summary.name}`);
