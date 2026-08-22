@@ -33,8 +33,8 @@ test('mergeAliases: 新补的 alias 用 .b2r-home 运行时解析,不含烘焙�
 
 test('mergeAliases: 迁移旧式烘焙 alias(${B2R_HOME:-/abs/path})为 .b2r-home 解析', () => {
   const existing = {
-    'validate:state': 'DEV_ROOT="$PWD" node "${B2R_HOME:-/Users/other-machine/skill}/bootstrap/workflow/scripts/validate-state.mjs"',
-    'init': 'node "${B2R_HOME:-/Users/other-machine/skill}/bootstrap/workflow/scripts/init.mjs"',
+    'validate:state': 'DEV_ROOT="$PWD" node "${B2R_HOME:-/opt/other-machine/skill}/bootstrap/workflow/scripts/validate-state.mjs"',
+    'init': 'node "${B2R_HOME:-/opt/other-machine/skill}/bootstrap/workflow/scripts/init.mjs"',
     'custom': 'echo hi', // 无指纹,不动
   };
   const { scripts, migrated } = mergeAliases(existing);

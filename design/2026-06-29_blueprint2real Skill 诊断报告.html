@@ -116,7 +116,7 @@
       <table>
         <thead><tr><th>坑</th><th>证据</th><th>性质</th></tr></thead>
         <tbody>
-          <tr><td><b>B2R_HOME 硬编码他机路径</b></td><td>start/render/verify 的 alias 兜底是 <code>/Users/zhangyingze/Documents/...</code>,本机不存在,每条命令都要手动 export</td><td>分发缺陷,memory 已记录仍未根治</td></tr>
+          <tr><td><b>B2R_HOME 硬编码他机路径</b></td><td>start/render/verify 的 alias 兜底是 <code>&lt;bootstrap 机器上的绝对路径&gt;</code>,本机不存在,每条命令都要手动 export</td><td>分发缺陷,memory 已记录仍未根治</td></tr>
           <tr><td><b>validate-state 鸡生蛋</b></td><td>Done 工单要 5-handoff.json,但该 receipt 要 handoff hash,hash 又要 commit 后才有 → 每个 handoff 都要绕"render→commit→写receipt→复跑"圈</td><td>状态机自指,每单复发</td></tr>
           <tr><td><b>lint:redlines 空跑</b></td><td>项目没配红线 → WARN → Stage 4"红线 gate"形同虚设却显示通过</td><td>gate 形式主义</td></tr>
         </tbody>
