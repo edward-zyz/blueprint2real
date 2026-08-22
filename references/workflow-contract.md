@@ -41,6 +41,15 @@ Status 枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
 
 **双源约束**：`Status=Planned` ⇔ §Planned 摘要段下有对应小节；promote 后必须从摘要段删除（promote.mjs 自动做）。
 
+### Promote 前置门禁（v5.6）
+
+`workflow.config.prePromoteCommands` 是可选的非空字符串数组，缺省为 `[]`。`promote.mjs` 在 Planned → Ready 的任何副作用前，按数组顺序在 `projectRoot`（缺省 `devRoot`）执行这些 shell 命令，并注入：
+
+- `B2R_WORK_ID` / `B2R_WORK_TITLE`
+- `B2R_DRY_RUN` / `B2R_FORCE`（`1` 或 `0`）
+
+任一命令非 0、被信号终止或启动失败都会立即短路；queue、spec、plan、context-pack 与 BOARD 保持原样。`--dry-run` 仍执行门禁，`--force` 只绕过依赖 Done 检查，不绕过门禁。未配置时不启动子进程，保持旧行为。
+
 ## state/roadmap.md
 
 必有里程碑二级标题（按 `workflow.config.milestones` 数组顺序），每个里程碑下必有：
@@ -135,7 +144,7 @@ Status 枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
 |---|---|---|
 | `validate-state.mjs` | state/* schema + cross-file 校验 | 0=OK / 1=error |
 | `render-board.mjs` | 生成 BOARD.html | 0=OK / 1=fail |
-| `promote.mjs <id>` | Planned → Ready，生成 spec/plan/context-pack | 0=OK / 1=fail / 2=usage error |
+| `promote.mjs <id>` | 可选 pre-promote guard 通过后 Planned → Ready，生成 spec/plan/context-pack | 0=OK / 1=fail / 2=usage error |
 | `verify-handoff.mjs <id>` | 6 项 handoff 完整性检查 | 0=OK / 1=fail / 2=usage error |
 | `milestone-status.mjs <milestone>` | 判断里程碑是否到达 E2E 验收边界 | 0=OK；`--quiet` 下 true=0 / false=1 |
 | `render-dependencies.mjs` | 依赖图（mermaid / 文本 / json） | 0=OK / 1=有依赖问题 |

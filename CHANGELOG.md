@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **bootstrap 底盘模板同步 v5.7**：`bootstrap/workflow/templates/AGENT_RUNBOOK.md.tmpl` 的固定执行链路与状态更新规则改为 v5.7 口径（红门三分型、Stage 4 条件触发默认主线内联、Stage 5 主线亲做的固定顺序）。
 - **微切片内联通道**：`plan-drafter` 可为切片标 `inline_ok: true`（判据：改动 ≤2 文件 且 无新增行为断言需求），主线对这类切片可内联完成、不派 implementor，`3-impl.json` 记 `inline: true`。仍受不变量 3 / 4 约束；拿不准就不标，整轮 implementor 是默认。
 - 新增 `references/e2e-acceptance.md`（可选 E2E 验收线的完整机制；批次账本建组与 D3 收口硬卡的无条件语义一并收在此）。
-- **`prePromoteCommands` promote 前置门禁（不变量 11）**：可选的项目级外部门禁，在 Planned → Ready 的任何写盘或 dry-run 输出前于 `projectRoot` 顺序执行。命令注入 `B2R_WORK_ID` / `B2R_WORK_TITLE` / `B2R_DRY_RUN` / `B2R_FORCE`（后二者 `1`/`0`），任一非 0 / 被信号终止 / 无法启动即 fail-closed 且零 promote 副作用；`--force` 只豁免依赖 Done 检查，不能绕过。缺省 `[]`，旧项目行为不变。此特性原在分发源之外的下游副本上以 v5.6 名义开发，本次作为增量回灌，使两条 v5.6 线合流。
+- **`prePromoteCommands` promote 前置门禁（不变量 11）**：可选的项目级外部门禁，在 Planned → Ready 的任何写盘或 dry-run 输出前于 `projectRoot` 顺序执行。命令注入 `B2R_WORK_ID` / `B2R_WORK_TITLE` / `B2R_DRY_RUN` / `B2R_FORCE`（后二者 `1`/`0`），任一非 0 / 被信号终止 / 无法启动即 fail-closed 且零 promote 副作用；`--force` 只豁免依赖 Done 检查，不能绕过。缺省 `[]`，旧项目行为不变。此特性原在分发源之外的下游副本上以 v5.6 名义开发，本次作为增量回灌，使两条 v5.6 线合流。上游已于 PR #15 以另一份同源实现先行合入（main 记为 5.6.0 - 2026-08-20），本次合并以两者并集收敛。
 
 ### Changed（bootstrap chassis）
 
