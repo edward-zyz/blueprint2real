@@ -90,9 +90,9 @@
           "expected": ">=3"
         },
         {
-          "text": "SKILL.md 含 7 个阶段框（Stage 0-5，含 Stage 3.5 UI fidelity）",
+          "text": "SKILL.md 阶段表含 7 行（Stage 0-5，含 Stage 3.5 UI fidelity）",
           "type": "shell",
-          "command": "grep -cE '^┌─ Stage [0-5]' \"$SKILL_ROOT\"/SKILL.md",
+          "command": "grep -cE '^\\| \\*\\*[0-9]' \"$SKILL_ROOT\"/SKILL.md",
           "expected": "7"
         },
         {
@@ -321,10 +321,10 @@
           "expected": "ok"
         },
         {
-          "text": "v5.3 thin: 端到端跑 --bootstrap 在真实项目位置（生成 9 文件，无 workflow/）",
+          "text": "v5.3 thin: 端到端跑 --bootstrap 在真实项目位置（生成 11 文件，无 workflow/；v5.6 起含 .b2r-home/.b2r-version）",
           "type": "shell",
           "command": "rm -rf /tmp/b2r-bs-eval && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --bootstrap --prefix ZZ --milestones M0,M1 --project zzapp --target /tmp/b2r-bs-eval >/dev/null 2>&1 && find /tmp/b2r-bs-eval -type f | wc -l | tr -d ' '",
-          "expected": "9"
+          "expected": "11"
         },
         {
           "text": "v5.1 thin: 生成的 target 不含 workflow/ 子树（thin 架构）",
@@ -456,9 +456,9 @@
           "expected": ">=1"
         },
         {
-          "text": "P1·dist: bundle VERSION = 5.6.0",
+          "text": "P1·dist: bundle VERSION = 5.7.0",
           "type": "shell",
-          "command": "grep -c '5.6.0' \"$SKILL_ROOT\"/bootstrap/workflow/VERSION",
+          "command": "grep -c '5.7.0' \"$SKILL_ROOT\"/bootstrap/workflow/VERSION",
           "expected": "1"
         },
         {
@@ -480,10 +480,10 @@
           "expected": "ok"
         },
         {
-          "text": "P1·dist: --upgrade 端到端(thin:.b2r-version=5.6.0 + 无 workflow/ + 补 regression:diff alias)",
+          "text": "P1·dist: --upgrade 端到端(thin:.b2r-version=5.7.0 + 无 workflow/ + 补 regression:diff alias)",
           "type": "shell",
           "command": "rm -rf /tmp/b2r-up && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --bootstrap --prefix UP --milestones M0 --project uptest --target /tmp/b2r-up >/dev/null 2>&1 && node \"$SKILL_ROOT\"/bootstrap/workflow/scripts/init.mjs --upgrade --target /tmp/b2r-up >/dev/null 2>&1 && ver=$(tr -d '[:space:]' < /tmp/b2r-up/.b2r-version 2>/dev/null) && wf=$(test -d /tmp/b2r-up/workflow && echo FAT || echo THIN) && al=$(grep -c 'regression:diff' /tmp/b2r-up/package.json) && echo \"$ver-$wf-$al\"",
-          "expected": "5.6.0-THIN-1"
+          "expected": "5.7.0-THIN-1"
         },
         {
           "text": "P2·O13: SKILL.md 含 test -f {{receiptPath}} 主线校验",
@@ -498,15 +498,15 @@
           "expected": ">=1"
         },
         {
-          "text": "P2·O13: SKILL.md 不变量8 含『stage receipt 由 sub-agent』落盘",
+          "text": "P2·O13: SKILL.md 不变量8 含『stage receipt 由该 stage 执行者落盘』（覆盖派工 sub-agent 与主线内联）",
           "type": "shell",
-          "command": "grep -c 'stage receipt 由 sub-agent' \"$SKILL_ROOT\"/SKILL.md",
+          "command": "grep -c '由该 stage 执行者落盘' \"$SKILL_ROOT\"/SKILL.md",
           "expected": ">=1"
         },
         {
-          "text": "P2·O1: SKILL.md Stage4 arch findings-only",
+          "text": "P2·O1: SKILL.md Stage4 arch findings-only（现行表述『reviewer 不自产 receipt』）",
           "type": "shell",
-          "command": "grep -c 'findings-only' \"$SKILL_ROOT\"/SKILL.md",
+          "command": "grep -c '不自产 receipt' \"$SKILL_ROOT\"/SKILL.md",
           "expected": ">=1"
         },
         {
@@ -516,21 +516,21 @@
           "expected": ">=1"
         },
         {
-          "text": "P2·O12: SKILL.md 含 mode=journey 两段式",
+          "text": "P2·O12: e2e-acceptance 含 mode=journey 两段式（v5.7 由 SKILL.md 外移）",
           "type": "shell",
-          "command": "grep -c 'mode=journey' \"$SKILL_ROOT\"/SKILL.md",
+          "command": "grep -c 'mode=journey' \"$SKILL_ROOT\"/references/e2e-acceptance.md",
           "expected": ">=1"
         },
         {
-          "text": "P2·O12: SKILL.md 含『截图落盘即弃』",
+          "text": "P2·O12: e2e-acceptance 含『截图落盘即弃』（v5.7 由 SKILL.md 外移）",
           "type": "shell",
-          "command": "grep -c '截图落盘即弃' \"$SKILL_ROOT\"/SKILL.md",
+          "command": "grep -c '截图落盘即弃' \"$SKILL_ROOT\"/references/e2e-acceptance.md",
           "expected": ">=1"
         },
         {
-          "text": "P2·O20: SKILL.md 含 acceptance_legible_status",
+          "text": "P2·O20: e2e-acceptance 含 acceptance_legible_status（v5.7 由 SKILL.md 外移）",
           "type": "shell",
-          "command": "grep -c 'acceptance_legible_status' \"$SKILL_ROOT\"/SKILL.md",
+          "command": "grep -c 'acceptance_legible_status' \"$SKILL_ROOT\"/references/e2e-acceptance.md",
           "expected": ">=1"
         },
         {

@@ -1,6 +1,8 @@
-# Pipeline Flow · v5.1 简化主流程图
+# Pipeline Flow · v5.7 简化主流程图
 
 > 何时读本文：你想搞清楚"工单从 roadmap 到 Done 走了哪些 stage、Gate fail 怎么处理"。
+
+> **本文是图示**；Gate 判定规则的唯一权威是 `quality-gates.md`，冲突以后者为准。
 
 ## 主流程（简化版）
 
@@ -11,45 +13,48 @@ flowchart TD
     S0 -->|L1/L2/L3| S1
     L0 --> WorkDone([Work item Done])
 
-    S1[Stage 1 Planner] --> R1[(receipt-1)]
+    S1[Stage 1 Planner] --> R1[(1-planner.json)]
     R1 --> G2{Gate 2}
     G2 -->|pass| PG{prePromoteCommands<br/>optional fail-closed gate}
     PG -->|pass / no commands| S2a
     PG -->|nonzero / signal / launch failure| GuardStop([Stop<br/>queue/spec/plan untouched])
     G2 -.fail / self-blocked.-> Mgr
 
-    S2a[Stage 2a Spec Drafter] --> R2a[(receipt-2a)]
+    S2a[Stage 2a Spec Drafter] --> R2a[(2a-spec.json)]
     R2a --> G3{Gate 3}
     G3 -->|pass| S2b
     G3 -.fail / self-blocked.-> Mgr
 
-    S2b[Stage 2b Plan Drafter<br/>L1: 内嵌 self-review] --> R2b[(receipt-2b)]
+    S2b[Stage 2b Plan Drafter<br/>L1: 内嵌 self-review<br/>可为切片标 inline_ok] --> R2b[(2b-plan.json)]
     R2b --> G5{Gate 5<br/>verdict}
     G5 -->|L1 self-review READY| S3
     G5 -->|L2/L3| S2c
     G5 -.fail.-> Mgr
 
-    S2c[Stage 2c Reviewer] --> R2c[(receipt-2c)]
+    S2c[Stage 2c Reviewer<br/>含 inline_ok 独立复核] --> R2c[(2c-review.json)]
     R2c --> G5b{Gate 5b<br/>verdict}
     G5b -->|READY| S3
     G5b -.REVISION attempt 2.-> Mgr
 
-    S3[Stage 3 Implementor<br/>TDD red-to-green] --> R3[(receipt-3)]
+    S3[Stage 3 Implementor 派工<br/>红门分型 behavior-change / new-module<br/>inline_ok 微切片改由主线内联<br/>红门分型 no-new-behavior] --> R3[(3-impl.json)]
     R3 --> G6{Gate 6<br/>level branch}
     G6 -->|L1| S5
-    G6 -->|L2| S4L[Stage 4 Arch-Light]
-    G6 -->|L3| S4[Stage 4 Arch-Full]
+    G6 -->|L2| S4L[Stage 4 Arch-Light<br/>轻量内嵌]
+    G6 -->|L3| S4[Stage 4 Arch<br/>默认主线内联]
     G6 -.fail.-> Mgr
 
-    S4 --> R4
-    S4L --> R4[(receipt-4)]
+    S4 --> S4C{条件 a/b/c<br/>任一命中?}
+    S4C -->|是: 红线曾命中 / 安全敏感 diff / 内联发现疑点| S4I[派 arch-security-reviewer<br/>只回 findings]
+    S4C -->|否| R4
+    S4I --> R4
+    S4L --> R4[(4-arch.json<br/>始终主线拼装)]
     R4 --> G7{Gate 7}
     G7 -->|READY| S5
     G7 -.NEEDS_FIX attempt 2.-> Mgr
 
-    S5[Stage 5 Handoff Committer<br/>L0 直接到此] --> R5[(receipt-5)]
-    R5 --> G8{Gate 8<br/>verify-handoff}
-    G8 -->|pass| WorkDone
+    S5[Stage 5 Handoff · 默认主线亲做<br/>翻档 → validate:state → render:board<br/>→ handoff commit → pipeline-status=done<br/>L0 直接到此] --> G8{Gate 8<br/>verify:handoff 主线亲跑}
+    G8 -->|pass| R5[(5-handoff.json<br/>主线落盘)]
+    R5 --> WorkDone
     G8 -.fail.-> Mgr
 
     WorkDone --> MS{milestone-status<br/>boundary?}
@@ -76,6 +81,9 @@ flowchart TD
 
 - 虚线（`-.->`）= "fail / self-blocked → Manager"，包含两种触发：(1) attempt > maxRetry+1 (默认 attempt > 2) (2) sub-agent return blocked=true 含非空 evidence
 - 每个 Gate 实线 fail 表示**首次 fail** → 主线自动 retry 一次（attempt++）；retry 后仍 fail 才走虚线进 Manager
+- **Stage 3 红门三分型**（不变量 3）：`behavior-change`（改既有行为，严格断言级红→绿）/ `new-module`（从零新建，tests+impl 同批但断言须覆盖 spec §7 且跑绿）/ `no-new-behavior`（**仅限 `inline_ok` 微切片**，diff 无行为变更，证据是既有测试或上游切片的 targeted 绿输出引用）
+- **Stage 4 是条件触发**：L3 默认由主线内联（亲跑 `lint:redlines` + 核 scope / spec §11 / diff 面），仅 (a) 红线曾命中 / (b) diff 触碰安全敏感面 / (c) 内联发现疑点 才派 `arch-security-reviewer`；派出的 reviewer 只回 findings，`4-arch.json` 始终由主线拼装
+- **Stage 5 无 sub-agent**：默认主线亲做，顺序为 翻档 → `validate:state` → `render:board` → handoff commit（白名单，禁 `git add -A`）→ `pipeline-status=done` → 亲跑 `verify:handoff` → 落 `5-handoff.json`；`handoff-committer` 仅在主线上下文吃紧时作可选模板派出（止于 handoff commit）
 - `milestone-status` 是 Stage 5 之后的确定性边界脚本；只有 `boundary_reached=true` 才能派 e2e-verifier
 - E2E FAIL 默认回流为带 `source=e2e-fail / milestone / journey_id` 的 Planned 修复工单；同一 `(milestone, journey_id)` 查重复用，超过 `e2e.maxRerun` 才进 Manager
 - Manager Override 5 个 action 中：
@@ -93,7 +101,7 @@ flowchart TD
 | L0 | direct-fix → Done | 跳 spec/plan/review/arch |
 | L1 | 1 → 2a → 2b(含 self-review) → 3 → 5 | 跳 2c-reviewer + 4-arch |
 | L2 | 1 → 2a → 2b → 2c → 3 → 4-light → 5 | reviewer/arch 走轻量（不调 architecture skill） |
-| L3 | 1 → 2a → 2b → 2c → 3 → 4-full → 5 | 完整 7 stage |
+| L3 | 1 → 2a → 2b → 2c → 3 → 4（默认主线内联，条件触发独立 reviewer）→ 5 | 完整 7 stage |
 
 ## Retry 模式
 

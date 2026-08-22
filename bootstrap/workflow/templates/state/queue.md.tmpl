@@ -2,7 +2,7 @@
 
 - 编号规则：`{{workIdPrefix}}-{{workIdNumberMask}}`（{{workIdDigits}} 位补零，从 `{{workIdPrefix}}-{{firstWorkIdSuffix}}` 起算）。
 - 状态枚举：`Planned | Ready | In Progress | Blocked | Done | Superseded`。
-- 校验：`cd dev && npm run validate:state` 兜底；冲突时以本表 + active.md 为执行事实源。
+- 校验：`cd {{devRootName}} && npm run validate:state` 兜底；冲突时以本表 + active.md 为执行事实源。
 - 双源约束：表里 `Status=Planned` ⇔ 文件末「§Planned 工单范围摘要」必有 `### {{workIdPrefix}}-{{workIdNumberMask}} ·` 小节；promote 后必须移除摘要段。
 
 | Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |

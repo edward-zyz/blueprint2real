@@ -366,10 +366,14 @@ export function validateState({ stateDir, config, workDir = null, grandfatherIds
     }
   }
 
-  // D3 · e2e-groups.md · per-submission E2E 验收硬卡（仅 e2e.unit∈{group,both} 时启用）
-  // 一次 b2r 提交 mint 的一批工单为一个 group；该组全部工单 Done 但 Status 仍 Open
-  // （= 没固化组级 E2E）→ error，堵死"跑完即弃"。validate:state 一红，promote/handoff 全卡。
-  if (config.e2e !== undefined && ['group', 'both'].includes(config.e2e.unit)) {
+  // D3 · e2e-groups.md · 批次账本硬卡（v5.6 P0-3 起无条件生效，不再依赖 e2e 配置）
+  // 一次 b2r 提交 mint 的一批工单为一个批次（group）。簿记校验（成员存在 / 不跨组 /
+  // 状态合法）对任何有批次行的项目都跑——账本是"计划 N vs Done M"完整性比对的事实源，
+  // 堵主线漏跟踪工单的退化。全 Done 仍 Open 的收口硬卡同样无条件：e2e.unit∈{group,both}
+  // 时收口 = 组级 E2E 验收；否则收口 = 翻 Skipped（Receipt 写 skip:e2e-disabled），
+  // 成本一行，保证账本永远有尾。validate:state 一红，promote/handoff 全卡。
+  {
+    const d3GroupUnit = config.e2e !== undefined && ['group', 'both'].includes(config.e2e.unit);
     const groupsPath = join(stateDir, 'e2e-groups.md');
     if (existsSync(groupsPath)) {
       const seenGroups = new Set();
@@ -398,7 +402,11 @@ export function validateState({ stateDir, config, workDir = null, grandfatherIds
           }
         }
         if (allResolved && g.status === 'Open') {
-          err('e2e-groups.md', `${g.group}: 该批工单全部 Done/Superseded，但未完成组级 E2E 验收（Status 仍 Open）。派 e2e-verifier(mode:group) 固化测试后翻 Accepted；确无可观测面则翻 Skipped`);
+          if (d3GroupUnit) {
+            err('e2e-groups.md', `${g.group}: 该批工单全部 Done/Superseded，但未完成组级 E2E 验收（Status 仍 Open）。派 e2e-verifier(mode:group) 固化测试后翻 Accepted；确无可观测面则翻 Skipped`);
+          } else {
+            err('e2e-groups.md', `${g.group}: 该批工单全部 Done/Superseded，但批次未收口（Status 仍 Open）。e2e 未启用组级验收时翻 Skipped 并在 Receipt 写 "skip:e2e-disabled"——批次账本必须有尾（完整性闸）`);
+          }
         }
         if (g.status === 'Accepted' && !g.receipt) {
           err('e2e-groups.md', `${g.group}: Status=Accepted 但缺少 Receipt 路径`);

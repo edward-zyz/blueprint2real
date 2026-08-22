@@ -1,6 +1,16 @@
 # arch-security-reviewer · Sub-Agent Prompt 模板（v3 · skill-delegating）
 
-主线在 implementor 完成所有 sub-slice 后用本模板派 reviewer。Stage 4 把关架构 + 安全 + 红线。
+## 何时派（条件触发，不是每单必派）
+
+Stage 4 默认由**主线内联**完成：主线亲跑 `npm run lint:redlines`（含 `config.redlineCommands`）+ 核对 scope 一致性 / spec §11 对齐 / diff 面，并自己拼装 `4-arch.json`。**只有 L3 工单且命中以下任一条件时，才用本模板派独立 reviewer**：
+
+- (a) `lint:redlines` 或 `config.redlineCommands` 命中；
+- (b) diff 触碰安全敏感面：认证 / 授权 / 加密 / 密钥 / 权限 / schema migration / 计费；
+- (c) 主线内联核查发现疑点（范围可疑、契约与 spec §5 不符、实现质量存疑等）。
+
+未命中任一条件 → 不派本 agent，主线内联出 receipt 并在 `4-arch.json` 写 `independent_review_dispatched:false` + `dispatch_reason`（未派的依据）。派了则写 `true` + 命中的条件。L2 走轻量内嵌、L1 跳过，维持原状。
+
+派出前提仍是 implementor 完成所有 sub-slice。本模板把关架构 + 安全 + 红线。
 
 **v2 改造点**：sub-agent 通过 Skill 工具组合调 **`security-review`**（安全审）+ **`architecture`**（如有架构决策） + **`requesting-code-review`**（通用 review 思维），再叠加 b2r 红线判断与范围一致性 checklist。
 
@@ -179,5 +189,5 @@ markdown report：
 
 - **主线据 findings 拼装 4-arch.json（v5.4 O1 根治）**：读 reviewer 返回的 findings JSON + 亲跑 `cd {{devRoot}} && npm run lint:redlines`，把两者合并成合法 `4-arch.json`（`verdict` = findings 的 `verdict_suggestion`，`lint_redlines_hits` = 主线亲跑结果，`scope_consistency`/`implementation_quality`/`section11_alignment` 取 findings 对应字段）并 `Write` 落盘到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/4-arch.json`。这样即便 reviewer 被 security-review 散文带跑、findings JSON 不在末条，主线也能从消息里取最后一个合法 JSON 块拼出 receipt——**彻底消灭"散文吞 receipt"复发坑**。
 - findings JSON 完全拿不到（空 / 截断 / 纯散文无任何 JSON）才算交付失败，走不变量 10：fresh 重派 1 次 → 仍不可用主线内联接手（自调 `security-review` 取证 + 拼 4-arch，标 `dispatch_recovery`）。
-- `verdict=READY_TO_HANDOFF` → 派 handoff-committer
+- `verdict=READY_TO_HANDOFF` → 进 Stage 5（**默认主线亲做**，见 SKILL.md「Stage 5 附则」；`handoff-committer` 已降级为可选模板）
 - `verdict=NEEDS_FIX` → 按建议处理（fixup commit / 新 slice / 重做 implementor）

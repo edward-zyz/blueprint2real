@@ -174,6 +174,143 @@ test('--dry-run 不写盘', async () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+test('promote 后 validate-state 兜底通过', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const r = await promote({ stateDir, workDir, workId: 'IS-003', config: testConfig });
+  assert.equal(r.validation.ok, true, `应通过，实际 issues:\n${r.validation.issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('promote 生成 context-pack.md 含依赖工单的 customer-visible 段', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  await promote({ stateDir, workDir, workId: 'IS-003', config: testConfig });
+  const cpPath = join(workDir, 'IS-003_Instance-Profile-加载', 'context-pack.md');
+  assert.ok(existsSync(cpPath), 'context-pack.md 应被生成');
+  const cp = readFileSync(cpPath, 'utf8');
+  assert.match(cp, /# IS-003 Context Pack/);
+  assert.match(cp, /## 1\. 工单基础/);
+  assert.match(cp, /## 2\. 前置工单已交付的能力/);
+  // IS-002 是依赖，customer-visible 中有 Done 段，应被注入
+  assert.match(cp, /### 2026-05-13 · IS-002 Done/);
+  assert.match(cp, /SQLite 就位/);
+  // RUNBOOK 必读章节列表
+  assert.match(cp, /§4 Agent 启动检查表/);
+  assert.match(cp, /§6 架构红线/);
+  // 启动 checklist
+  assert.match(cp, /\[ \] 已读本文/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('依赖工单不在 customer-visible 中（如刚 promote 的 Ready），context-pack 给明确提示', async () => {
+  // IS-004 依赖 IS-002（Done，有 cv 段）；假设 IS-002 cv 段被删除
+  const { root, stateDir, workDir } = setupFixture();
+  writeFileSync(join(stateDir, 'customer-visible.md'),
+    `# Customer-Visible Changelog\n\n## 2026-05-13 · IS-001 Done\n\n- 客户可感知变化：无\n- Internal-only 变化：骨架\n`);
+  // 同时把 IS-002 改成 Ready 状态以便 force promote IS-004（其依赖未 Done）
+  const queue = QUEUE_BASE.replace(
+    '| IS-002 | Metadata Store | Done | M0 | `../work/IS-002/spec.md` | `../work/IS-002/plan.md` | 182c25a | 2026-05-13 |',
+    '| IS-002 | Metadata Store | Ready | M0 | `../work/IS-002/spec.md` | `../work/IS-002/plan.md` | — | — |',
+  );
+  writeFileSync(join(stateDir, 'queue.md'), queue);
+  await promote({ stateDir, workDir, workId: 'IS-004', force: true, config: testConfig });
+  const cp = readFileSync(join(workDir, 'IS-004_Control-Plane-HTTP', 'context-pack.md'), 'utf8');
+  assert.match(cp, /IS-002.*customer-visible.md 中查无此 Done 段/s);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('promote IS-004 不影响 IS-003 的摘要段', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  await promote({ stateDir, workDir, workId: 'IS-004', config: testConfig });
+  const queue = readFileSync(join(stateDir, 'queue.md'), 'utf8');
+  assert.match(queue, /^### IS-003 ·/m, 'IS-003 摘要应保留');
+  assert.doesNotMatch(queue, /^### IS-004 ·/m, 'IS-004 摘要应删除');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('promote 自动重 render BOARD.html（防 IS-011/IS-012 类 stale 复发）', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const boardPath = join(root, 'BOARD.html');
+  // 故意写一个旧 BOARD（pre-promote 内容）
+  writeFileSync(boardPath, '<html>OLD BOARD - IS-003 not yet promoted</html>');
+  const r = await promote({ stateDir, workDir, workId: 'IS-003', boardPath, config: testConfig });
+  assert.equal(r.ok, true);
+  assert.ok(r.board, 'promote 返回值应含 board 字段（render 成功）');
+  assert.equal(r.board.outPath, boardPath);
+  const board = readFileSync(boardPath, 'utf8');
+  // 新 BOARD 应是真 HTML 模板（含 KPI/BOARD 等标识），不再是旧字符串
+  assert.match(board, /INSIGHT · BOARD/);
+  assert.match(board, /ACTIVE WORK ITEM/);
+  // queue.md IS-003 已 Ready，所以 READY QUEUE 应 = 1
+  assert.match(board, /kpi-label">READY QUEUE<\/div>\s*<div class="kpi-value">1<\/div>/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('promote --dry-run 时不真的 render BOARD（只在 willWrite 中列出）', async () => {
+  const { root, stateDir, workDir } = setupFixture();
+  const boardPath = join(root, 'BOARD.html');
+  writeFileSync(boardPath, '<html>OLD</html>');
+  const r = await promote({ stateDir, workDir, workId: 'IS-003', dryRun: true, boardPath, config: testConfig });
+  assert.equal(r.dryRun, true);
+  // dry-run 时 BOARD 应未被改写
+  assert.equal(readFileSync(boardPath, 'utf8'), '<html>OLD</html>');
+  // 但 willWrite 列表应含 BOARD.html 提示
+  assert.ok(r.summary.willWrite.some((w) => w.path === boardPath && w.action === 'rerender'));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('依赖解析含多个 IS-NNN（"IS-001 / IS-002"）', async () => {
+  const queue = QUEUE_BASE.replace(
+    '目标：起 Express。不做：业务路由。验收：审计落表。依赖：IS-002。',
+    '目标：起 Express。不做：业务路由。验收：审计落表。依赖：IS-001 / IS-002。',
+  );
+  const { root, stateDir, workDir } = setupFixture(queue);
+  const r = await promote({ stateDir, workDir, workId: 'IS-004', config: testConfig });
+  assert.deepEqual(r.summary.depsResolved.sort(), ['IS-001', 'IS-002']);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('timestamp ID 依赖解析不被截断，promote 依赖门通过', async () => {
+  const queue = `# Work Queue
+
+| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| IS-001 | legacy | Done | M0 | \`../work/IS-001/spec.md\` | \`../work/IS-001/plan.md\` | 33163ba | 2026-05-13 |
+| IS-260602-143052-7f | A | Done | M0 | \`../work/IS-260602-143052-7f/spec.md\` | \`../work/IS-260602-143052-7f/plan.md\` | 182c25a | 2026-06-02 |
+| IS-260700-090000-a3 | B | Done | M0 | \`../work/IS-260700-090000-a3/spec.md\` | \`../work/IS-260700-090000-a3/plan.md\` | 282c25b | 2026-06-07 |
+| IS-260700-091500-b4 | C | Planned | M0 | — | — | — | — |
+
+## Planned 工单范围摘要
+
+### IS-260700-091500-b4 · C
+
+目标：x。不做：y。验收：z。依赖：IS-260602-143052-7f / IS-260700-090000-a3。
+`;
+  const { root, stateDir, workDir } = setupFixture(queue);
+  writeFileSync(join(stateDir, 'customer-visible.md'), `# Customer-Visible Changelog
+
+## 2026-06-07 · IS-260700-090000-a3 Done
+
+- 客户可感知变化：B
+- Internal-only 变化：B
+
+## 2026-06-02 · IS-260602-143052-7f Done
+
+- 客户可感知变化：A
+- Internal-only 变化：A
+
+## 2026-05-13 · IS-001 Done
+
+- 客户可感知变化：legacy
+- Internal-only 变化：legacy
+`);
+  const r = await promote({ stateDir, workDir, workId: 'IS-260700-091500-b4', config: testConfig });
+  assert.deepEqual(r.summary.depsResolved.sort(), ['IS-260602-143052-7f', 'IS-260700-090000-a3']);
+  assert.equal(r.validation.ok, true);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ── pre-promote guard（项目级外部门禁）──────────────────────────────
+
 test('旧调用方传入不含 prePromoteCommands 的 config 时保持兼容', async () => {
   const { root, stateDir, workDir } = setupFixture();
   const legacyConfig = { ...testConfig };
@@ -312,139 +449,4 @@ test('pre-promote guard 收到信号或启动失败时 fail-closed', () => {
     () => runPrePromoteCommands(['x'], context, () => ({ status: null, signal: null, error: new Error('spawn ENOENT') })),
     /pre-promote guard.*spawn ENOENT/i,
   );
-});
-
-test('promote 后 validate-state 兜底通过', async () => {
-  const { root, stateDir, workDir } = setupFixture();
-  const r = await promote({ stateDir, workDir, workId: 'IS-003', config: testConfig });
-  assert.equal(r.validation.ok, true, `应通过，实际 issues:\n${r.validation.issues.map((i) => `  ${i.severity} ${i.file}: ${i.msg}`).join('\n')}`);
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('promote 生成 context-pack.md 含依赖工单的 customer-visible 段', async () => {
-  const { root, stateDir, workDir } = setupFixture();
-  await promote({ stateDir, workDir, workId: 'IS-003', config: testConfig });
-  const cpPath = join(workDir, 'IS-003_Instance-Profile-加载', 'context-pack.md');
-  assert.ok(existsSync(cpPath), 'context-pack.md 应被生成');
-  const cp = readFileSync(cpPath, 'utf8');
-  assert.match(cp, /# IS-003 Context Pack/);
-  assert.match(cp, /## 1\. 工单基础/);
-  assert.match(cp, /## 2\. 前置工单已交付的能力/);
-  // IS-002 是依赖，customer-visible 中有 Done 段，应被注入
-  assert.match(cp, /### 2026-05-13 · IS-002 Done/);
-  assert.match(cp, /SQLite 就位/);
-  // RUNBOOK 必读章节列表
-  assert.match(cp, /§4 Agent 启动检查表/);
-  assert.match(cp, /§6 架构红线/);
-  // 启动 checklist
-  assert.match(cp, /\[ \] 已读本文/);
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('依赖工单不在 customer-visible 中（如刚 promote 的 Ready），context-pack 给明确提示', async () => {
-  // IS-004 依赖 IS-002（Done，有 cv 段）；假设 IS-002 cv 段被删除
-  const { root, stateDir, workDir } = setupFixture();
-  writeFileSync(join(stateDir, 'customer-visible.md'),
-    `# Customer-Visible Changelog\n\n## 2026-05-13 · IS-001 Done\n\n- 客户可感知变化：无\n- Internal-only 变化：骨架\n`);
-  // 同时把 IS-002 改成 Ready 状态以便 force promote IS-004（其依赖未 Done）
-  const queue = QUEUE_BASE.replace(
-    '| IS-002 | Metadata Store | Done | M0 | `../work/IS-002/spec.md` | `../work/IS-002/plan.md` | 182c25a | 2026-05-13 |',
-    '| IS-002 | Metadata Store | Ready | M0 | `../work/IS-002/spec.md` | `../work/IS-002/plan.md` | — | — |',
-  );
-  writeFileSync(join(stateDir, 'queue.md'), queue);
-  await promote({ stateDir, workDir, workId: 'IS-004', force: true, config: testConfig });
-  const cp = readFileSync(join(workDir, 'IS-004_Control-Plane-HTTP', 'context-pack.md'), 'utf8');
-  assert.match(cp, /IS-002.*customer-visible.md 中查无此 Done 段/s);
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('promote IS-004 不影响 IS-003 的摘要段', async () => {
-  const { root, stateDir, workDir } = setupFixture();
-  await promote({ stateDir, workDir, workId: 'IS-004', config: testConfig });
-  const queue = readFileSync(join(stateDir, 'queue.md'), 'utf8');
-  assert.match(queue, /^### IS-003 ·/m, 'IS-003 摘要应保留');
-  assert.doesNotMatch(queue, /^### IS-004 ·/m, 'IS-004 摘要应删除');
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('promote 自动重 render BOARD.html（防 IS-011/IS-012 类 stale 复发）', async () => {
-  const { root, stateDir, workDir } = setupFixture();
-  const boardPath = join(root, 'BOARD.html');
-  // 故意写一个旧 BOARD（pre-promote 内容）
-  writeFileSync(boardPath, '<html>OLD BOARD - IS-003 not yet promoted</html>');
-  const r = await promote({ stateDir, workDir, workId: 'IS-003', boardPath, config: testConfig });
-  assert.equal(r.ok, true);
-  assert.ok(r.board, 'promote 返回值应含 board 字段（render 成功）');
-  assert.equal(r.board.outPath, boardPath);
-  const board = readFileSync(boardPath, 'utf8');
-  // 新 BOARD 应是真 HTML 模板（含 KPI/BOARD 等标识），不再是旧字符串
-  assert.match(board, /INSIGHT · BOARD/);
-  assert.match(board, /ACTIVE WORK ITEM/);
-  // queue.md IS-003 已 Ready，所以 READY QUEUE 应 = 1
-  assert.match(board, /kpi-label">READY QUEUE<\/div>\s*<div class="kpi-value">1<\/div>/);
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('promote --dry-run 时不真的 render BOARD（只在 willWrite 中列出）', async () => {
-  const { root, stateDir, workDir } = setupFixture();
-  const boardPath = join(root, 'BOARD.html');
-  writeFileSync(boardPath, '<html>OLD</html>');
-  const r = await promote({ stateDir, workDir, workId: 'IS-003', dryRun: true, boardPath, config: testConfig });
-  assert.equal(r.dryRun, true);
-  // dry-run 时 BOARD 应未被改写
-  assert.equal(readFileSync(boardPath, 'utf8'), '<html>OLD</html>');
-  // 但 willWrite 列表应含 BOARD.html 提示
-  assert.ok(r.summary.willWrite.some((w) => w.path === boardPath && w.action === 'rerender'));
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('依赖解析含多个 IS-NNN（"IS-001 / IS-002"）', async () => {
-  const queue = QUEUE_BASE.replace(
-    '目标：起 Express。不做：业务路由。验收：审计落表。依赖：IS-002。',
-    '目标：起 Express。不做：业务路由。验收：审计落表。依赖：IS-001 / IS-002。',
-  );
-  const { root, stateDir, workDir } = setupFixture(queue);
-  const r = await promote({ stateDir, workDir, workId: 'IS-004', config: testConfig });
-  assert.deepEqual(r.summary.depsResolved.sort(), ['IS-001', 'IS-002']);
-  rmSync(root, { recursive: true, force: true });
-});
-
-test('timestamp ID 依赖解析不被截断，promote 依赖门通过', async () => {
-  const queue = `# Work Queue
-
-| Work ID | 名称 | Status | 里程碑 | Spec | Plan | Commit | 完成日期 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| IS-001 | legacy | Done | M0 | \`../work/IS-001/spec.md\` | \`../work/IS-001/plan.md\` | 33163ba | 2026-05-13 |
-| IS-260602-143052-7f | A | Done | M0 | \`../work/IS-260602-143052-7f/spec.md\` | \`../work/IS-260602-143052-7f/plan.md\` | 182c25a | 2026-06-02 |
-| IS-260700-090000-a3 | B | Done | M0 | \`../work/IS-260700-090000-a3/spec.md\` | \`../work/IS-260700-090000-a3/plan.md\` | 282c25b | 2026-06-07 |
-| IS-260700-091500-b4 | C | Planned | M0 | — | — | — | — |
-
-## Planned 工单范围摘要
-
-### IS-260700-091500-b4 · C
-
-目标：x。不做：y。验收：z。依赖：IS-260602-143052-7f / IS-260700-090000-a3。
-`;
-  const { root, stateDir, workDir } = setupFixture(queue);
-  writeFileSync(join(stateDir, 'customer-visible.md'), `# Customer-Visible Changelog
-
-## 2026-06-07 · IS-260700-090000-a3 Done
-
-- 客户可感知变化：B
-- Internal-only 变化：B
-
-## 2026-06-02 · IS-260602-143052-7f Done
-
-- 客户可感知变化：A
-- Internal-only 变化：A
-
-## 2026-05-13 · IS-001 Done
-
-- 客户可感知变化：legacy
-- Internal-only 变化：legacy
-`);
-  const r = await promote({ stateDir, workDir, workId: 'IS-260700-091500-b4', config: testConfig });
-  assert.deepEqual(r.summary.depsResolved.sort(), ['IS-260602-143052-7f', 'IS-260700-090000-a3']);
-  assert.equal(r.validation.ok, true);
-  rmSync(root, { recursive: true, force: true });
 });

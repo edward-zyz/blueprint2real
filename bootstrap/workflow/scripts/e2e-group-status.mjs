@@ -77,10 +77,11 @@ function summarizeGroup({ row, queueStatus, groupUnitEnabled, e2eEnabled }) {
   const allDone = members.length > 0 && members.every((m) => m.found && isResolved(m.status));
   const open = row.status === 'Open';
   const boundaryReached = allDone && open;
+  // v5.6 P0-3:批次账本与 e2e 配置解耦。done/total/open_members/boundary 只看 state;
+  // e2e 配置只决定到边界后的收口动作(跑组级 E2E vs 直接翻 Skipped)。
   let nextAction;
-  if (!groupUnitEnabled) nextAction = 'group_unit_disabled';
-  else if (!open) nextAction = 'closed';
-  else if (boundaryReached) nextAction = e2eEnabled ? 'run_group_e2e' : 'skip_e2e_disabled';
+  if (!open) nextAction = 'closed';
+  else if (boundaryReached) nextAction = groupUnitEnabled && e2eEnabled ? 'run_group_e2e' : 'skip_e2e_disabled';
   else nextAction = 'continue_per_ticket_pipeline';
   return {
     group: row.group,

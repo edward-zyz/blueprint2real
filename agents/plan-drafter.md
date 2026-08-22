@@ -73,6 +73,7 @@ Self-review 失败任一项 → return 自报阻塞，让主线打回 spec/plan 
 ### §3 Commit 范围
 
 - **是否需要 sub-slice 拆分？**判据见 RUNBOOK §11——只在"任一 sub-slice 踩坑会卡死整工单"时才拆。多数工单**不拆**
+- **微切片内联标记 `inline_ok`**：对每个切片（不拆则对整工单）判一次——同时满足「改动 ≤2 文件」且「无新增行为断言需求」（典型：只差把上游已验证的产物提交落盘、纯配置 / 文案改动）时标 `inline_ok: true`，主线可内联完成、不派 implementor。**拿不准就不标**——整轮 implementor 是默认，误标会让本该有断言的改动失去 TDD 保护。标了的切片仍受不变量 3（红门分型）/ 4（commit 物理分离 + 白名单 add）约束
 - **Implementation commit message head**：`feat(<scope>): <概括>（{{workId}}）`，多 slice 加 ` slice N/M`
 - **Handoff commit message** 固定：`chore(state): {{workId}} Done · 翻档`
 
@@ -122,6 +123,9 @@ Self-review 失败任一项 → return 自报阻塞，让主线打回 spec/plan 
   "tdd_step1_described": true,
   "regression_cmds_unchanged": true,
   "sub_slice_count": 1,
+  "slices": [
+    { "label": "<slice 标签，不拆时写 '整工单单切片'>", "inline_ok": false, "inline_ok_reason": "<标 true 时写：≤2 文件 + 无新增行为断言需求的具体依据；标 false 时 null>" }
+  ],
   "l1_self_review_verdict": null,
   "skills_used": ["writing-plans"]
 }
@@ -131,7 +135,7 @@ L1 路径填 `l1_self_review_verdict: "READY_TO_IMPLEMENT" | "NEEDS_REVISION"`�
 
 精简报告（≤200 字）：
 - plan.md 已填，TDD 三步摘要
-- 是否需要 sub-slice 拆分 + 理由
+- 是否需要 sub-slice 拆分 + 理由；哪些切片标了 `inline_ok` + 依据
 - 估时
 - 跑了哪些 skill 以及关键产出
 

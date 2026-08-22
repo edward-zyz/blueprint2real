@@ -43,17 +43,30 @@ promote one work item to Ready          (promote.mjs 自动 render BOARD)
                              Ready → In Progress + validate:state 兜底 + 自动 render BOARD
                              （持有该工单的契约；不要手工分别改两文件，漏一个就 cross-file 脱钩）
   -> spec
-  -> spec review
-  -> implementation plan
-  -> failing test (TDD)
+  -> implementation plan（可为微切片标 inline_ok：改动 ≤2 文件 且 无新增行为断言需求）
+  -> spec/plan review（L2/L3 独立 reviewer，含 inline_ok 判据复核）
+  -> TDD 红门（**按切片分型**，三选一，receipt 填 red_gate_mode）
+       · behavior-change：改既有行为 → failing test 必须先跑红，且红在**断言**上
+                          （ERR_MODULE_NOT_FOUND / Cannot find module 不算红门证据）
+       · new-module：从零新建模块/文件 → 允许 tests + 最小实现同批落地，
+                     但断言必须覆盖 spec §7 对应条目并跑绿
+       · no-new-behavior：**仅限 inline_ok 微切片** → diff 无行为变更，
+                          证据为既有测试 / 上游切片 targeted 绿输出的具体引用
   -> minimal implementation
-  -> targeted verification
-  -> regression verification
-  -> architecture & security review
+  -> targeted verification（每切片跑）
+  -> regression verification（多切片工单收敛到末切片后跑一次）
+  -> architecture & security review（**条件触发**）
+       默认由主线内联：亲跑 npm run lint:redlines + 核 scope 一致性 / spec §11 对齐 / diff 面
+       仅 (a) 红线曾命中（即使已修复）(b) diff 触碰安全敏感面（认证/授权/加密/密钥/权限/
+       schema migration/计费）(c) 内联核查发现疑点 —— 任一成立才派独立 reviewer
   -> implementation commit(s) (每个仅含本轮代码相关文件；按 §11 sub-slice 划分，1 或多个均可)
-  -> 更新 state/active.md + state/queue.md + state/customer-visible.md
-  -> npm run render:board
-  -> handoff commit (唯一，仅 state/* + BOARD.html)
+  -> 【handoff · 默认主线亲做，顺序固定不可调换】
+       更新 state/active.md + state/queue.md + state/customer-visible.md（涉及里程碑则含 roadmap.md）
+    -> npm run validate:state
+    -> npm run render:board
+    -> handoff commit (唯一，仅 state/* + BOARD.html；白名单 git add，禁 git add -A)
+    -> receipts/pipeline-status.json status=done
+    -> npm run verify:handoff <id>   ← 前面几项全部就位才可能过，提前跑必挂
   -> stop this thread
 ```
 
@@ -79,7 +92,7 @@ promote one work item to Ready          (promote.mjs 自动 render BOARD)
 | Spec | 定义目标、边界、输入输出、安全约束、验收口径 | 没有 spec 不写实现 |
 | Plan | 拆分 TDD 步骤、文件范围、验证命令、提交范围 | 没有 plan 不改代码 |
 | Tests | 证明行为契约可验证 | 能自动验证的内容必须自动化 |
-| Review | 检查架构漂移、安全泄漏、回归风险、范围膨胀 | review 未通过不提交 |
+| Review | 检查架构漂移、安全泄漏、回归风险、范围膨胀 | 实现前的 spec/plan review 不可省；实现后的架构安全审查条件触发（默认主线内联，红线曾命中 / 安全敏感 diff / 内联发现疑点才派独立 reviewer）。review 未通过不提交 |
 | Commit | 固化单轮可回滚切片 | impl commit 只含本轮代码文件；handoff commit 唯一且仅含 state/* + BOARD.html |
 | state/* 更新 | 翻 active / queue / customer-visible / roadmap | 不更新不提交 |
 
@@ -90,7 +103,7 @@ promote one work item to Ready          (promote.mjs 自动 render BOARD)
 ### 6.1 可执行红线（lint 兜底）
 
 ```bash
-cd dev && npm run lint:redlines
+cd {{devRootName}} && npm run lint:redlines
 ```
 
 当 RULES 为空时退出码 0；新增红线时往该数组里推一个 `(rootDir) => Issue[]` 函数 + 同步加测试。
@@ -103,8 +116,13 @@ cd dev && npm run lint:redlines
 2. `state/queue.md`：本轮 work item 行 status → Done，Commit 列写 **implementation commit hash**，完成日期同步。
 3. `state/customer-visible.md`：追加 1 段 `## YYYY-MM-DD · {{workIdPrefix}}-{{workIdNumberMask}} Done`，含「客户 / 产品可感知变化」与「Internal-only 变化」两条 bullet。
 4. `state/roadmap.md`：如涉及里程碑翻档，更新对应里程碑的状态。
-5. 跑 `npm run render:board` 重生成 `BOARD.html`。
-6. handoff commit 只包含 state/* 与 BOARD.html，与 implementation commit 物理分离。
+5. 跑 `npm run validate:state`，0 error 才继续。
+6. 跑 `npm run render:board` 重生成 `BOARD.html`（必须在所有 state/*.md 编辑之后，保证 BOARD mtime ≥ state/*）。
+7. handoff commit 只包含 state/* 与 BOARD.html，与 implementation commit 物理分离；`git add` 只列这几个具体文件，**禁 `git add -A`**；一次成型、不 amend。
+8. 写 `work/<id>/receipts/pipeline-status.json` 的 `status: "done"`。
+9. 最后跑 `npm run verify:handoff <id>` 全过收尾——**顺序不可提前**：它要求 queue=Done / active=Idle / BOARD 已渲染 / pipeline-status=done 全部就位，提前跑必挂。
+
+以上是默认由**主线亲做**的机械动作链；派 sub-agent 收尾属可选降级路径，且第 8-9 步仍归主线。
 
 ## 8. 例外处理
 

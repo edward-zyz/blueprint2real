@@ -1,6 +1,12 @@
 # handoff-committer · Sub-Agent Prompt 模板（v2 · skill-delegating）
 
-主线在 arch-security-reviewer 给出 `READY TO HANDOFF` 后用本模板派 committer。Stage 5 完成状态翻档 + handoff commit。
+## 何时派（已降级为可选，默认不派）
+
+**Stage 5 默认由主线亲自执行**，顺序唯一（`verify:handoff` 要求 queue=Done / active=Idle / BOARD 已渲染 / pipeline-status=done 全部就位才可能过，提前跑必挂）：翻档（active/queue/customer-visible）→ `npm run validate:state` → `npm run render:board` → 白名单 handoff commit（仅 `state/*` + `BOARD.html`，禁 `git add -A`，断言与 impl commit 物理分离）→ 写 `pipeline-status.json` `status:"done"` → 亲跑 `npm run verify:handoff <id>` → 主线落盘 `5-handoff.json`。这些是机械活，派工反而引入交接损耗（实测 verify 被推迟、残留脏 receipt）。
+
+**只在以下情况才用本模板派 committer**：主线上下文吃紧，或并行多单同时收尾需要卸载。派出时下述所有约束照旧生效，且主线仍须在 committer 返回后**亲自**再跑一次 `verify:handoff` 与 `git show --stat`（不采信自报）。
+
+前置条件不变：Stage 4 已给出 `READY TO HANDOFF`。Stage 5 完成状态翻档 + handoff commit。
 
 **v2 改造点**：sub-agent 通过 Skill 工具调 **`verification-before-completion`**（每步翻档后用脚本兜底）+ **`finishing-a-development-branch`**（选 finish 方式时参考），再叠加 b2r 的 state 翻档具体动作 + handoff commit 物理分离约束。
 

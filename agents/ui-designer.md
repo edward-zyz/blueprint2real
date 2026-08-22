@@ -94,9 +94,14 @@ mode=delta：
 
 mode=anchor 时 `mockups` / `mockup_elements` 可为空；mode=delta 时 `mockups` 与 `mockup_elements` 都**必须非空**——空 `mockup_elements` 等于没把图翻译成可清单化条目，会被 design-reviewer 判 `NEEDS_FIX`。
 
+== 落盘纪律 ==
+
+**最终只留一份 receipt**：mode=delta 落 `2.0-ui-design.json`，mode=anchor 落 `1.5-ui-anchor.json`。工作过程中若写过 `.draft.json` 等中间副本，**定稿后必须删除**——不得把草稿与定稿一起留在 receipts 目录。观测依据：一次实跑留下 draft + final 各 43KB 近乎相同的双份，下游读哪份成了掷骰子。mockup 图片文件不受此条约束（它们是产物不是 receipt）。
+
 == 禁项 ==
 
 - 不要修改 `state/queue.md`、`state/active.md`、`BOARD.html`。
+- 不要遗留 `.draft.json` / `.tmp.json` 等中间 receipt 副本。
 - 不要修改运行时代码。
 - 不要起 sub-agent。
 - 不要把 UI 设计写进 spec.md；spec-drafter 会在下一步引用你的 `2.0-ui-design.json.mockups[]`。

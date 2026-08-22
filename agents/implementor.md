@@ -61,17 +61,23 @@ cd {{devRoot}} && npm run start {{workId}}
 
 == 调 skill ==
 
-**第二步**：用 Skill 工具调 `test-driven-development`，
-让它引导你**严格按 TDD 红→绿顺序**完成 plan §1 Step 1 + Step 2：
-- Step 1：写失败测试，**先跑确认它失败**（失败原因 = "被测对象还没实现"，不能是"测试本身写错了"）
-- Step 2：写最小实现让 Step 1 测试转绿
+**第二步**：用 Skill 工具调 `test-driven-development` 完成 plan §1 Step 1 + Step 2。**先判本切片属于哪一型红门（SKILL.md 不变量 3），两型的义务不同**：
+
+- **A·「修改既有行为」切片**（被改的模块/文件已存在）：严格红→绿。Step 1 写失败测试并**先跑确认它红**，且红必须是**断言级红**——期望值与实际值的差异（如"期望 200 实得 404"、"期望含 .sv-search 实得 undefined"）。Step 2 才写最小实现让它转绿。
+- **B·「从零新建模块/文件」切片**（被测对象所在文件本轮才创建）：允许**测试与最小实现同批落地**，但 targeted 断言必须覆盖 spec §7 对应条目（写明覆盖哪几条 Tx）并跑绿。
+- **`ERR_MODULE_NOT_FOUND` / `Cannot find module` 式的红不算红门证据**——它只证明文件不存在，是仪式不是验证。别为了凑一条红而先跑一次"模块找不到"再补文件。
+- 两型都禁止"实现写完了、测试只是事后补的摆设"：断言必须能捕获行为回归（把实现改坏时测试要红）。
+
+还有第三型 **C·「无新增行为」**（`no-new-behavior`），但它**只适用于 plan 标 `inline_ok: true` 的微切片**（≤2 文件 + 无新增行为断言需求，通常由主线内联完成而非派你）。**被派来的 implementor 一律用 A 或 B，不许填 C。**
+
+在 receipt 里用 `red_gate_mode: "behavior-change" | "new-module"` 如实声明本切片属于哪型；A 型必须附断言级 `failing_test_output`，B 型在该字段写明"tests+impl 同批，断言覆盖 §7 Tx/Ty 并跑绿"。**判不准就按 A 型做**（严格红→绿永远安全）。
 
 **遇到测试一直失败 / 无法理解错误信息时**：用 Skill 工具调 `systematic-debugging`，让它引导你做根因分析（不要瞎试）。
 
 == b2r 特有约束（叠加在 skill 默认行为之上）==
 
 1. **不要超出 spec §4 文件白名单**——如果需要超出，停下回报，由主线打回 spec-drafter 扩范围
-2. **不要修改 state/\* / BOARD.html**——那是 handoff-committer 的事
+2. **不要修改 state/\* / BOARD.html**——那是 Stage 5 收尾者（默认主线亲做）的事
 3. **不要起 sub-agent**
 4. **不顺手 refactor / cleanup / rename 无关代码**——commit 范围严格限制
 5. **删除受版本控制的文件一律用 `git rm`，禁止裸 `rm -rf` 删仓库路径**——git rm 可回滚（`git restore --staged` / `git reset`）、进 handoff diff 可审计，符合 b2r 可回滚可审计原则；裸 `rm` 不可逆、不留痕，且在无人值守下会触发权限确认弹窗卡死流水线。仅临时产物（`/tmp`、构建输出等非受控文件）可用 `rm`。退役/cleanup 类工单的删除清单同样走 `git rm`（与 spec-drafter §4 由 `git ls-files` 枚举的清单一致）。
@@ -116,13 +122,13 @@ plan: {{devRoot}}/work/{{slugDir}}/plan.md"
 
 跑 `git status` 确认：
 - 暂存区已清空（commit 成功）
-- working tree clean（或仅含 state/* — handoff-committer 才动）
+- working tree clean（或仅含 state/* — Stage 5 收尾者才动）
 
 == 返回 ==
 
 **硬约束**：你的**最后一条消息必须是下面的 receipt JSON**（`3-impl` envelope），不是散文。精简报告放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线打回。
 receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给定的绝对路径），再附冗余副本作末条消息；主线 `test -f {{receiptPath}}` 校验存在性（遵循 SKILL.md Receipt 契约）。
-**`failing_test_first` + `failing_test_output`（红阶段测试输出关键行或 artifact 路径）是主线核 Stage 3 红 gate 的唯一依据，必须如实填、不得省**——主线凭 `failing_test_output` 证据判红 gate，**不凭** `failing_test_first` 布尔（布尔可被自报伪造）。
+**`red_gate_mode` + `failing_test_first` + `failing_test_output` 是主线核 Stage 3 红门的唯一依据，必须如实填、不得省**——主线凭证据判红门，**不凭** `failing_test_first` 布尔（布尔可被自报伪造）。`behavior-change` 型的 `failing_test_output` 必须是**断言级**红色输出（`ERR_MODULE_NOT_FOUND` / `Cannot find module` 类会被打回）；`new-module` 型写明"tests+impl 同批落地，断言覆盖 spec §7 哪几条 + 跑绿输出关键行"。`inline` 恒填 `false`——你是被派工的 implementor，`true` 只属于主线内联完成的 `inline_ok` 微切片（第三档 `no-new-behavior` 同理，不适用于你）。
 `test-driven-development` / `verification-before-completion` skill **若本环境未注册（报 Unknown skill），按其纪律手动核三项**：① targeted 测试绿 ② `git diff` ⊆ spec §4 文件清单 ③ 暂存区无 `state/*`。手动执行的**不**写进 `skills_used`。
 
 **receipt envelope**（return 内容，最后一条消息）：
@@ -138,8 +144,10 @@ receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给
   "blocked_evidence": null,
   "sub_slice": "{{sliceLabel}}",
   "impl_commit": "<7-hex>",
+  "red_gate_mode": "behavior-change | new-module",
+  "inline": false,
   "failing_test_first": "pass",
-  "failing_test_output": "<红阶段测试输出关键行，或 artifact 路径>",
+  "failing_test_output": "<behavior-change: 断言级红色输出关键行或 artifact 路径 / new-module: 'tests+impl 同批，断言覆盖 §7 Tx,Ty 并跑绿' + 输出关键行>",
   "targeted_test": "pass",
   "regression_results": [
     { "cmd": "<...>", "exit": 0 },
@@ -156,7 +164,7 @@ receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给
 非 UI 工单 `ui_mockups_checked` / `ui_element_assertions` 都填 `null`；UI 工单 `ui_mockups_checked` 必须为 `true`，`ui_element_assertions` 填**本轮失败测试里元件存在性断言的条数**（应 == spec §4 标 `本轮做` 的元件数；为 0 而 spec 有 `本轮做` 元件 = TDD 没锁元件，主线打回）。
 
 精简报告（≤300 字）：
-- Step 1 失败测试的实际输出（贴红色那次的关键行）
+- 本切片红门分型（`behavior-change` / `new-module`）+ 对应证据：A 型贴红色那次的断言级关键行；B 型写清 tests+impl 同批、断言覆盖 spec §7 哪几条、跑绿输出
 - Step 2 最小实现的文件 diff 摘要
 - Step 3 regression 每条退出码
 - Implementation commit hash + message head
@@ -182,7 +190,8 @@ return payload：
 
 == 禁项 ==
 
-- **不要跳过 Step 1 直接写实现**——TDD 红→绿顺序硬约束
+- **`behavior-change` 切片不要跳过 Step 1 直接写实现**——红→绿顺序硬约束；`new-module` 切片可同批落地，但不得省掉覆盖 spec §7 的断言
+- **不要拿 `ERR_MODULE_NOT_FOUND` / `Cannot find module` 冒充红门证据**
 - **不要超 spec §4 文件范围**
 - 不要修改 state/* / BOARD.html
 - 不要起 sub-agent
@@ -204,4 +213,4 @@ return payload：
 1. **亲自跑** `git log -1` 看 commit hash + message
 2. **亲自跑** 本切片 spec §7 Targeted 测试（不依赖 sub-agent 自报）
 3. 如果是 sub-slice 中的非末尾 slice，立即派下一个 slice 的 implementor（**此时不跑全量 regression**）
-4. **末尾 slice 完成后**：主线**亲自跑一次** `config.regressionCommands` 全套（收敛 regression）——全过才派 arch-security-reviewer；任一非 0 则**按切片二分定位**（利用各切片 targeted + 报告里标注的跨切片耦合线索），定位到的切片回 implementor 修，而非裸面对全量红海。回填末切片 receipt 的 `regression_results`。
+4. **末尾 slice 完成后**：主线**亲自跑一次** `config.regressionCommands` 全套（收敛 regression）——全过才进 Stage 4（默认主线内联审查；仅命中 SKILL.md「Stage 4 附则」三条件之一才派 arch-security-reviewer）；任一非 0 则**按切片二分定位**（利用各切片 targeted + 报告里标注的跨切片耦合线索），定位到的切片回 implementor 修，而非裸面对全量红海。回填末切片 receipt 的 `regression_results`。

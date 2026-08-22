@@ -51,9 +51,9 @@ export const defaults = Object.freeze({
   // 每条独立运行，全部退出码 0 才算 regression 通过
   regressionCommands: [
     'npm test',
-    'cd dev && npm test',
-    'cd dev && npm run validate:state',
-    'cd dev && npm run render:board',
+    'cd b2r-process && npm test',
+    'cd b2r-process && npm run validate:state',
+    'cd b2r-process && npm run render:board',
   ],
 
   // Planned → Ready 前的项目级外部门禁。按顺序执行，任一失败即停止 promote。

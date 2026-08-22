@@ -32,6 +32,8 @@ const TODAY_ISO = (() => {
 
 class PromoteError extends Error {}
 
+// Planned → Ready 前的项目级外部门禁。按 config.prePromoteCommands 顺序执行，
+// 任一命令非 0 / 被信号终止 / 无法启动都 fail-closed（抛 PromoteError，promote 零副作用退出）。
 export function runPrePromoteCommands(commands, {
   projectRoot,
   workId,
@@ -486,6 +488,8 @@ export async function promote({ stateDir, workDir, workId, config, devRoot = nul
     throw new PromoteError(`${specPath} 或 ${workSubdir}/{plan,context-pack}.md 已存在，promote 拒绝覆盖`);
   }
 
+  // 外部门禁先于任何写盘 / dry-run 输出：失败即 queue/spec/plan/context/BOARD 零改动。
+  // --force 只豁免上面的依赖 Done 检查，不能绕过这里。
   const resolvedDevRoot = devRoot ? resolve(devRoot) : resolve(stateDir, '..');
   const projectRoot = resolve(resolvedDevRoot, config.projectRoot || '.');
   runPrePromoteCommands(config.prePromoteCommands || [], {
