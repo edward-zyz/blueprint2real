@@ -68,6 +68,8 @@ cd {{devRoot}} && npm run start {{workId}}
 - **`ERR_MODULE_NOT_FOUND` / `Cannot find module` 式的红不算红门证据**——它只证明文件不存在，是仪式不是验证。别为了凑一条红而先跑一次"模块找不到"再补文件。
 - 两型都禁止"实现写完了、测试只是事后补的摆设"：断言必须能捕获行为回归（把实现改坏时测试要红）。
 
+还有第三型 **C·「无新增行为」**（`no-new-behavior`），但它**只适用于 plan 标 `inline_ok: true` 的微切片**（≤2 文件 + 无新增行为断言需求，通常由主线内联完成而非派你）。**被派来的 implementor 一律用 A 或 B，不许填 C。**
+
 在 receipt 里用 `red_gate_mode: "behavior-change" | "new-module"` 如实声明本切片属于哪型；A 型必须附断言级 `failing_test_output`，B 型在该字段写明"tests+impl 同批，断言覆盖 §7 Tx/Ty 并跑绿"。**判不准就按 A 型做**（严格红→绿永远安全）。
 
 **遇到测试一直失败 / 无法理解错误信息时**：用 Skill 工具调 `systematic-debugging`，让它引导你做根因分析（不要瞎试）。
@@ -126,7 +128,7 @@ plan: {{devRoot}}/work/{{slugDir}}/plan.md"
 
 **硬约束**：你的**最后一条消息必须是下面的 receipt JSON**（`3-impl` envelope），不是散文。精简报告放在 JSON **之前**。只给散文、不给 JSON = 视同未完成，主线打回。
 receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给定的绝对路径），再附冗余副本作末条消息；主线 `test -f {{receiptPath}}` 校验存在性（遵循 SKILL.md Receipt 契约）。
-**`red_gate_mode` + `failing_test_first` + `failing_test_output` 是主线核 Stage 3 红门的唯一依据，必须如实填、不得省**——主线凭证据判红门，**不凭** `failing_test_first` 布尔（布尔可被自报伪造）。`behavior-change` 型的 `failing_test_output` 必须是**断言级**红色输出（`ERR_MODULE_NOT_FOUND` / `Cannot find module` 类会被打回）；`new-module` 型写明"tests+impl 同批落地，断言覆盖 spec §7 哪几条 + 跑绿输出关键行"。
+**`red_gate_mode` + `failing_test_first` + `failing_test_output` 是主线核 Stage 3 红门的唯一依据，必须如实填、不得省**——主线凭证据判红门，**不凭** `failing_test_first` 布尔（布尔可被自报伪造）。`behavior-change` 型的 `failing_test_output` 必须是**断言级**红色输出（`ERR_MODULE_NOT_FOUND` / `Cannot find module` 类会被打回）；`new-module` 型写明"tests+impl 同批落地，断言覆盖 spec §7 哪几条 + 跑绿输出关键行"。`inline` 恒填 `false`——你是被派工的 implementor，`true` 只属于主线内联完成的 `inline_ok` 微切片（第三档 `no-new-behavior` 同理，不适用于你）。
 `test-driven-development` / `verification-before-completion` skill **若本环境未注册（报 Unknown skill），按其纪律手动核三项**：① targeted 测试绿 ② `git diff` ⊆ spec §4 文件清单 ③ 暂存区无 `state/*`。手动执行的**不**写进 `skills_used`。
 
 **receipt envelope**（return 内容，最后一条消息）：
@@ -143,6 +145,7 @@ receipt 由你**先 `Write` 落盘到 `{{receiptPath}}`**（v5.4 O13，主线给
   "sub_slice": "{{sliceLabel}}",
   "impl_commit": "<7-hex>",
   "red_gate_mode": "behavior-change | new-module",
+  "inline": false,
   "failing_test_first": "pass",
   "failing_test_output": "<behavior-change: 断言级红色输出关键行或 artifact 路径 / new-module: 'tests+impl 同批，断言覆盖 §7 Tx,Ty 并跑绿' + 输出关键行>",
   "targeted_test": "pass",

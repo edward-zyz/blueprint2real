@@ -189,5 +189,5 @@ markdown report：
 
 - **主线据 findings 拼装 4-arch.json（v5.4 O1 根治）**：读 reviewer 返回的 findings JSON + 亲跑 `cd {{devRoot}} && npm run lint:redlines`，把两者合并成合法 `4-arch.json`（`verdict` = findings 的 `verdict_suggestion`，`lint_redlines_hits` = 主线亲跑结果，`scope_consistency`/`implementation_quality`/`section11_alignment` 取 findings 对应字段）并 `Write` 落盘到 `{{devRoot}}/work/{{slugDir}}/{{receiptsDir}}/4-arch.json`。这样即便 reviewer 被 security-review 散文带跑、findings JSON 不在末条，主线也能从消息里取最后一个合法 JSON 块拼出 receipt——**彻底消灭"散文吞 receipt"复发坑**。
 - findings JSON 完全拿不到（空 / 截断 / 纯散文无任何 JSON）才算交付失败，走不变量 10：fresh 重派 1 次 → 仍不可用主线内联接手（自调 `security-review` 取证 + 拼 4-arch，标 `dispatch_recovery`）。
-- `verdict=READY_TO_HANDOFF` → 派 handoff-committer
+- `verdict=READY_TO_HANDOFF` → 进 Stage 5（**默认主线亲做**，见 SKILL.md「Stage 5 附则」；`handoff-committer` 已降级为可选模板）
 - `verdict=NEEDS_FIX` → 按建议处理（fixup commit / 新 slice / 重做 implementor）

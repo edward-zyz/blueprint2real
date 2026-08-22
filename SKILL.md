@@ -16,8 +16,9 @@ description: Multi-agent 工作流编排器。把路线图 / roadmap / 设计文
 3. **TDD 红门（按切片分型）**：
    - **「修改既有行为」切片**：failing test 必须先出现并跑红，且必须是**断言级红**（如"期望 200 实得 404"），才能写最小实现。照旧强制。
    - **「从零新建模块/文件」切片**：允许测试与最小实现**同批落地**，但 targeted 断言必须覆盖 spec §7 对应条目并跑绿。
+   - **「无新增行为」切片**（`red_gate_mode: "no-new-behavior"`，**仅允许用于 plan 标 `inline_ok: true` 的切片**）：diff 本身不引入行为变更（纯配置 / 文案 / 上游已验证产物落盘），无对应新增断言可写。`failing_test_output` 写明「diff 无行为变更 + 改动由既有测试 / 上游切片的 targeted 绿输出覆盖」并**附具体引用**（既有测试文件与用例名，或上游切片的 receipt 路径 + 绿输出关键行）。**空口声称"没有行为变更"不算证据**。
    - `ERR_MODULE_NOT_FOUND` / `Cannot find module` 式的红**不算**红门证据——它只证明文件不存在，是仪式不是验证。
-   - 两种切片都禁止"实现写完了、测试只是事后补的摆设"：断言必须能捕获行为回归。
+   - 前两型都禁止"实现写完了、测试只是事后补的摆设"：断言必须能捕获行为回归。
 4. **commit 物理分离 + 工作目录隔离**：implementation commit 不含 `state/*` / `BOARD.html`；handoff commit 唯一，且仅含 `state/*` + `BOARD.html`，位于所有 impl commit 之后。做 impl / handoff 的执行者（sub-agent 或主线自己）首条动作强制 `cd <仓根绝对路径>`（worktree 派工则为该 worktree 路径），commit 前断言 `git rev-parse --show-toplevel` == 仓根、且 `git add` 只列白名单具体文件（禁 `git add -A`）。**sub-agent 跑长任务期间，不要在同一 working tree 并发跑外部 `git add -A` / commit**，否则会污染该工单的 commit 边界。
 5. **前置 Done 后才能 promote**：Planned → Ready 的前提是依赖工单全部 Done，否则 spec/plan 基于"规划想象"，必失真。
 6. **架构红线触发即停**：`workflow/scripts/lint-redlines.mjs::RULES` 中任一规则命中，当前轮不带病往下走。
@@ -135,15 +136,31 @@ Stage 1 的真实工单号由主线脚本化分配：`roadmap-planner` 只返回
 
 ### Stage 3 附则 · 微切片内联通道
 
-`plan-drafter` 可为切片标 `inline_ok: true`，判据：**改动 ≤2 文件、且无新增行为断言需求**（典型：「只差提交」「纯配置 / 文案」「上游已验证只需落盘」）。主线对 `inline_ok` 切片可**内联完成、不派 implementor**，`3-impl.json` 对应 slice 记 `inline: true`。内联仍受不变量 3（红门分型）/ 4（commit 物理分离 + 白名单 add）约束，红门证据照常落 receipt。**防滥用护栏：拿不准就不标，整轮 implementor 是默认。**
+`plan-drafter` 可为切片标 `inline_ok: true`，判据：**改动 ≤2 文件、且无新增行为断言需求**（典型：「只差提交」「纯配置 / 文案」「上游已验证只需落盘」）。主线对 `inline_ok` 切片可**内联完成、不派 implementor**，`3-impl.json` 对应 slice 记 `inline: true`，receipt 由**主线**落盘。内联仍受不变量 3（红门分型）/ 4（commit 物理分离 + 白名单 add）约束，红门证据照常落 receipt。
+
+`inline_ok` 切片的红门分型：diff 确实引入了行为变更就照填 `behavior-change` / `new-module` 并给对应证据；确实**没有**新增行为断言可写时填第三档 `no-new-behavior`（该档**只允许**出现在 `inline_ok: true` 的切片上），`failing_test_output` 写明「diff 无行为变更 + 改动由既有测试 / 上游切片 targeted 绿输出覆盖」并附具体引用。**防滥用护栏：拿不准就不标 `inline_ok`，整轮 implementor 是默认；`no-new-behavior` 更不是"懒得写测试"的出口。**
 
 ### Stage 4 附则 · 独立审查的触发条件
 
-L3 的 Stage 4 默认由**主线内联**完成：亲跑 `npm run lint:redlines`（含 `config.redlineCommands`）+ 核对 scope 一致性 / spec §11 对齐 / diff 面。仅在**任一**条件成立时才派独立 `arch-security-reviewer`：(a) `lint:redlines` 或 `redlineCommands` 命中；(b) diff 触碰安全敏感面（认证 / 授权 / 加密 / 密钥 / 权限 / schema migration / 计费）；(c) 主线内联核查发现疑点。`4-arch.json` 照旧由主线确定性拼装，新增 `independent_review_dispatched: bool` 与 `dispatch_reason`（未派时写明依据）。L2 轻量内嵌 / L1 跳过维持原状。
+L3 的 Stage 4 默认由**主线内联**完成：亲跑 `npm run lint:redlines`（含 `config.redlineCommands`）+ 核对 scope 一致性 / spec §11 对齐 / diff 面。仅在**任一**条件成立时才派独立 `arch-security-reviewer`：(a) 本工单期间 `lint:redlines` 或 `redlineCommands` **曾命中**；(b) diff 触碰安全敏感面（认证 / 授权 / 加密 / 密钥 / 权限 / schema migration / 计费）；(c) 主线内联核查发现疑点。
+
+**红线命中的两段语义分清（别互斥）**：命中当下按不变量 6 **先阻断**——把命中清单打回 implementor 修，修到 `lint:redlines` 0 命中才继续；但"曾命中"这个事实**不会因为修好而消失**，它使条件 (a) 成立，**修复后仍要派独立 `arch-security-reviewer` 复核**（复核对象是修完的 diff，判修法本身有没有留后门 / 绕过）。即：命中 → 阻断修复 → 再派独立 reviewer，两步都做，不是二选一。
+
+`4-arch.json` 照旧由主线确定性拼装，新增 `independent_review_dispatched: bool` 与 `dispatch_reason`（未派时写明依据）。L2 轻量内嵌 / L1 跳过维持原状。
 
 ### Stage 5 附则 · 主线亲做
 
-Stage 5 默认由**主线亲自执行**：白名单 `git add`（禁 `git add -A`）→ 断言 impl / handoff commit 物理分离（不变量 4）→ 亲跑 `npm run verify:handoff <id>` → 翻档 → 落盘 `5-handoff.json`。不再默认派 `handoff-committer`；该模板降级为**可选**，仅在主线上下文吃紧或并行多单收尾时使用。理由：机械活派工反而引入交接损耗（实测 verify 被推迟、残留脏 receipt）。
+Stage 5 默认由**主线亲自执行**，顺序**唯一且不可调换**（`verify:handoff` 要求 queue=Done / active=Idle / BOARD 已渲染 / pipeline-status=done 全部就位后才可能通过，提前跑必挂）：
+
+1. **翻档**：`state/active.md` → Idle（`Last commit` 记 impl hash）、`state/queue.md` 该行 → Done、`state/customer-visible.md` 追加 Done 段（涉及里程碑则一并动 `state/roadmap.md`）
+2. `cd {{devRoot}} && npm run validate:state` — 0 error
+3. `cd {{devRoot}} && npm run render:board` — 退出 0（必须在所有 state/*.md 编辑之后，保证 BOARD mtime ≥ state/*）
+4. **handoff commit**：白名单 `git add`（仅 `state/*` + `BOARD.html`，**禁 `git add -A`**）→ commit 唯一、不 amend → 断言 impl / handoff commit 物理分离（不变量 4）
+5. **写 `pipeline-status.json` `status: "done"`**（主线单写者，不变量 8；必须先于第 6 步，否则 verify Check 7 fail）
+6. **亲跑 `cd {{devRoot}} && npm run verify:handoff <id>`** — 全过
+7. **落盘 `5-handoff.json`**
+
+不再默认派 `handoff-committer`；该模板降级为**可选**，仅在主线上下文吃紧或并行多单收尾时使用（派出时它止于第 4 步，第 5-7 步仍归主线）。理由：机械活派工反而引入交接损耗（实测 verify 被推迟、残留脏 receipt）。
 
 ### E2E 验收线（可选 · 边界触发）
 
@@ -208,6 +225,8 @@ Stage 5 默认由**主线亲自执行**：白名单 `git add`（禁 `git add -A`
 **派 sub-agent**：阶段切换需要 fresh context（spec drafting / TDD implementation）；角色独立判断比串行思考更可靠（reviewer 不应见 drafter 的内部推理）；任务跨多文件 + 多步骤 + 需要工具组合；sub-slice 之间独立验证。
 **主线自己做**：用户对话 / 状态确认 / 解释；跑脚本（`promote` / `validate` / `render`）；Stage 4 常规内联审查；Stage 5 收尾；`inline_ok` 微切片；读 state 决定下一步；起草 Manager Override 建议 + 落 retro。
 
+> **Stage 4 为什么能内联（与上面"角色独立更可靠"不冲突）**：Stage 4 的独立性由**机械条件 (a)(b) 兜底**——红线 lint 曾命中、diff 触碰安全敏感面，这两条都是主线读得到的客观事实，命中就必派；(c)「内联核查发现疑点」只会**增派、不会减派**。内联是"无触发条件时的默认"，不是"对独立 review 的替代"。
+
 派 sub-agent 时用 `Agent` 工具，按 `agents/<role>.md` 模板装填上下文。每份模板都明确：sub-agent 只读自己需要的文件（spec / plan / context-pack），不读整个仓库；完成职责即返回 receipt JSON，不与主线对话。
 
 ## 质检节点（脚本驱动，不靠汇报）
@@ -220,9 +239,9 @@ Stage 5 默认由**主线亲自执行**：白名单 `git add`（禁 `git add -A`
 | S1 Backlog 落地 | `cd {{devRoot}} && npm run validate:state` | 0 error（warn 允许） |
 | S2 Promote 前（可选） | `config.prePromoteCommands`（由 `promote.mjs` 在 `projectRoot` 顺序执行） | 全部退出码 0；失败时 queue/spec/plan/context/BOARD 零改动；dry-run/force 不豁免 |
 | S2 Promote 后 | `cd {{devRoot}} && npm run validate:state` + `npm run deps:graph` | 0 error，依赖图无环、无孤儿 |
-| S1.5 / S2.0 UI（可选） | 主线读 `1.5-ui-anchor.json` / `2.0-ui-design.json` + mockup 路径存在性 | 均需 `reviewer_verdict=="PASS"`；anchor 还需 `ref_grep_hits` 非空或 `synthesized_design_system==true` 且 `synthesis_evidence` 非空；delta 还需 `mockups[]` 非空并对齐 anchor（`ui_novel=true` 或 `NEEDS_FIX` → surface） |
+| S1.5 / S2.0 UI（可选） | 主线读 `1.5-ui-anchor.json` / `2.0-ui-design.json` + mockup 路径存在性 | 均需 `reviewer_verdict=="PASS"`；anchor 还需 `ref_grep_hits` 非空或 `synthesized_design_system==true` 且 `synthesis_evidence` 非空，**且 `ref_grep_hits` 必须来自项目 `designRefs` / 主动发现的项目文件——项目事实源不得被通用 `designSkill` 的文档替代**；delta 还需 `mockups[]` 非空并对齐 anchor（`ui_novel=true` 或 `NEEDS_FIX` → surface） |
 | S2 收 spec/plan 后（主线亲核 tbd） | `cd {{devRoot}} && grep -nE 'TBD\|待定\|待起草\|占位\|待 *fresh' <spec/plan 文件>` | 0 命中（命中 = 谎报 sections_filled，打回；**不信** receipt 的 `tbd_grep` 自报字段） |
-| S3 红门 | 主线核 `3-impl.json` 的 `red_gate_mode` + 对应证据 | `behavior-change` 切片必须有**断言级** `failing_test_output`（`ERR_MODULE_NOT_FOUND` 类不算）；`new-module` 切片须写明 tests+impl 同批、断言覆盖 spec §7 哪几条且跑绿。核时 grep 失败结构关键字（非 0 退出码 / `FAIL` / `Error` / `AssertionError` / `✗`），"非空即过"不成立。证据缺失 / 不合型 = 红门未过，打回 |
+| S3 红门 | 主线核 `3-impl.json` 的 `red_gate_mode` + 对应证据 | `behavior-change` 切片必须有**断言级** `failing_test_output`（`ERR_MODULE_NOT_FOUND` 类不算）；`new-module` 切片须写明 tests+impl 同批、断言覆盖 spec §7 哪几条且跑绿；`no-new-behavior` 切片（**仅限 `inline: true`**）须写明 diff 无行为变更 + 覆盖它的既有测试 / 上游切片 targeted 绿输出**具体引用**——显式放行，不按缺证据打回。前两型核时 grep 失败结构关键字（非 0 退出码 / `FAIL` / `Error` / `AssertionError` / `✗`），"非空即过"不成立。证据缺失 / 不合型 / `no-new-behavior` 出现在非 inline 切片 = 红门未过，打回 |
 | S3 targeted（**每切片**） | spec §7 本工单特有命令 + 本切片 plan §1 Step1 test | 0 error / 测试绿 |
 | S3 收敛 Regression（**末切片后一次**，主线亲跑） | `config.regressionCommands` 每一条 | 全部退出码 0；红了**按切片二分定位**（每切片留 targeted + 增量集成 checkpoint），不裸跑全量面对红海 |
 | S3.5 UI Fidelity（可选） | 主线起应用 + browser-harness 截深/浅图落盘 → 派 `design-reviewer(mode=fidelity)` → 读 `3.5-ui-fidelity.json` | `reviewer_verdict=="PASS"`；`NEEDS_FIX` → retry 回 implementor → Manager Override；截图取不到 → `reason_category=env-blocked` surface。无 mockup 目录 = 整闸跳过 |

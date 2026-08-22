@@ -188,7 +188,7 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
   ...envelope (stage_id: "3-impl"),
   "sub_slice": "<label or '整工单单切片'>",
   "impl_commit": "<7-hex>",
-  "red_gate_mode": "behavior-change | new-module",
+  "red_gate_mode": "behavior-change | new-module | no-new-behavior",
   "inline": false,
   "failing_test_first": "pass",
   "failing_test_output": "<按 red_gate_mode 分型，见下>",
@@ -208,12 +208,16 @@ L1 路径填 `l1_self_review_verdict`；L2/L3 为 null（独立 reviewer 出 2c-
 > **红门证据按切片分型（`red_gate_mode` 必填）**：
 > - `"behavior-change"`（改既有行为的切片）：`failing_test_output` 必须是**断言级**红色输出关键行或 artifact 路径——期望值 vs 实际值的差异（如"期望 200 实得 404"）。`ERR_MODULE_NOT_FOUND` / `Cannot find module` 式的红**不算证据**（只证明文件不存在，是仪式不是验证），主线见到即判红门未过、打回。主线核时**grep 失败结构关键字**——非 0 退出码记录，或 `FAIL` / `Error` / `AssertionError` / `✗` 等测试框架失败关键行；"非空即过"不成立，任意散文都能骗过它。
 > - `"new-module"`（从零新建模块/文件的切片）：允许 tests 与最小实现同批落地，`failing_test_output` 写明"tests+impl 同批，断言覆盖 spec §7 Tx/Ty"并附跑绿输出关键行。
+> - `"no-new-behavior"`（无新增行为的切片）：**仅允许用于 `inline: true` 的切片**（plan 标了 `inline_ok`）。diff 本身不引入行为变更（纯配置 / 文案 / 上游已验证产物落盘），无对应新增断言可写，`failing_test_output` 写明"diff 无行为变更 + 改动由既有测试 / 上游切片 targeted 绿输出覆盖"并**附具体引用**（既有测试文件 + 用例名，或上游切片 receipt 路径 + 绿输出关键行）。空口声称"没有行为变更"不算证据；出现在 `inline: false` 的切片上 = 红门未过、打回。
 >
-> 两型都**不凭** `failing_test_first:"pass"` 布尔判门（布尔可被自报伪造，证据不能）。
+> 三型都**不凭** `failing_test_first:"pass"` 布尔判门（布尔可被自报伪造，证据不能）。
 
-> **`inline`（微切片内联通道）**：该切片由主线内联完成、未派 implementor 时填 `true`。前提是 plan `2b-plan.json.slices[].inline_ok == true`（改动 ≤2 文件 + 无新增行为断言需求）。内联切片同样受不变量 3 / 4 约束，红门证据字段照常填。
+> **`inline`（微切片内联通道）**：该切片由主线内联完成、未派 implementor 时填 `true`，此时 receipt 由主线落盘。前提是 plan `2b-plan.json.slices[].inline_ok == true`（改动 ≤2 文件 + 无新增行为断言需求）。内联切片同样受不变量 3 / 4 约束，红门证据字段照常填——`no-new-behavior` 这一档正是为它而设，是 `inline_ok` 切片唯一能填的"无新增断言"合法值。
 
-> **Receipt 落盘者（v5.4 O13）**：stage receipt 文件由该 stage 的 **sub-agent 自己 `Write`**（路径主线以 `{{receiptPath}}` 钉死），主线派工返回后 `test -f {{receiptPath}}` 校验存在性，不存在即判交付失败。例外见下：4-arch 由主线确定性拼装。
+> **Receipt 落盘者（v5.4 O13）**：**派工做的 stage**，receipt 文件由该 stage 的 **sub-agent 自己 `Write`**（路径主线以 `{{receiptPath}}` 钉死），主线派工返回后 `test -f {{receiptPath}}` 校验存在性，不存在即判交付失败。**主线自己做的 stage 由主线落盘**，完整例外清单：
+> - `4-arch.json` — 始终由主线确定性拼装落盘（即使派了 arch-security-reviewer，它只返回 findings）
+> - `5-handoff.json` — Stage 5 默认主线亲做，由主线落盘（仅派 handoff-committer 时才由它落盘）
+> - `3-impl.json` 的 `inline_ok` 切片 — 主线内联完成、未派 implementor，由主线落盘（receipt 记 `inline: true`）
 
 ### 3.5-ui-fidelity.json（v5.5 · 仅 ui=true 且有 mockup 目录）
 
@@ -268,16 +272,18 @@ L2 轻量路径 `skills_used` 仅含 `security-review`，不含 `architecture`�
   ...envelope (stage_id: "5-handoff"),
   "impl_commit": "<7-hex>",
   "handoff_commit": "<7-hex>",
-  "amend_used": true,
+  "amend_used": false,
   "verify_handoff_checks": "<X/Y pass>",
   "milestone_flipped": "<milestone or null>",
   "next_suggested_workid": "<workId or null>"
 }
 ```
 
-L0 路径 `verify_handoff_checks` 写 `6/6 pass (skip Check 4 spec/plan)`。
+`amend_used` 恒为 `false`——handoff commit 一次成型，committer 已禁 amend / fixup。
 
-> **落盘者**：Stage 5 默认由主线亲做（白名单 `git add` → 断言双 commit 分离 → 亲跑 `verify:handoff` → 翻档），`5-handoff.json` 由**主线**落盘。仅在主线上下文吃紧或并行多单收尾时才派 handoff-committer，此时由它落盘，但主线仍须亲跑一次 `verify:handoff` 与 `git show --stat` 复核。
+L0 路径 `verify_handoff_checks` 写 `8 项中跳过 spec/plan 相关后全过`（Check 4 spec/plan 存在性对 L0 不适用；非 UI 工单自动跳 Check 8）。
+
+> **落盘者 / 执行顺序**：Stage 5 默认由主线亲做，顺序唯一——翻档（active/queue/customer-visible）→ `validate:state` → `render:board` → 白名单 handoff commit（仅 `state/*` + `BOARD.html`，禁 `git add -A`，断言与 impl commit 物理分离）→ 写 `pipeline-status.json` `status:"done"` → 亲跑 `verify:handoff <id>` → 落盘 `5-handoff.json`。**顺序不可调换**：`verify:handoff` 要求前面几项全部就位，提前跑必挂。`5-handoff.json` 由**主线**落盘。仅在主线上下文吃紧或并行多单收尾时才派 handoff-committer，此时它止于 handoff commit、由它落盘 receipt，但 pipeline-status 写 done 与 `verify:handoff` / `git show --stat` 复核仍归主线亲做。
 
 ### e2e-<milestone>.json（里程碑级，非工单目录）
 

@@ -65,6 +65,7 @@
 ### Plan checklist
 
 - [ ] §1 Step 1 失败测试的断言能被一行代码描述
+- [ ] **`inline_ok` 独立复核（关键）**：逐条核 plan 的 `slices[].inline_ok`——标 `true` 的切片，两条判据必须**同时**成立：① 该切片改动 ≤2 文件；② spec §7 里没有为它新增的行为断言。任一不成立、或 `inline_ok_reason` 含糊到你判不准 → **Fail**，打回 plan-drafter 摘掉该标记。理由：标了 `inline_ok` 的切片会被主线内联完成、不派 implementor，误标等于让本该有 TDD 保护的改动裸奔，而这道闸是它唯一的独立复核
 - [ ] §3 Commit 范围与 spec §4 文件范围**完全一致**
 - [ ] §3 Commit message 头符合格式（多 sub-slice 含 ` slice N/M`）
 - [ ] §6 失败预案具体到"哪一步失败 → 怎么处理"

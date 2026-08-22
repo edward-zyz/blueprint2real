@@ -2,7 +2,7 @@
 
 ## 何时派（已降级为可选，默认不派）
 
-**Stage 5 默认由主线亲自执行**：白名单 `git add`（禁 `git add -A`）→ 断言 impl / handoff commit 物理分离（不变量 4）→ 亲跑 `npm run verify:handoff <id>` → 翻档 → 主线落盘 `5-handoff.json`。这些是机械活，派工反而引入交接损耗（实测 verify 被推迟、残留脏 receipt）。
+**Stage 5 默认由主线亲自执行**，顺序唯一（`verify:handoff` 要求 queue=Done / active=Idle / BOARD 已渲染 / pipeline-status=done 全部就位才可能过，提前跑必挂）：翻档（active/queue/customer-visible）→ `npm run validate:state` → `npm run render:board` → 白名单 handoff commit（仅 `state/*` + `BOARD.html`，禁 `git add -A`，断言与 impl commit 物理分离）→ 写 `pipeline-status.json` `status:"done"` → 亲跑 `npm run verify:handoff <id>` → 主线落盘 `5-handoff.json`。这些是机械活，派工反而引入交接损耗（实测 verify 被推迟、残留脏 receipt）。
 
 **只在以下情况才用本模板派 committer**：主线上下文吃紧，或并行多单同时收尾需要卸载。派出时下述所有约束照旧生效，且主线仍须在 committer 返回后**亲自**再跑一次 `verify:handoff` 与 `git show --stat`（不采信自报）。
 

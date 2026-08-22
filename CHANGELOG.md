@@ -15,13 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **TDD 红门改按切片分型（不变量 3）**：`behavior-change`（改既有行为）切片仍强制 failing test 先跑红，且必须是**断言级**红；`new-module`（从零新建模块/文件）切片允许测试与最小实现同批落地，但 targeted 断言必须覆盖 spec §7 对应条目并跑绿。`ERR_MODULE_NOT_FOUND` / `Cannot find module` 式的红不再算红门证据。`3-impl` receipt 新增 `red_gate_mode` 字段。v5.6 的"失败结构 grep 关键字"作为断言级红的机械核法保留。
 - **Stage 4 独立架构安全审查改条件触发**：L3 默认由主线内联完成（亲跑 `lint:redlines` + 核 scope 一致性 / spec §11 对齐 / diff 面）；仅在 (a) 红线 lint 命中、(b) diff 触碰安全敏感面（认证 / 授权 / 加密 / 密钥 / 权限 / schema migration / 计费）、(c) 内联核查发现疑点 时才派 `arch-security-reviewer`。`4-arch.json` 仍由主线确定性拼装，新增 `independent_review_dispatched` + `dispatch_reason`。L2 轻量内嵌 / L1 跳过不变。
-- **Stage 5 handoff 改主线亲做**：白名单 `git add` → 断言 impl/handoff commit 物理分离 → 亲跑 `verify:handoff` → 翻档 → 主线落盘 `5-handoff.json`。`handoff-committer` 降级为可选模板（仅主线上下文吃紧或并行多单收尾时派）。理由：机械活派工反而引入交接损耗。
+- **Stage 5 handoff 改主线亲做**：翻档 → `validate:state` → `render:board` → 白名单 `git add` 出 handoff commit（断言与 impl commit 物理分离）→ `pipeline-status` 置 done → 亲跑 `verify:handoff` → 主线落盘 `5-handoff.json`。`handoff-committer` 降级为可选模板（仅主线上下文吃紧或并行多单收尾时派）。理由：机械活派工反而引入交接损耗。
 - **UI 设计回执只留一份**：`ui-designer` 最终只落 `2.0-ui-design.json`（anchor 模式为 `1.5-ui-anchor.json`），定稿后必须删除 `.draft.json` 等中间副本。
 - **SKILL.md 减重**：E2E 机制（蓝图级 / 批次级验收线、两段式执行、里程碑 FAIL 闭环、对应质检行）原文迁至新增的 `references/e2e-acceptance.md`，SKILL.md 只留触发条件与指针；删除历代补丁的论证性散文与版本号括注（历史归本 CHANGELOG）；合并候选 / UI 线播报 / mockup→code 防线 / flake 放行纪律压缩为纯操作规则。操作规则一条未删，v5.6 的自主边界 / triage 决策树 / 批次完整性闸全部保留。
 - **触发描述补自然语言场景**：跨模块 / 新 schema / 新依赖 / 安全敏感（计费、身份核验、写动作）的 L3 大改动要先立工单走流水线时，即使用户只说「这个大活先立个工单」「这个改动涉及安全，按流程走」也必须触发本 skill。与 v5.6 的批次收官 / 续跑 / bootstrap / 换机修底盘触发词取并集。
 
 ### Added
 
+- **红门第三档 `no-new-behavior`**：`red_gate_mode` 由两档扩为三档，补上 `inline_ok` 切片（≤2 文件 + 无新增行为断言）此前无合法值可填的死角。该档**仅允许**用于 `inline: true` 的切片，证据形式是 `failing_test_output` 写明「diff 无行为变更 + 改动由既有测试 / 上游切片 targeted 绿输出覆盖」并附具体引用；空口声称不算证据，出现在非 inline 切片即红门未过。同步 `spec-plan-reviewer` 增加 `slices[].inline_ok` 独立复核（两条判据须同时成立，否则打回 plan-drafter 摘标）。
+- **Stage 5 正确顺序定稿**：翻档（active/queue/customer-visible）→ `validate:state` → `render:board` → 白名单 handoff commit（仅 `state/*` + `BOARD.html`，禁 `git add -A`）→ `pipeline-status` 置 done → 亲跑 `verify:handoff <id>` → 落盘 `5-handoff.json`。此前文档写成「先 verify 再翻档」，照做必挂（`verify-handoff.mjs` 要求 queue=Done / active=Idle / BOARD 已渲染 / pipeline-status=done 全部就位）。
+- **bootstrap 底盘模板同步 v5.7**：`bootstrap/workflow/templates/AGENT_RUNBOOK.md.tmpl` 的固定执行链路与状态更新规则改为 v5.7 口径（红门三分型、Stage 4 条件触发默认主线内联、Stage 5 主线亲做的固定顺序）。
 - **微切片内联通道**：`plan-drafter` 可为切片标 `inline_ok: true`（判据：改动 ≤2 文件 且 无新增行为断言需求），主线对这类切片可内联完成、不派 implementor，`3-impl.json` 记 `inline: true`。仍受不变量 3 / 4 约束；拿不准就不标，整轮 implementor 是默认。
 - 新增 `references/e2e-acceptance.md`（可选 E2E 验收线的完整机制；批次账本建组与 D3 收口硬卡的无条件语义一并收在此）。
 - **`prePromoteCommands` promote 前置门禁（不变量 11）**：可选的项目级外部门禁，在 Planned → Ready 的任何写盘或 dry-run 输出前于 `projectRoot` 顺序执行。命令注入 `B2R_WORK_ID` / `B2R_WORK_TITLE` / `B2R_DRY_RUN` / `B2R_FORCE`（后二者 `1`/`0`），任一非 0 / 被信号终止 / 无法启动即 fail-closed 且零 promote 副作用；`--force` 只豁免依赖 Done 检查，不能绕过。缺省 `[]`，旧项目行为不变。此特性原在分发源之外的下游副本上以 v5.6 名义开发，本次作为增量回灌，使两条 v5.6 线合流。
